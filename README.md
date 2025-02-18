@@ -1,50 +1,45 @@
-# Welcome to your Expo app 👋
+# eDiskarte 
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+## 📌 Overview
+**eDiskarte** is a mobile application prototype designed to bridge the gap between local service providers and customers. It serves as a digital marketplace where workers can showcase their skills, and clients can easily find reliable services within their community. This platform enhances employment opportunities and simplifies service coordination using modern technology.
 
-## Get started
+## 🚀 Features
+- 📍 **Local Job Matching** – Connects service providers with customers in their area.
+- 🔍 **Service Listings** – Allows workers to showcase their skills and expertise.
+- 📅 **Seamless Booking** – Simplifies the process of hiring and scheduling jobs.
+- ⭐ **User Ratings & Reviews** – Ensures reliability and trust between users.
+- 📲 **Mobile-Friendly** – Designed for easy access and usability on smartphones.
 
-1. Install dependencies
+## 🏗️ Technologies Used
+- **Frontend:** React Native 
+- **Backend:** Node.js with Express
+- **Database:** MongoDB 
+- **Authentication:** OAuth
 
-   ```bash
-   npm install
+## 🔧 Installation & Setup
+1. Clone the repository:
+   ```sh
+   git clone https://github.com/Tres-cyber/eDiskarte.git
+   ```
+2. Navigate to the project folder:
+   ```sh
+   cd eDiskarte
+   ```
+3. Install dependencies:
+   ```sh
+   npm install  
+   ```
+4. Run the application:
+   ```sh
+   npm start 
    ```
 
-2. Start the app
+## 📌 Future Enhancements
+- 🏆 AI-powered job recommendations
+- 🌎 Multi-language support
+- 💳 Integrated payment system
 
-   ```bash
-    npx expo start
-   ```
+## 📬 Contributing
+We welcome contributions! Feel free to submit issues or pull requests to help improve eDiskarte.
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+---
