@@ -9,6 +9,17 @@ dist/
 web-build/
 expo-env.d.ts
 
+# Android and iOS build files
+android/
+ios/
+
+# Editor settings (optional)
+.vscode/
+.idea/
+
+# Environment files (sensitive data)
+.env
+
 # Native
 *.orig.*
 *.jks
