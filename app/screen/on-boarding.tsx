@@ -9,7 +9,7 @@ export default function OnboardingScreen() {
   const navigation = useNavigation();
 
   const handleGetStarted = () => {
-    router.replace('/(auth)/sign_in');
+    router.replace('/(auth)/option');
     console.log('Get Started pressed');
   };
 
