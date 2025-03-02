@@ -2,25 +2,24 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 
 export default function SignInScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const navigation = useNavigation();
+  const router = useRouter();
 
   const handleLogin = () => {
-    // Handle login logic here
     console.log('Login pressed with:', email, password);
   };
 
   const handleForgotPassword = () => {
-    // Navigate to forgot password screen
     console.log('Forgot password');
   };
 
   const handleSignUp = () => {
-    // Navigate to sign up screen
-    console.log('Sign up pressed');
+    router.push("/(auth)/user-page")
+    
   };
 
   return (

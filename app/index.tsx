@@ -2,7 +2,7 @@ import { View, StyleSheet, Image } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
-import splashImage from "@/assets/images/react-logo.png";
+import splashImage from "@/assets/images/ediskarte-logo.png";
 
 const SplashScreen = () => {
   const router = useRouter();
@@ -42,8 +42,8 @@ const styles = StyleSheet.create({
   },
   imageStyle: {
     aspectRatio: 1,
-    width: 350,
-    height: 350,
+    width: 200,
+    height: 200,
   },
 });
 
