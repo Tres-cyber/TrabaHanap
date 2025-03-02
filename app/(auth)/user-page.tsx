@@ -14,7 +14,7 @@ export default function UserTypeScreen() {
   const handleNext = () => {
     if (selectedType) {
       router.push({
-        pathname: '/(auth)/sign_in',
+        pathname: '/(auth)/name-page',
         params: { userType: selectedType }
       });
     }

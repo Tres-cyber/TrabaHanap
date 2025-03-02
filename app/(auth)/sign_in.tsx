@@ -110,6 +110,8 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 14,
+    marginTop: 10,
+    fontWeight: 'bold',
     color: '#000',
   },
   passwordLabelContainer: {

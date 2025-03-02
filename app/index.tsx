@@ -41,9 +41,8 @@ const styles = StyleSheet.create({
     flexDirection: "column",
   },
   imageStyle: {
-    aspectRatio: 1,
     width: 200,
-    height: 200,
+    height: 300,
   },
 });
 

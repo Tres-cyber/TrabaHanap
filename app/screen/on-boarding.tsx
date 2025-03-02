@@ -10,7 +10,6 @@ export default function OnboardingScreen() {
 
   const handleGetStarted = () => {
     router.replace('/(auth)/option');
-    console.log('Get Started pressed');
   };
 
   return (
@@ -27,7 +26,7 @@ export default function OnboardingScreen() {
       
       <View style={styles.contentContainer}>
         <Text style={styles.title}>
-          Finding you dream job is more{'\n'}easier and faster in eDiskarte
+          Finding you a dream job is more{'\n'}easier and faster in eDiskarte
         </Text>
         
         <TouchableOpacity 
