@@ -9,6 +9,7 @@ export default function GenderSelectionScreen() {
   const router = useRouter();
   const [selectedGender, setSelectedGender] = useState<Gender>(null);
 
+
   const handleSelectGender = (gender: Gender) => {
     setSelectedGender(gender);
   };
@@ -16,7 +17,7 @@ export default function GenderSelectionScreen() {
   const handleNext = () => {
     if (selectedGender) {
       router.push({
-        pathname: '/(auth)/sign_in',
+        pathname: '/(auth)/tags-page',
         params: { gender: selectedGender }
       });
     }
