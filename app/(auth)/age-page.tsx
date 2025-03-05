@@ -1,41 +1,70 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  TouchableOpacity, 
+  SafeAreaView, 
+  Platform 
+} from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function AgeEntryScreen() {
+export default function BirthdayEntryScreen() {
   const router = useRouter();
-  const [age, setAge] = useState<string>('');
+  const [birthdate, setBirthdate] = useState<Date | undefined>(undefined);
+  const [age, setAge] = useState<number | null>(null);
   const [error, setError] = useState<string>('');
 
+  const calculateAge = (birthday: Date): number => {
+    const today = new Date();
+    let calculatedAge = today.getFullYear() - birthday.getFullYear();
+    const monthDifference = today.getMonth() - birthday.getMonth();
+    
+    if (
+      monthDifference < 0 || 
+      (monthDifference === 0 && today.getDate() < birthday.getDate())
+    ) {
+      calculatedAge--;
+    }
+    
+    return calculatedAge;
+  };
+
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    const currentDate = selectedDate || birthdate;
+    
+    if (currentDate) {
+      setBirthdate(currentDate);
+      const calculatedAge = calculateAge(currentDate);
+      setAge(calculatedAge);
+      setError('');
+    }
+  };
+
   const handleNext = (): void => {
-    if (!age.trim()) {
-      setError('Please enter your age');
+    if (!birthdate) {
+      setError('Please select your birthdate');
       return;
     }
     
-    const ageNumber = parseInt(age, 10);
-    if (isNaN(ageNumber) || ageNumber <= 0) {
-      setError('Please enter a valid age');
+    if (age && age < 18) {
+      setError('You must be at least 18 years old');
       return;
     }
     
-    setError('');
     router.push({
       pathname: '/(auth)/address-page',
-      params: { age }
+      params: { 
+        birthdate: birthdate.toISOString(),
+        age: age?.toString() 
+      }
     });
   };
 
   const handleBack = (): void => {
     router.back();
-  };
-
-  const handleAgeChange = (text: string): void => {
-    if (text === '' || /^\d+$/.test(text)) {
-      setAge(text);
-      setError('');
-    }
   };
 
   return (
@@ -47,24 +76,40 @@ export default function AgeEntryScreen() {
       </View>
       
       <View style={styles.contentContainer}>
-        <Text style={styles.title}>What's your age?</Text>
-        <Text style={styles.subtitle}>Enter your real age.</Text>
+        <Text style={styles.title}>When were you born?</Text>
+        <Text style={styles.subtitle}>Select your birthdate</Text>
         
         <View style={styles.formContainer}>
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Age</Text>
-            <TextInput
-              style={[styles.input, error ? styles.inputError : null]}
-              value={age}
-              onChangeText={handleAgeChange}
-              keyboardType="numeric"
-              maxLength={3}
-            />
+            <Text style={styles.label}>Birthdate</Text>
+            <View style={[
+              styles.input, 
+              error ? styles.inputError : null
+            ]}>
+              <DateTimePicker
+                testID="dateTimePicker"
+                value={birthdate || new Date()}
+                mode="date"
+                is24Hour={true}
+                onChange={handleDateChange}
+                maximumDate={new Date()}
+              />
+            </View>
+            
+            {age !== null && (
+              <Text style={styles.ageText}>
+                Age: {age} years old
+              </Text>
+            )}
+            
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
           </View>
         </View>
         
-        <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+        <TouchableOpacity 
+          style={styles.nextButton} 
+          onPress={handleNext}
+        >
           <Text style={styles.nextButtonText}>Next</Text>
         </TouchableOpacity>
       </View>
@@ -136,6 +181,11 @@ const styles = StyleSheet.create({
     color: 'red',
     marginTop: 5,
     fontSize: 14,
+  },
+  ageText: {
+    marginTop: 5,
+    fontSize: 14,
+    color: '#666',
   },
   nextButton: {
     backgroundColor: '#000033',
