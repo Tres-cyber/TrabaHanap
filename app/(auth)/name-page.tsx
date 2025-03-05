@@ -14,6 +14,10 @@ export default function NameEntryScreen() {
   const [lastNameError, setLastNameError] = useState(false);
   const [middleNameError, setMiddleNameError] = useState(false);
 
+  const handleStringInput = (text: string): string => {
+    return text.replace(/[^a-zA-Z\s]/g, '');
+  };
+
   const handleNext = () => {
     setFirstNameError(false);
     setLastNameError(false);
@@ -75,8 +79,9 @@ export default function NameEntryScreen() {
               style={[styles.input, firstNameError && styles.inputError]}
               value={firstName}
               onChangeText={(text) => {
-                setFirstName(text);
-                if (text.trim()) setFirstNameError(false);
+                const filteredText = handleStringInput(text);
+                setFirstName(filteredText);
+                if (filteredText.trim()) setFirstNameError(false);
               }}
               placeholder=""
             />
@@ -89,8 +94,9 @@ export default function NameEntryScreen() {
               style={[styles.input, lastNameError && styles.inputError]}
               value={lastName}
               onChangeText={(text) => {
-                setLastName(text);
-                if (text.trim()) setLastNameError(false);
+                const filteredText = handleStringInput(text);
+                setLastName(filteredText);
+                if (filteredText.trim()) setLastNameError(false);
               }}
               placeholder=""
             />
@@ -104,8 +110,9 @@ export default function NameEntryScreen() {
                 style={[styles.input, middleNameError && styles.inputError]}
                 value={middleName}
                 onChangeText={(text) => {
-                  setMiddleName(text);
-                  if (text.trim()) setMiddleNameError(false);
+                  const filteredText = handleStringInput(text);
+                  setMiddleName(filteredText);
+                  if (filteredText.trim()) setMiddleNameError(false);
                 }}
                 placeholder=""
               />
@@ -117,7 +124,7 @@ export default function NameEntryScreen() {
               <TextInput
                 style={styles.input}
                 value={suffix}
-                onChangeText={setSuffix}
+                onChangeText={(text) => setSuffix(handleStringInput(text))}
                 placeholder=""
               />
             </View>
