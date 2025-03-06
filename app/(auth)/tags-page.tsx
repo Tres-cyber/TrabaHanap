@@ -37,7 +37,7 @@ export default function JobPreferenceScreen() {
   const handleNext = () => {
     if (selectedPreferences.length > 0) {
       router.push({
-        pathname: '/(auth)/sign_in',
+        pathname: '/(auth)/picture-page',
         params: { preferences: JSON.stringify(selectedPreferences) }
       });
     }

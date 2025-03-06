@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Image } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 type Gender = 'female' | 'male' | 'others' | null;
 
 export default function GenderSelectionScreen() {
   const router = useRouter();
   const [selectedGender, setSelectedGender] = useState<Gender>(null);
-
 
   const handleSelectGender = (gender: Gender) => {
     setSelectedGender(gender);
@@ -23,9 +23,19 @@ export default function GenderSelectionScreen() {
     }
   };
 
+  const handleBack = () => {
+    router.back();
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="auto" />
+      
+      <View style={styles.header}>
+        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#000033" />
+        </TouchableOpacity>
+      </View>
       
       <View style={styles.contentContainer}>
         <Text style={styles.title}>What's your gender?</Text>
@@ -100,10 +110,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginTop: 30,
+    borderColor: '#000033',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   contentContainer: {
     flex: 1,
     paddingHorizontal: 40,
-    paddingTop: 60,
+    paddingTop: 20,
     alignItems: 'center',
   },
   title: {
