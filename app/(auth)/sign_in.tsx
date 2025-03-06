@@ -4,13 +4,34 @@ import { StatusBar } from 'expo-status-bar';
 import { useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 
+
 export default function SignInScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [message, setMessage] = useState("");
   const router = useRouter();
+  const navigation = useNavigation();
 
-  const handleLogin = () => {
-    console.log('Login pressed with:', email, password);
+  const handleLogin = async (e: { preventDefault: () => void; }) => {
+
+    const response = await fetch("http://localhost:5000/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      localStorage.setItem("token", data.token);
+      setMessage("Login successful!");
+      const IsjobSeeker = data.user?.userType == "jobSeeker";
+      if(IsjobSeeker)navigation.navigate("job-seeker-home" as never);
+      else navigation.navigate("client-home" as never);
+      
+    } else {
+      setMessage(data.error || "Invalid login");
+    }
   };
 
   const handleForgotPassword = () => {
@@ -19,7 +40,7 @@ export default function SignInScreen() {
 
   const handleSignUp = () => {
     router.push("/(auth)/user-page")
-    
+
   };
 
   return (
@@ -58,7 +79,7 @@ export default function SignInScreen() {
             </TouchableOpacity>
           </View>
         </View>
-        
+         <Text>{message && <p>{message}</p>}</Text>
         <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
           <Text style={styles.loginButtonText}>Login</Text>
         </TouchableOpacity>
@@ -70,6 +91,7 @@ export default function SignInScreen() {
           </TouchableOpacity>
         </View>
       </View>
+   
     </SafeAreaView>
   );
 }
