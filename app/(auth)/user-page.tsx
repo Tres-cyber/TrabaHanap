@@ -1,21 +1,32 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Image } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
+import React, { useState } from "react";
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  SafeAreaView,
+  Image,
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { useRouter } from "expo-router";
+import { SignUpData } from "api/signup-request";
 
 export default function UserTypeScreen() {
   const router = useRouter();
-  const [selectedType, setSelectedType] = useState<'job-seeker' | 'client' | null>(null);
+  const [selectedType, setSelectedType] = useState<
+    "job-seeker" | "client" | null
+  >(null);
 
-  const handleSelectType = (type: 'job-seeker' | 'client') => {
+  const handleSelectType = (type: "job-seeker" | "client") => {
     setSelectedType(type);
   };
 
   const handleNext = () => {
+    SignUpData({ userType: selectedType });
+
     if (selectedType) {
       router.push({
-        pathname: '/(auth)/name-page',
-        params: { userType: selectedType }
+        pathname: "/(auth)/name-page",
       });
     }
   };
@@ -23,49 +34,46 @@ export default function UserTypeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="auto" />
-      
+
       <View style={styles.contentContainer}>
-        <Text style={styles.title}>What type of{'\n'}user are you?</Text>
-        
+        <Text style={styles.title}>What type of{"\n"}user are you?</Text>
+
         <View style={styles.optionsContainer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
-              styles.optionCard, 
-              selectedType === 'job-seeker' && styles.selectedCard
+              styles.optionCard,
+              selectedType === "job-seeker" && styles.selectedCard,
             ]}
-            onPress={() => handleSelectType('job-seeker')}
+            onPress={() => handleSelectType("job-seeker")}
           >
             <View style={styles.iconContainer}>
-              <Image 
-                source={require("assets/images/utility-user.png")} 
-                style={styles.iconImage} 
+              <Image
+                source={require("assets/images/utility-user.png")}
+                style={styles.iconImage}
               />
             </View>
             <Text style={styles.optionText}>Job-Seeker</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[
-              styles.optionCard, 
-              selectedType === 'client' && styles.selectedCard
+              styles.optionCard,
+              selectedType === "client" && styles.selectedCard,
             ]}
-            onPress={() => handleSelectType('client')}
+            onPress={() => handleSelectType("client")}
           >
             <View style={styles.iconContainer}>
-              <Image 
-                source={require("assets/images/client-user.png")} 
-                style={styles.iconImage} 
+              <Image
+                source={require("assets/images/client-user.png")}
+                style={styles.iconImage}
               />
             </View>
             <Text style={styles.optionText}>Client</Text>
           </TouchableOpacity>
         </View>
-        
-        <TouchableOpacity 
-          style={[
-            styles.nextButton,
-            !selectedType && styles.disabledButton
-          ]}
+
+        <TouchableOpacity
+          style={[styles.nextButton, !selectedType && styles.disabledButton]}
           onPress={handleNext}
           disabled={!selectedType}
         >
@@ -79,40 +87,40 @@ export default function UserTypeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   contentContainer: {
     flex: 1,
     paddingHorizontal: 40,
     paddingTop: 60,
-    alignItems: 'center',
+    alignItems: "center",
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
     marginBottom: 60,
   },
   optionsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
     marginBottom: 40,
   },
   optionCard: {
-    width: '45%',
+    width: "45%",
     aspectRatio: 1,
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: "#ccc",
     borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: 15,
   },
   selectedCard: {
-    borderColor: '#0A1747',
+    borderColor: "#0A1747",
     borderWidth: 2,
-    backgroundColor: 'rgba(10, 23, 71, 0.05)',
+    backgroundColor: "rgba(10, 23, 71, 0.05)",
   },
   iconContainer: {
     marginBottom: 10,
@@ -120,27 +128,27 @@ const styles = StyleSheet.create({
   iconImage: {
     width: 50,
     height: 50,
-    resizeMode: 'contain',
+    resizeMode: "contain",
   },
   optionText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
     marginTop: 5,
   },
   nextButton: {
-    backgroundColor: '#0A1747',
-    width: '100%',
+    backgroundColor: "#0A1747",
+    width: "100%",
     paddingVertical: 15,
     borderRadius: 4,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 20,
   },
   disabledButton: {
-    backgroundColor: '#999',
+    backgroundColor: "#999",
   },
   nextButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 });

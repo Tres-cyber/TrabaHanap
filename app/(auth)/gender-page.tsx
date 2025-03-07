@@ -1,14 +1,21 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Image } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
+import React, { useState } from "react";
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  SafeAreaView,
+  Image,
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { useRouter } from "expo-router";
+import { SignUpData } from "@/api/signup-request";
 
-type Gender = 'female' | 'male' | 'others' | null;
+type Gender = "female" | "male" | "others" | null;
 
 export default function GenderSelectionScreen() {
   const router = useRouter();
   const [selectedGender, setSelectedGender] = useState<Gender>(null);
-
 
   const handleSelectGender = (gender: Gender) => {
     setSelectedGender(gender);
@@ -16,9 +23,9 @@ export default function GenderSelectionScreen() {
 
   const handleNext = () => {
     if (selectedGender) {
+      SignUpData({ gender: selectedGender });
       router.push({
-        pathname: '/(auth)/tags-page',
-        params: { gender: selectedGender }
+        pathname: "/(auth)/tags-page",
       });
     }
   };
@@ -26,65 +33,62 @@ export default function GenderSelectionScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="auto" />
-      
+
       <View style={styles.contentContainer}>
         <Text style={styles.title}>What's your gender?</Text>
-        
+
         <View style={styles.optionsContainer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
-              styles.optionCard, 
-              selectedGender === 'female' && styles.selectedCard
+              styles.optionCard,
+              selectedGender === "female" && styles.selectedCard,
             ]}
-            onPress={() => handleSelectGender('female')}
+            onPress={() => handleSelectGender("female")}
           >
             <View style={styles.iconContainer}>
-              <Image 
-                source={require("assets/images/female.png")} 
-                style={[styles.iconImage, { tintColor: '#FF4D8D' }]} 
+              <Image
+                source={require("assets/images/female.png")}
+                style={[styles.iconImage, { tintColor: "#FF4D8D" }]}
               />
             </View>
             <Text style={styles.optionText}>Female</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[
-              styles.optionCard, 
-              selectedGender === 'male' && styles.selectedCard
+              styles.optionCard,
+              selectedGender === "male" && styles.selectedCard,
             ]}
-            onPress={() => handleSelectGender('male')}
+            onPress={() => handleSelectGender("male")}
           >
             <View style={styles.iconContainer}>
-              <Image 
-                source={require("assets/images/male.png")} 
-                style={[styles.iconImage, { tintColor: '#4D9EFF' }]} 
+              <Image
+                source={require("assets/images/male.png")}
+                style={[styles.iconImage, { tintColor: "#4D9EFF" }]}
               />
             </View>
             <Text style={styles.optionText}>Male</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[
               styles.optionCard,
-              selectedGender === 'others' && styles.selectedCard
+              selectedGender === "others" && styles.selectedCard,
             ]}
-            onPress={() => handleSelectGender('others')}
+            onPress={() => handleSelectGender("others")}
           >
             <View style={styles.iconContainer}>
-              <Image 
-                source={require("assets/images/others.png")} 
-                style={[styles.iconImage, { tintColor: '#9E4DFF' }]} 
+              <Image
+                source={require("assets/images/others.png")}
+                style={[styles.iconImage, { tintColor: "#9E4DFF" }]}
               />
             </View>
             <Text style={styles.optionText}>Others</Text>
           </TouchableOpacity>
         </View>
-        
-        <TouchableOpacity 
-          style={[
-            styles.nextButton,
-            !selectedGender && styles.disabledButton
-          ]}
+
+        <TouchableOpacity
+          style={[styles.nextButton, !selectedGender && styles.disabledButton]}
           onPress={handleNext}
           disabled={!selectedGender}
         >
@@ -98,40 +102,40 @@ export default function GenderSelectionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   contentContainer: {
     flex: 1,
     paddingHorizontal: 40,
     paddingTop: 60,
-    alignItems: 'center',
+    alignItems: "center",
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
     marginBottom: 60,
   },
   optionsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
     marginBottom: 60,
   },
   optionCard: {
-    width: '30%',
+    width: "30%",
     aspectRatio: 1,
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: "#ccc",
     borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: 10,
   },
   selectedCard: {
-    borderColor: '#0A1747',
+    borderColor: "#0A1747",
     borderWidth: 2,
-    backgroundColor: 'rgba(10, 23, 71, 0.05)',
+    backgroundColor: "rgba(10, 23, 71, 0.05)",
   },
   iconContainer: {
     marginBottom: 10,
@@ -139,25 +143,25 @@ const styles = StyleSheet.create({
   iconImage: {
     width: 40,
     height: 40,
-    resizeMode: 'contain',
+    resizeMode: "contain",
   },
   optionText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   nextButton: {
-    backgroundColor: '#0A1747',
-    width: '100%',
+    backgroundColor: "#0A1747",
+    width: "100%",
     paddingVertical: 15,
     borderRadius: 4,
-    alignItems: 'center',
+    alignItems: "center",
   },
   disabledButton: {
-    backgroundColor: '#999',
+    backgroundColor: "#999",
   },
   nextButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 });
