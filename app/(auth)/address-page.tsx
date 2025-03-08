@@ -66,9 +66,11 @@ export default function AddressEntryScreen() {
       return;
     }
 
-    SignUpData({ barangay: formData.barangay });
-    SignUpData({ street: formData.street });
-    SignUpData({ houseNumber: formData.houseNumber });
+    SignUpData({
+      barangay: formData.barangay,
+      street: formData.street,
+      houseNumber: formData.houseNumber,
+    });
 
     router.push({
       pathname: "/(auth)/email-page",

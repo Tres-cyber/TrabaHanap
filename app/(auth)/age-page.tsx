@@ -55,8 +55,7 @@ export default function BirthdayEntryScreen() {
       return;
     }
 
-    SignUpData({ birthday: birthdate });
-    SignUpData({ age: age });
+    SignUpData({ birthday: birthdate.toISOString(), age: age });
 
     router.push({
       pathname: "/(auth)/address-page",

@@ -61,10 +61,9 @@ export default function NameEntryScreen() {
       suffixName: suffix,
     });
 
-    handleFormData();
-    // router.push({
-    //   pathname: "/(auth)/age-page",
-    // });
+    router.push({
+      pathname: "/(auth)/age-page",
+    });
   };
 
   const handleBack = () => {

@@ -1,33 +1,34 @@
 import axios from "axios";
 
-const formData = {};
+const formData = new FormData();
 
 export function SignUpData(params) {
-  Object.assign(formData, params);
-  console.log("Last Updated Data", formData);
+  if ("profileImage" in params) {
+    const fileName = params.profileImage.split("/").pop();
+
+    formData.append("profileImage", {
+      uri: params.profileImage,
+      name: fileName,
+      type: "image/jpeg",
+    });
+  } else {
+    Object.keys(params).forEach((key) => {
+      formData.append(key, params[key]);
+    });
+  }
 }
 
 export const handleFormData = async () => {
-  console.log("Inside Handle Form Function", formData);
-  // try {
-  //   const res = await axios.get("http://192.168.100.190:3000");
-
-  //   console.log(res.data);
-  // } catch (error) {
-  //   console.error(error);
-  // }
-
   try {
     const response = await axios.post(
-      "http://192.168.100.190:3000/signup",
+      `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/signup`,
       formData,
       {
         headers: { "Content-Type": "multipart/form-data" },
       },
     );
-    console.log(response.data);
+    console.log("Successful upload!", response.data);
   } catch (error) {
-    // console.log(typeof formData.firstName);
-    console.log("Error Message", error);
+    console.log("Error Message", error.request);
   }
 };

@@ -10,7 +10,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { SignUpData, handleFormData } from "@/api/signup-request";
+import { SignUpData } from "@/api/signup-request";
 
 const JOB_PREFERENCES = {
   "Repair and Maintenance": [
@@ -64,7 +64,11 @@ export default function JobPreferenceScreen() {
 
   const handleNext = () => {
     if (selectedPreferences.length > 0) {
-      SignUpData(selectedPreferences.map((element) => camelCase(element)));
+      SignUpData({
+        jobTags: new Array(
+          selectedPreferences.map((element) => camelCase(element)),
+        ),
+      });
       router.push({
         pathname: "/(auth)/picture-page",
       });
