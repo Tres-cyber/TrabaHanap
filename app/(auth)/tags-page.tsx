@@ -66,7 +66,7 @@ export default function JobPreferenceScreen() {
     if (selectedPreferences.length > 0) {
       SignUpData(selectedPreferences.map((element) => camelCase(element)));
       router.push({
-        pathname: "/(auth)/sign_in",
+        pathname: "/(auth)/picture-page",
       });
     }
   };
