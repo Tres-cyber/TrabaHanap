@@ -13,6 +13,12 @@ export function SignUpData(params) {
     });
   } else {
     Object.keys(params).forEach((key) => {
+      formData["_parts"].forEach((element) => {
+        if (element.includes(key)) {
+          formData.delete(key);
+        }
+      });
+
       formData.append(key, params[key]);
     });
   }
