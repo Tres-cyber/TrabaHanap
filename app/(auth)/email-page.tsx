@@ -1,12 +1,21 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, Linking } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useState } from "react";
+import {
+  StyleSheet,
+  Text,
+  View,
+  TextInput,
+  TouchableOpacity,
+  SafeAreaView,
+  Linking,
+} from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { SignUpData } from "@/api/signup-request";
 
 export default function EmailEntryScreen() {
   const router = useRouter();
-  const [email, setEmail] = useState<string>('');
-  const [error, setError] = useState<string>('');
+  const [email, setEmail] = useState<string>("");
+  const [error, setError] = useState<string>("");
 
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -15,19 +24,20 @@ export default function EmailEntryScreen() {
 
   const handleNext = (): void => {
     if (!email.trim()) {
-      setError('Please enter your email address');
+      setError("Please enter your email address");
       return;
     }
-    
+
     if (!validateEmail(email)) {
-      setError('Please enter a valid email address');
+      setError("Please enter a valid email address");
       return;
     }
-    
-    setError('');
+
+    setError("");
+
+    SignUpData({ emailAddress: email });
     router.push({
-      pathname: '/(auth)/password-page',
-      params: { email }
+      pathname: "/(auth)/password-page",
     });
   };
 
@@ -37,7 +47,7 @@ export default function EmailEntryScreen() {
 
   const handleEmailChange = (text: string): void => {
     setEmail(text);
-    if (error) setError('');
+    if (error) setError("");
   };
 
   const handleLearnMore = (): void => {
@@ -51,11 +61,14 @@ export default function EmailEntryScreen() {
           <Ionicons name="arrow-back" size={24} color="#000033" />
         </TouchableOpacity>
       </View>
-      
+
       <View style={styles.contentContainer}>
         <Text style={styles.title}>What's your email?</Text>
-        <Text style={styles.subtitle}>Enter the email where you can be contacted. {'\n'}No one will see this on your profile.</Text>
-        
+        <Text style={styles.subtitle}>
+          Enter the email where you can be contacted. {"\n"}No one will see this
+          on your profile.
+        </Text>
+
         <View style={styles.formContainer}>
           <Text style={styles.label}>Email</Text>
           <TextInput
@@ -67,15 +80,15 @@ export default function EmailEntryScreen() {
             autoComplete="email"
           />
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
-          
+
           <Text style={styles.disclaimer}>
-            You'll also receive emails from us and can opt out anytime.{' '}
+            You'll also receive emails from us and can opt out anytime.{" "}
             <Text style={styles.learnMoreLink} onPress={handleLearnMore}>
               Learn more
             </Text>
           </Text>
         </View>
-        
+
         <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
           <Text style={styles.nextButtonText}>Next</Text>
         </TouchableOpacity>
@@ -87,7 +100,7 @@ export default function EmailEntryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   header: {
     paddingHorizontal: 20,
@@ -99,72 +112,72 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     marginTop: 30,
-    borderColor: '#000033',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: "#000033",
+    justifyContent: "center",
+    alignItems: "center",
   },
   contentContainer: {
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 40,
-    alignItems: 'center',
+    alignItems: "center",
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
+    color: "#666",
+    textAlign: "center",
     marginBottom: 40,
   },
   formContainer: {
-    width: '100%',
+    width: "100%",
     marginBottom: 30,
   },
   label: {
     fontSize: 16,
     marginBottom: 8,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: "#ccc",
     borderRadius: 4,
     padding: 12,
     fontSize: 16,
   },
   inputError: {
-    borderColor: 'red',
+    borderColor: "red",
   },
   errorText: {
-    color: 'red',
+    color: "red",
     marginTop: 5,
     fontSize: 14,
   },
   disclaimer: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginTop: 12,
   },
   learnMoreLink: {
-    color: '#3366CC',
-    textDecorationLine: 'none',
+    color: "#3366CC",
+    textDecorationLine: "none",
   },
   nextButton: {
-    backgroundColor: '#000033',
-    width: '100%',
+    backgroundColor: "#000033",
+    width: "100%",
     paddingVertical: 15,
     borderRadius: 4,
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 20,
   },
   nextButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 });

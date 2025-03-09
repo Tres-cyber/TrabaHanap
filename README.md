@@ -1,4 +1,4 @@
-# eDiskarte 
+# eDiskarte
 
 ## 📌 Overview
 **eDiskarte** is a mobile application prototype designed to bridge the gap between local service providers and customers. It serves as a digital marketplace where workers can showcase their skills, and clients can easily find reliable services within their community. This platform enhances employment opportunities and simplifies service coordination using modern technology.
@@ -11,9 +11,9 @@
 - 📲 **Mobile-Friendly** – Designed for easy access and usability on smartphones.
 
 ## 🏗️ Technologies Used
-- **Frontend:** React Native 
+- **Frontend:** React Native
 - **Backend:** Node.js with Express
-- **Database:** MongoDB 
+- **Database:** MongoDB
 - **Authentication:** OAuth
 
 ## 🔧 Installation & Setup
@@ -27,12 +27,37 @@
    ```
 3. Install dependencies:
    ```sh
-   npm install  
+   npm install
    ```
 4. Run the application:
    ```sh
-   npm start 
+   npm start
    ```
+
+## Connecting to the Server
+1. Check your IP address using these commands
+
+Windows (Check IPv4 Address )
+```sh
+ipconfig
+```
+Mac
+```sh
+ipconfig getifaddr en0
+```
+
+Linux (Unsure of this)
+```
+ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1'
+```
+
+
+
+2. Create a .env file on the root folder with this format
+```sh
+EXPO_PUBLIC_IP_ADDRESS=<<IP ADDRESS OF YOUR LAPTOP/DESKTOP>>
+```
+
 
 ## 📌 Future Enhancements
 - 🏆 AI-powered job recommendations

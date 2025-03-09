@@ -1,44 +1,76 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useState } from "react";
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  SafeAreaView,
+  ScrollView,
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { SignUpData } from "@/api/signup-request";
 
 const JOB_PREFERENCES = {
-  'Repair and Maintenance': [
-    'Plumbing', 'Electrical Repairs', 'Carpentry', 
-    'Roof Repair', 'Painting Services', 'Welding',
-    'Glass Installation', 'Aircon Repair & Cleaning', 
-    'Appliance Repair', 'Pest Control Services'
+  "Repair and Maintenance": [
+    "Plumbing",
+    "Electrical Repairs",
+    "Carpentry",
+    "Roof Repair",
+    "Painting Services",
+    "Welding",
+    "Glass Installation",
+    "Aircon Repair & Cleaning",
+    "Appliance Repair",
+    "Pest Control Services",
   ],
-  'Vehicle Services': [
-    'Auto Mechanic', 'Car Wash', 'Motorcycle Repair',
-    'Car Aircon Repair', 'Window Tinting'
+  "Vehicle Services": [
+    "Auto Mechanic",
+    "Car Wash",
+    "Motorcycle Repair",
+    "Car Aircon Repair",
+    "Window Tinting",
   ],
-  'Housekeeping Services': [
-    'Caregiver', 'Personal Driver', 'Gardening',
-    'Massage Therapy', 'Pet Grooming & Pet Care', 
-    'Home Cleaning Services', 'Laundry Services'
-  ]
+  "Housekeeping Services": [
+    "Caregiver",
+    "Personal Driver",
+    "Gardening",
+    "Massage Therapy",
+    "Pet Grooming & Pet Care",
+    "Home Cleaning Services",
+    "Laundry Services",
+  ],
 };
+
+function camelCase(str: String) {
+  return str
+    .replace(/(?:^\w|[A-Z]|\b\w)/g, function (word, index) {
+      return index == 0 ? word.toLowerCase() : word.toUpperCase();
+    })
+    .replace(/\s*&+\s*/g, "And")
+    .replace(/\s+/g, "");
+}
 
 export default function JobPreferenceScreen() {
   const router = useRouter();
   const [selectedPreferences, setSelectedPreferences] = useState<string[]>([]);
 
   const handleTagPress = (tag: string) => {
-    setSelectedPreferences(prev => 
-      prev.includes(tag) 
-        ? prev.filter(item => item !== tag)
-        : [...prev, tag]
+    setSelectedPreferences((prev) =>
+      prev.includes(tag) ? prev.filter((item) => item !== tag) : [...prev, tag],
     );
   };
 
   const handleNext = () => {
     if (selectedPreferences.length > 0) {
+      SignUpData({
+        jobTags: new Array(
+          selectedPreferences.map((element) => camelCase(element)),
+        ),
+      });
       router.push({
-        pathname: '/(auth)/picture-page',
-        params: { preferences: JSON.stringify(selectedPreferences) }
+        pathname: "/(auth)/picture-page",
       });
     }
   };
@@ -47,7 +79,10 @@ export default function JobPreferenceScreen() {
     router.back();
   };
 
-  const renderPreferenceSection = (sectionTitle: string, preferences: string[]) => (
+  const renderPreferenceSection = (
+    sectionTitle: string,
+    preferences: string[],
+  ) => (
     <View style={styles.sectionContainer} key={sectionTitle}>
       <Text style={styles.sectionTitle}>{sectionTitle}</Text>
       <View style={styles.tagContainer}>
@@ -56,14 +91,16 @@ export default function JobPreferenceScreen() {
             key={tag}
             style={[
               styles.tag,
-              selectedPreferences.includes(tag) && styles.selectedTag
+              selectedPreferences.includes(tag) && styles.selectedTag,
             ]}
             onPress={() => handleTagPress(tag)}
           >
-            <Text style={[
-              styles.tagText,
-              selectedPreferences.includes(tag) && styles.selectedTagText
-            ]}>
+            <Text
+              style={[
+                styles.tagText,
+                selectedPreferences.includes(tag) && styles.selectedTagText,
+              ]}
+            >
               {tag}
             </Text>
           </TouchableOpacity>
@@ -80,23 +117,25 @@ export default function JobPreferenceScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContentContainer}
       >
         <Text style={styles.title}>Choose your Job Preference</Text>
-        <Text style={styles.subtitle}>Find the Perfect Role That Matches Your Skills & Interests</Text>
+        <Text style={styles.subtitle}>
+          Find the Perfect Role That Matches Your Skills & Interests
+        </Text>
 
-        {Object.entries(JOB_PREFERENCES).map(([section, preferences]) => 
-          renderPreferenceSection(section, preferences)
+        {Object.entries(JOB_PREFERENCES).map(([section, preferences]) =>
+          renderPreferenceSection(section, preferences),
         )}
       </ScrollView>
 
       <View style={styles.buttonContainer}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[
             styles.nextButton,
-            selectedPreferences.length === 0 && styles.disabledButton
+            selectedPreferences.length === 0 && styles.disabledButton,
           ]}
           onPress={handleNext}
           disabled={selectedPreferences.length === 0}
@@ -111,7 +150,7 @@ export default function JobPreferenceScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   header: {
     paddingHorizontal: 20,
@@ -123,9 +162,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     marginTop: 30,
-    borderColor: '#000033',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: "#000033",
+    justifyContent: "center",
+    alignItems: "center",
   },
   scrollContainer: {
     flex: 1,
@@ -136,13 +175,13 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginTop: 20,
     marginBottom: 10,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: "#666",
     marginBottom: 20,
   },
   sectionContainer: {
@@ -150,16 +189,16 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 10,
   },
   tagContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 10,
   },
   tag: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: "#f0f0f0",
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderWidth: 1,
@@ -168,32 +207,32 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   selectedTag: {
-    backgroundColor: '#0A1747',
+    backgroundColor: "#0A1747",
   },
   tagText: {
-    color: '#333',
+    color: "#333",
     fontSize: 14,
   },
   selectedTagText: {
-    color: 'white',
+    color: "white",
   },
   buttonContainer: {
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
   nextButton: {
-    backgroundColor: '#0A1747',
-    width: '100%',
+    backgroundColor: "#0A1747",
+    width: "100%",
     paddingVertical: 15,
     borderRadius: 4,
-    alignItems: 'center',
+    alignItems: "center",
   },
   disabledButton: {
-    backgroundColor: '#999',
+    backgroundColor: "#999",
   },
   nextButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 });

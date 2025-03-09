@@ -1,65 +1,64 @@
-import React, { useState } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  TouchableOpacity, 
-  SafeAreaView, 
-  Platform 
-} from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useState } from "react";
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  SafeAreaView,
+  Platform,
+} from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { SignUpData } from "@/api/signup-request";
 
 export default function BirthdayEntryScreen() {
   const router = useRouter();
   const [birthdate, setBirthdate] = useState<Date | undefined>(undefined);
   const [age, setAge] = useState<number | null>(null);
-  const [error, setError] = useState<string>('');
+  const [error, setError] = useState<string>("");
 
   const calculateAge = (birthday: Date): number => {
     const today = new Date();
     let calculatedAge = today.getFullYear() - birthday.getFullYear();
     const monthDifference = today.getMonth() - birthday.getMonth();
-    
+
     if (
-      monthDifference < 0 || 
+      monthDifference < 0 ||
       (monthDifference === 0 && today.getDate() < birthday.getDate())
     ) {
       calculatedAge--;
     }
-    
+
     return calculatedAge;
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
     const currentDate = selectedDate || birthdate;
-    
+
     if (currentDate) {
       setBirthdate(currentDate);
       const calculatedAge = calculateAge(currentDate);
       setAge(calculatedAge);
-      setError('');
+      setError("");
     }
   };
 
   const handleNext = (): void => {
     if (!birthdate) {
-      setError('Please select your birthdate');
+      setError("Please select your birthdate");
       return;
     }
-    
+
     if (age && age < 18) {
-      setError('You must be at least 18 years old');
+      setError("You must be at least 18 years old");
       return;
     }
-    
+
+    SignUpData({ birthday: birthdate.toISOString(), age: age });
+
     router.push({
-      pathname: '/(auth)/address-page',
-      params: { 
-        birthdate: birthdate.toISOString(),
-        age: age?.toString() 
-      }
+      pathname: "/(auth)/address-page",
     });
   };
 
@@ -74,18 +73,15 @@ export default function BirthdayEntryScreen() {
           <Ionicons name="arrow-back" size={24} color="#000033" />
         </TouchableOpacity>
       </View>
-      
+
       <View style={styles.contentContainer}>
         <Text style={styles.title}>When were you born?</Text>
         <Text style={styles.subtitle}>Select your birthdate</Text>
-        
+
         <View style={styles.formContainer}>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Birthdate</Text>
-            <View style={[
-              styles.input, 
-              error ? styles.inputError : null
-            ]}>
+            <View style={[styles.input, error ? styles.inputError : null]}>
               <DateTimePicker
                 testID="dateTimePicker"
                 value={birthdate || new Date()}
@@ -95,21 +91,16 @@ export default function BirthdayEntryScreen() {
                 maximumDate={new Date()}
               />
             </View>
-            
+
             {age !== null && (
-              <Text style={styles.ageText}>
-                Age: {age} years old
-              </Text>
+              <Text style={styles.ageText}>Age: {age} years old</Text>
             )}
-            
+
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
           </View>
         </View>
-        
-        <TouchableOpacity 
-          style={styles.nextButton} 
-          onPress={handleNext}
-        >
+
+        <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
           <Text style={styles.nextButtonText}>Next</Text>
         </TouchableOpacity>
       </View>
@@ -120,7 +111,7 @@ export default function BirthdayEntryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   header: {
     paddingHorizontal: 20,
@@ -132,72 +123,72 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     marginTop: 30,
-    borderColor: '#000033',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: "#000033",
+    justifyContent: "center",
+    alignItems: "center",
   },
   contentContainer: {
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 40,
-    alignItems: 'center',
+    alignItems: "center",
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
+    color: "#666",
+    textAlign: "center",
     marginBottom: 40,
   },
   formContainer: {
-    width: '100%',
+    width: "100%",
     marginBottom: 30,
   },
   inputGroup: {
     marginBottom: 20,
-    width: '100%',
+    width: "100%",
   },
   label: {
     fontSize: 16,
     marginBottom: 8,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: "#ccc",
     borderRadius: 4,
     padding: 12,
     fontSize: 16,
   },
   inputError: {
-    borderColor: 'red',
+    borderColor: "red",
   },
   errorText: {
-    color: 'red',
+    color: "red",
     marginTop: 5,
     fontSize: 14,
   },
   ageText: {
     marginTop: 5,
     fontSize: 14,
-    color: '#666',
+    color: "#666",
   },
   nextButton: {
-    backgroundColor: '#000033',
-    width: '100%',
+    backgroundColor: "#000033",
+    width: "100%",
     paddingVertical: 15,
     borderRadius: 4,
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 20,
   },
   nextButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 });
