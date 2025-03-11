@@ -21,11 +21,14 @@ export default function SignInScreen() {
     console.log("Login button clicked");
 
     try {
-      const response = await fetch("http://192.168.254.101:3000/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      const response = await fetch(
+        `http://${process.env.IP_ADDRESS}:3000/login`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        },
+      );
 
       const data = await response.json();
 
