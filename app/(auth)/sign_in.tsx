@@ -18,7 +18,7 @@ export default function SignInScreen() {
   const router = useRouter();
   const navigation = useNavigation();
 
-  const handleLogin = async () => {
+  const handleLogin = async (e: { preventDefault: () => void }) => {
     const response = await fetch("http://localhost:3000/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
