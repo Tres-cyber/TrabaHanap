@@ -1,39 +1,41 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 
-
 export default function SignInScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const router = useRouter();
-  const navigation = useNavigation();
 
-  const handleLogin = async (e: { preventDefault: () => void; }) => {
+  const handleLogin = async () => {
+    console.log("Login button clicked");
 
-    const response = await fetch("http://localhost:3000/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const response = await fetch("http://192.168.254.101:3000/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (response.ok) {
-      localStorage.setItem("token", data.token);
+      if (!response.ok) {
+        throw new Error(data.error || "Invalid login");
+      }
+
+      await AsyncStorage.setItem("token", data.token);
       setMessage("Login successful!");
-      const IsjobSeeker = data.user?.userType == "jobSeeker";
-      if(IsjobSeeker)navigation.navigate("job-seeker-home" as never);
-      else navigation.navigate("client-home" as never);
-      
-    } else {
-      setMessage(data.error || "Invalid login");
+
+      const isJobSeeker = data.user?.userType === "jobSeeker";
+      router.push(isJobSeeker ? "/job-seeker-home" : "/client-home");
+    } catch (error) {
+      console.error("Login error:", error);
     }
   };
-
+  
   const handleForgotPassword = () => {
     console.log('Forgot password');
   };
@@ -79,7 +81,7 @@ export default function SignInScreen() {
             </TouchableOpacity>
           </View>
         </View>
-         <Text>{message && <p>{message}</p>}</Text>
+        {message ? <Text style={{ color: "red", textAlign: "center", marginBottom: 10 }}>{message}</Text> : null}
         <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
           <Text style={styles.loginButtonText}>Login</Text>
         </TouchableOpacity>
