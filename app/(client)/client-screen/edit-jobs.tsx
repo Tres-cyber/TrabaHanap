@@ -158,18 +158,18 @@ export default function EditJobScreen() {
     return true;
   };
 
-  // Improved handleGoBack function
+ 
   const handleGoBack = () => {
     if (unsavedChanges) {
       setShowUnsavedChangesModal(true);
-      return true; // Prevents default back behavior
+      return true; 
     } else {
       router.back();
       return true;
     }
   };
 
-  // Improved useFocusEffect to properly detect changes and handle back navigation
+
   useFocusEffect(
     useCallback(() => {
       const currentFormState: FormState = {
@@ -193,7 +193,7 @@ export default function EditJobScreen() {
         () => {
           if (hasChanges) {
             setShowUnsavedChangesModal(true);
-            return true; // Prevents default back behavior
+            return true; 
           }
           router.back();
           return true;
@@ -261,7 +261,7 @@ export default function EditJobScreen() {
     setShowJobUpdatedModal(true);
   };
 
-  // Added function to reset form to initial state
+
   const resetFormToInitialState = () => {
     setJobTitle(initialFormState.jobTitle);
     setDescription(initialFormState.description);
@@ -463,9 +463,9 @@ export default function EditJobScreen() {
                 onPress={() => {
                   console.log("Discarding changes...");
                   setShowUnsavedChangesModal(false);
-                  // Reset form to initial state before navigating back
+             
                   resetFormToInitialState();
-                  // Add a small delay to ensure state updates before navigation
+              
                   setTimeout(() => router.back(), 100);
                 }}
               >
