@@ -22,7 +22,7 @@ export default function SignInScreen() {
 
     try {
       const response = await fetch(
-        `http://${process.env.IP_ADDRESS}:3000/login`,
+        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/login`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -31,7 +31,7 @@ export default function SignInScreen() {
       );
 
       const data = await response.json();
-
+      console.log(data);
       if (!response.ok) {
         throw new Error(data.error || "Invalid login");
       }
@@ -40,7 +40,7 @@ export default function SignInScreen() {
       setMessage("Login successful!");
 
       const isJobSeeker = data.user?.userType === "jobSeeker";
-      router.push(isJobSeeker ? "/job-seeker-home" : "/client-home");
+      router.push(isJobSeeker ? "/job-seeker-home" : "/(client)/client-home");
     } catch (error) {
       console.error("Login error:", error);
     }
