@@ -27,13 +27,13 @@ export default function JobListingScreen() {
 
   const handleAddJobPress = () => {
     router.push({
-        pathname: "/(client)/(client-screen)/add-jobs" as any,
+        pathname: "client-screen/add-jobs" as any,
     });
   };
 
   const handleEditJobPress = (jobId: number) => {
     router.push({
-      pathname: "/(client)/(client-screen)/edit-jobs" as any,
+      pathname: "client-screen/edit-jobs" as any,
       params: { jobId }
     });
   };
