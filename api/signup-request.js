@@ -35,6 +35,6 @@ export const handleFormData = async () => {
     );
     console.log("Successful upload!", response.data);
   } catch (error) {
-    console.log("Error Message", error.request);
+    console.error("Error Message", error.request);
   }
 };

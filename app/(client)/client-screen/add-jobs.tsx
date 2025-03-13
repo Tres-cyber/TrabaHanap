@@ -1,21 +1,24 @@
-import React, { useState, useCallback } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  TouchableOpacity, 
-  TextInput, 
-  ScrollView, 
-  Image, 
+import React, { useState, useCallback } from "react";
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  TextInput,
+  ScrollView,
+  Image,
   SafeAreaView,
   Modal,
   FlatList,
   Alert,
-  BackHandler
-} from 'react-native';
-import { Ionicons, Feather, MaterialIcons } from '@expo/vector-icons';
-import { useRouter, useFocusEffect } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
+  BackHandler,
+} from "react-native";
+import { Ionicons, Feather, MaterialIcons } from "@expo/vector-icons";
+import { useRouter, useFocusEffect } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
+import { AddJobRequest } from "@/api/client-request";
+import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const jobCategories = [
   {
@@ -30,8 +33,8 @@ const jobCategories = [
       "Glass Installation",
       "Aircon Repair & Cleaning",
       "Appliance Repair",
-      "Pest Control Services"
-    ]
+      "Pest Control Services",
+    ],
   },
   {
     title: "🚗 Vehicle Services",
@@ -40,8 +43,8 @@ const jobCategories = [
       "Car Wash",
       "Motorcycle Repair",
       "Car Aircon Repair",
-      "Window Tinting"
-    ]
+      "Window Tinting",
+    ],
   },
   {
     title: "👨‍👩‍👧‍👦 Housekeeping Services",
@@ -52,21 +55,31 @@ const jobCategories = [
       "Pet Grooming & Pet Care",
       "Home Cleaning Services",
       "Laundry Services",
-      "Gardening"
-    ]
-  }
+      "Gardening",
+    ],
+  },
 ];
+
+function camelCase(str: String) {
+  return str
+    .replace(/(?:^\w|[A-Z]|\b\w)/g, function (word, index) {
+      return index == 0 ? word.toLowerCase() : word.toUpperCase();
+    })
+    .replace(/\s*&+\s*/g, "And")
+    .replace(/\s+/g, "");
+}
 
 const MAX_IMAGES = 3;
 
 export default function AddJobScreen() {
   const router = useRouter();
-  const [jobTitle, setJobTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [position, setPosition] = useState('');
-  const [budget, setBudget] = useState('');
-  const [location, setLocation] = useState('');
+  const [jobTitle, setJobTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [position, setPosition] = useState("");
+  const [budget, setBudget] = useState("");
+  const [location, setLocation] = useState("");
   const [images, setImages] = useState<string[]>([]);
+
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
@@ -75,12 +88,13 @@ export default function AddJobScreen() {
   const [successModal, setSuccessModal] = useState(false);
 
   const resetForm = () => {
-    setJobTitle('');
-    setDescription('');
-    setPosition('');
-    setBudget('');
-    setLocation('');
+    setJobTitle("");
+    setDescription("");
+    setPosition("");
+    setBudget("");
+    setLocation("");
     setImages([]);
+
     setTitleError(false);
     setPositionError(false);
     setUnsavedChanges(false);
@@ -88,11 +102,11 @@ export default function AddJobScreen() {
 
   const requestPermissions = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
+    if (status !== "granted") {
       Alert.alert(
         "Permission Required",
         "Please allow access to your photo library to upload images.",
-        [{ text: "OK", style: "default" }]
+        [{ text: "OK", style: "default" }],
       );
       return false;
     }
@@ -121,17 +135,23 @@ export default function AddJobScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      const hasChanges = jobTitle !== '' || description !== '' || position !== '' || 
-                        budget !== '' || location !== '' || images.length > 0;
+      const hasChanges =
+        jobTitle !== "" ||
+        description !== "" ||
+        position !== "" ||
+        budget !== "" ||
+        location !== "" ||
+        images.length > 0;
+
       setUnsavedChanges(hasChanges);
-      
+
       const backHandler = BackHandler.addEventListener(
-        'hardwareBackPress',
-        handleGoBack
+        "hardwareBackPress",
+        handleGoBack,
       );
 
       return () => backHandler.remove();
-    }, [jobTitle, description, position, budget, location, images])
+    }, [jobTitle, description, position, budget, location, images]),
   );
 
   const pickImage = async () => {
@@ -139,14 +159,14 @@ export default function AddJobScreen() {
       Alert.alert(
         "Maximum Images",
         `You can only upload up to ${MAX_IMAGES} images.`,
-        [{ text: "OK", style: "default" }]
+        [{ text: "OK", style: "default" }],
       );
       return;
     }
-    
+
     const hasPermission = await requestPermissions();
     if (!hasPermission) return;
-    
+
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -154,7 +174,7 @@ export default function AddJobScreen() {
         aspect: [4, 3],
         quality: 0.8,
       });
-      
+
       if (!result.canceled && result.assets && result.assets.length > 0) {
         setImages([...images, result.assets[0].uri]);
       }
@@ -162,7 +182,7 @@ export default function AddJobScreen() {
       Alert.alert(
         "Image Selection Failed",
         "There was a problem selecting your image. Please try again.",
-        [{ text: "OK", style: "default" }]
+        [{ text: "OK", style: "default" }],
       );
     }
   };
@@ -175,35 +195,54 @@ export default function AddJobScreen() {
 
   const validateForm = () => {
     let isValid = true;
-    
+
     setTitleError(false);
     setPositionError(false);
-    
+
     if (!jobTitle.trim()) {
       setTitleError(true);
       isValid = false;
     }
-  
+
     if (!position) {
       setPositionError(true);
       isValid = false;
     }
-    
+
     return isValid;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validateForm()) {
       Alert.alert(
         "Missing Information",
         "Please provide a job title and select a position before saving.",
         [{ text: "OK", style: "default" }],
-        { cancelable: true }
+        { cancelable: true },
       );
       return;
     }
-    
+
+    AddJobRequest({
+      client: await handleCheckToken(),
+      jobTitle: jobTitle,
+      jobDescription: description,
+      category: camelCase(position),
+      budget: budget,
+      jobLocation: location,
+      jobImage: images,
+    });
+
     setSuccessModal(true);
+  };
+
+  const handleCheckToken = async () => {
+    const dataToken = await AsyncStorage.getItem("token");
+    const decodedToken = await axios.get(
+      `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/decodeToken`,
+      { params: { token: dataToken } },
+    );
+    return decodedToken.data;
   };
 
   const handleSuccessModalClose = () => {
@@ -217,23 +256,26 @@ export default function AddJobScreen() {
     setPositionError(false);
     setShowTagPicker(false);
   };
-  
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={handleGoBack}
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back-circle-outline" size={36} color="#001F3F" />
+        <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
+          <Ionicons
+            name="arrow-back-circle-outline"
+            size={36}
+            color="#001F3F"
+          />
         </TouchableOpacity>
       </View>
-      
+
       <Text style={styles.title}>Add a job</Text>
-      
+
       <ScrollView style={styles.scrollView}>
-        <Text style={styles.label}>Job title <Text style={styles.required}>*</Text></Text>
-        <TextInput 
+        <Text style={styles.label}>
+          Job title <Text style={styles.required}>*</Text>
+        </Text>
+        <TextInput
           style={[styles.input, titleError && styles.inputError]}
           value={jobTitle}
           onChangeText={(text) => {
@@ -245,9 +287,9 @@ export default function AddJobScreen() {
         {titleError && (
           <Text style={styles.errorText}>Job title is required</Text>
         )}
-        
+
         <Text style={styles.label}>Description</Text>
-        <TextInput 
+        <TextInput
           style={styles.textArea}
           value={description}
           onChangeText={setDescription}
@@ -255,9 +297,11 @@ export default function AddJobScreen() {
           multiline
           numberOfLines={4}
         />
-        
-        <Text style={styles.label}>Position <Text style={styles.required}>*</Text></Text>
-        <TouchableOpacity 
+
+        <Text style={styles.label}>
+          Position <Text style={styles.required}>*</Text>
+        </Text>
+        <TouchableOpacity
           style={[styles.input, positionError && styles.inputError]}
           onPress={() => setShowTagPicker(true)}
         >
@@ -270,30 +314,32 @@ export default function AddJobScreen() {
         )}
 
         <Text style={styles.label}>Budget</Text>
-        <TextInput 
+        <TextInput
           style={styles.input}
           value={budget}
           onChangeText={setBudget}
           placeholder="Enter budget"
           keyboardType="numeric"
         />
-        
+
         <Text style={styles.label}>Location</Text>
-        <TextInput 
+        <TextInput
           style={styles.input}
           value={location}
           onChangeText={setLocation}
           placeholder="Enter location"
         />
-        
-        <Text style={styles.label}>Add images ({images.length}/{MAX_IMAGES})</Text>
-        
+
+        <Text style={styles.label}>
+          Add images ({images.length}/{MAX_IMAGES})
+        </Text>
+
         {/* Image Grid */}
         <View style={styles.imageGrid}>
           {images.map((uri, index) => (
             <View key={index} style={styles.imageContainer}>
               <Image source={{ uri }} style={styles.uploadedImage} />
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.removeImageButton}
                 onPress={() => removeImage(index)}
               >
@@ -301,9 +347,9 @@ export default function AddJobScreen() {
               </TouchableOpacity>
             </View>
           ))}
-          
+
           {images.length < MAX_IMAGES && (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.addImageContainer}
               onPress={pickImage}
             >
@@ -312,20 +358,20 @@ export default function AddJobScreen() {
             </TouchableOpacity>
           )}
         </View>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={[
             styles.saveButton,
-            (!jobTitle.trim() || !position) && styles.saveButtonDisabled
+            (!jobTitle.trim() || !position) && styles.saveButtonDisabled,
           ]}
           onPress={handleSave}
         >
           <Text style={styles.saveButtonText}>Save</Text>
         </TouchableOpacity>
-        
+
         <View style={{ height: 30 }} />
       </ScrollView>
-      
+
       <Modal
         animationType="fade"
         transparent={true}
@@ -339,9 +385,10 @@ export default function AddJobScreen() {
             </View>
             <Text style={styles.successTitle}>Job Posted Successfully!</Text>
             <Text style={styles.successMessage}>
-              Your job has been posted and is now visible to workers in your area.
+              Your job has been posted and is now visible to workers in your
+              area.
             </Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.successButton}
               onPress={handleSuccessModalClose}
             >
@@ -350,7 +397,7 @@ export default function AddJobScreen() {
           </View>
         </View>
       </Modal>
-      
+
       <Modal
         animationType="fade"
         transparent={true}
@@ -367,13 +414,10 @@ export default function AddJobScreen() {
               You have unsaved changes that will be lost.
             </Text>
             <View style={styles.modalButtonsContainer}>
-              <TouchableOpacity 
-                style={styles.stayButton}
-                onPress={handleStay}
-              >
+              <TouchableOpacity style={styles.stayButton} onPress={handleStay}>
                 <Text style={styles.stayButtonText}>Stay</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.discardButton}
                 onPress={handleDiscardChanges}
               >
@@ -383,7 +427,7 @@ export default function AddJobScreen() {
           </View>
         </View>
       </Modal>
-      
+
       <Modal
         animationType="slide"
         transparent={true}
@@ -394,14 +438,14 @@ export default function AddJobScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Position</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.closeButton}
                 onPress={() => setShowTagPicker(false)}
               >
                 <Ionicons name="close" size={24} color="#001F3F" />
               </TouchableOpacity>
             </View>
-            
+
             <FlatList
               data={jobCategories}
               keyExtractor={(item) => item.title}
@@ -409,24 +453,28 @@ export default function AddJobScreen() {
                 <View>
                   <Text style={styles.categoryTitle}>{item.title}</Text>
                   {item.tags.map((tag: string) => (
-                    <TouchableOpacity 
-                      key={tag} 
+                    <TouchableOpacity
+                      key={tag}
                       style={[
                         styles.tagItem,
-                        position === tag && styles.selectedTagItem
+                        position === tag && styles.selectedTagItem,
                       ]}
                       onPress={() => selectTag(tag)}
                     >
-                      <Text 
+                      <Text
                         style={[
                           styles.tagText,
-                          position === tag && styles.selectedTagText
+                          position === tag && styles.selectedTagText,
                         ]}
                       >
                         {tag}
                       </Text>
                       {position === tag && (
-                        <Ionicons name="checkmark-circle" size={24} color="#001F3F" />
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={24}
+                          color="#001F3F"
+                        />
                       )}
                     </TouchableOpacity>
                   ))}
@@ -444,21 +492,21 @@ export default function AddJobScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
   backButton: {
     padding: 4,
   },
   title: {
     fontSize: 30,
-    fontWeight: 'bold',
-    color: '#000',
+    fontWeight: "bold",
+    color: "#000",
     paddingHorizontal: 16,
     marginBottom: 16,
   },
@@ -468,137 +516,138 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#000',
+    fontWeight: "500",
+    color: "#000",
     marginBottom: 8,
   },
   required: {
-    color: '#FF3B30',
+    color: "#FF3B30",
   },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
     marginBottom: 16,
   },
   inputError: {
-    borderColor: '#FF3B30',
-    backgroundColor: '#FFF5F5',
+    borderColor: "#FF3B30",
+    backgroundColor: "#FFF5F5",
   },
   errorText: {
-    color: '#FF3B30',
+    color: "#FF3B30",
     fontSize: 14,
     marginTop: -12,
     marginBottom: 16,
     paddingLeft: 4,
   },
   inputText: {
-    color: '#000',
+    color: "#000",
     fontSize: 16,
   },
   textArea: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
     marginBottom: 16,
     height: 120,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
+
   // Image Grid Layout
   imageGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     marginBottom: 24,
   },
   imageContainer: {
-    width: '30%',
+    width: "30%",
     aspectRatio: 1,
-    marginRight: '3%',
+    marginRight: "3%",
     marginBottom: 12,
     borderRadius: 8,
-    overflow: 'hidden',
-    position: 'relative',
+    overflow: "hidden",
+    position: "relative",
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
   },
   uploadedImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
   },
   removeImageButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 4,
     right: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
     borderRadius: 12,
     padding: 1,
   },
   addImageContainer: {
-    width: '30%',
+    width: "30%",
     aspectRatio: 1,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderStyle: 'dashed',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f9f9f9',
+    borderColor: "#ddd",
+    borderStyle: "dashed",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f9f9f9",
   },
   addImageText: {
-    color: '#666',
+    color: "#666",
     fontSize: 14,
     marginTop: 4,
   },
   placeholderText: {
-    color: '#666',
+    color: "#666",
     fontSize: 16,
   },
   saveButton: {
-    backgroundColor: '#001F3F',
+    backgroundColor: "#001F3F",
     borderRadius: 8,
     padding: 16,
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 16,
     elevation: 2,
   },
   saveButtonDisabled: {
-    backgroundColor: '#9AA5B1',
+    backgroundColor: "#9AA5B1",
   },
   saveButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   modalContainer: {
     flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.5)",
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    maxHeight: '80%',
+    maxHeight: "80%",
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: "#eee",
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
+    fontWeight: "bold",
+    color: "#000",
   },
   closeButton: {
     padding: 4,
@@ -608,47 +657,47 @@ const styles = StyleSheet.create({
   },
   categoryTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginTop: 12,
     marginBottom: 8,
-    color: '#001F3F',
+    color: "#001F3F",
   },
   tagItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: "#eee",
   },
   selectedTagItem: {
-    backgroundColor: '#EBF8FF',
+    backgroundColor: "#EBF8FF",
   },
   tagText: {
     fontSize: 16,
-    color: '#333',
+    color: "#333",
   },
   selectedTagText: {
-    color: '#001F3F',
-    fontWeight: '500',
+    color: "#001F3F",
+    fontWeight: "500",
   },
   successModalContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
     padding: 20,
   },
   successModalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 24,
-    width: '90%',
+    width: "90%",
     maxWidth: 340,
-    alignItems: 'center',
+    alignItems: "center",
     elevation: 5,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
@@ -661,62 +710,62 @@ const styles = StyleSheet.create({
   },
   successTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000',
+    fontWeight: "bold",
+    color: "#000",
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: "center",
   },
   successMessage: {
     fontSize: 16,
-    color: '#666',
+    color: "#666",
     marginBottom: 24,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 22,
   },
   successButton: {
-    backgroundColor: '#001F3F',
+    backgroundColor: "#001F3F",
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 24,
-    width: '100%',
-    alignItems: 'center',
+    width: "100%",
+    alignItems: "center",
   },
   successButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   modalButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
   },
   stayButton: {
-    backgroundColor: '#EEEEEE',
+    backgroundColor: "#EEEEEE",
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 4,
     flex: 1,
     marginRight: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   stayButtonText: {
-    color: '#000',
+    color: "#000",
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   discardButton: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: "#FF3B30",
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 16,
     flex: 1.5,
     marginLeft: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   discardButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 });

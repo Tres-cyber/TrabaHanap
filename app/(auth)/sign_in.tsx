@@ -18,8 +18,6 @@ export default function SignInScreen() {
   const router = useRouter();
 
   const handleLogin = async () => {
-    console.log("Login button clicked");
-
     try {
       const response = await fetch(
         `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/login`,
