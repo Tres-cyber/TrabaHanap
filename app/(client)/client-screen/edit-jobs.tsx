@@ -57,7 +57,6 @@ const jobCategories = [
   }
 ];
 
-
 const allTags = jobCategories.reduce<string[]>((acc, category) => {
   return [...acc, ...category.tags];
 }, []);
@@ -71,8 +70,6 @@ interface JobData {
   location: string;
   imageUri: string | null;
 }
-
-
 
 const mockJobData: JobData = {
   id: '123',
@@ -158,7 +155,6 @@ export default function EditJobScreen() {
     return true;
   };
 
- 
   const handleGoBack = () => {
     if (unsavedChanges) {
       setShowUnsavedChangesModal(true);
@@ -168,7 +164,6 @@ export default function EditJobScreen() {
       return true;
     }
   };
-
 
   useFocusEffect(
     useCallback(() => {
@@ -228,6 +223,10 @@ export default function EditJobScreen() {
     }
   };
 
+  const removeImage = () => {
+    setImage(null);
+  };
+
   const validateForm = () => {
     let isValid = true;
     
@@ -260,7 +259,6 @@ export default function EditJobScreen() {
     
     setShowJobUpdatedModal(true);
   };
-
 
   const resetFormToInitialState = () => {
     setJobTitle(initialFormState.jobTitle);
@@ -356,7 +354,7 @@ export default function EditJobScreen() {
               <Image source={{ uri: image }} style={styles.uploadedImage} />
               <TouchableOpacity 
                 style={styles.removeImageButton}
-                onPress={() => setImage(null)}
+                onPress={removeImage}
               >
                 <Ionicons name="close-circle" size={28} color="#001F3F" />
               </TouchableOpacity>
@@ -700,7 +698,6 @@ const styles = StyleSheet.create({
     color: '#001F3F',
     fontWeight: '500',
   },
-  
   alertModalContent: {
     backgroundColor: '#fff',
     borderRadius: 16,
@@ -776,7 +773,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-
   successModalContainer: {
     flex: 1,
     justifyContent: 'center',

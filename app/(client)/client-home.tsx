@@ -38,7 +38,10 @@ export default function JobListingScreen() {
     });
   };
 
- 
+  const handleDeleteJobPress = (jobId: number) => {
+    console.log(`Deleting job with ID: ${jobId}`);
+  };
+
   const jobs = [
     {
       id: 1,
@@ -104,11 +107,20 @@ export default function JobListingScreen() {
           <View key={job.id} style={styles.jobCard}>
             <View style={styles.jobHeader}>
               <Text style={styles.jobTitle}>{job.title}</Text>
-              <TouchableOpacity
-                onPress={() => handleEditJobPress(job.id)}
-              >
-                <Feather name="edit" size={18} color="#000" />
-              </TouchableOpacity>
+              <View style={styles.actionsContainer}>
+                <TouchableOpacity
+                  onPress={() => handleEditJobPress(job.id)}
+                  style={styles.actionButton}
+                >
+                  <Feather name="edit" size={18} color="#000" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => handleDeleteJobPress(job.id)}
+                  style={styles.actionButton}
+                >
+                  <Feather name="trash-2" size={18} color="#ff4444" />
+                </TouchableOpacity>
+              </View>
             </View>
             
             <Text style={styles.jobDescription}>{job.description}</Text>
@@ -245,5 +257,12 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: 12,
     color: '#666',
+  },
+  actionsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionButton: {
+    marginLeft: 12,
   },
 });
