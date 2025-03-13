@@ -57,7 +57,7 @@ const jobCategories = [
   }
 ];
 
-const allTags = jobCategories.reduce<string[]>((acc, category) => [...acc, ...category.tags], []);
+const MAX_IMAGES = 3;
 
 export default function AddJobScreen() {
   const router = useRouter();
@@ -66,7 +66,7 @@ export default function AddJobScreen() {
   const [position, setPosition] = useState('');
   const [budget, setBudget] = useState('');
   const [location, setLocation] = useState('');
-  const [image, setImage] = useState<string | null>(null);
+  const [images, setImages] = useState<string[]>([]);
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
@@ -80,12 +80,11 @@ export default function AddJobScreen() {
     setPosition('');
     setBudget('');
     setLocation('');
-    setImage(null);
+    setImages([]);
     setTitleError(false);
     setPositionError(false);
     setUnsavedChanges(false);
   };
-
 
   const requestPermissions = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -123,7 +122,7 @@ export default function AddJobScreen() {
   useFocusEffect(
     useCallback(() => {
       const hasChanges = jobTitle !== '' || description !== '' || position !== '' || 
-                        budget !== '' || location !== '' || image !== null;
+                        budget !== '' || location !== '' || images.length > 0;
       setUnsavedChanges(hasChanges);
       
       const backHandler = BackHandler.addEventListener(
@@ -132,10 +131,19 @@ export default function AddJobScreen() {
       );
 
       return () => backHandler.remove();
-    }, [jobTitle, description, position, budget, location, image])
+    }, [jobTitle, description, position, budget, location, images])
   );
 
   const pickImage = async () => {
+    if (images.length >= MAX_IMAGES) {
+      Alert.alert(
+        "Maximum Images",
+        `You can only upload up to ${MAX_IMAGES} images.`,
+        [{ text: "OK", style: "default" }]
+      );
+      return;
+    }
+    
     const hasPermission = await requestPermissions();
     if (!hasPermission) return;
     
@@ -148,7 +156,7 @@ export default function AddJobScreen() {
       });
       
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        setImage(result.assets[0].uri);
+        setImages([...images, result.assets[0].uri]);
       }
     } catch (error) {
       Alert.alert(
@@ -157,6 +165,12 @@ export default function AddJobScreen() {
         [{ text: "OK", style: "default" }]
       );
     }
+  };
+
+  const removeImage = (index: number) => {
+    const newImages = [...images];
+    newImages.splice(index, 1);
+    setImages(newImages);
   };
 
   const validateForm = () => {
@@ -272,28 +286,32 @@ export default function AddJobScreen() {
           placeholder="Enter location"
         />
         
-        <Text style={styles.label}>Add an image</Text>
-        <TouchableOpacity 
-          style={styles.imageUploadContainer}
-          onPress={pickImage}
-        >
-          {image ? (
-            <View style={styles.imageContainer}>
-              <Image source={{ uri: image }} style={styles.uploadedImage} />
+        <Text style={styles.label}>Add images ({images.length}/{MAX_IMAGES})</Text>
+        
+        {/* Image Grid */}
+        <View style={styles.imageGrid}>
+          {images.map((uri, index) => (
+            <View key={index} style={styles.imageContainer}>
+              <Image source={{ uri }} style={styles.uploadedImage} />
               <TouchableOpacity 
                 style={styles.removeImageButton}
-                onPress={() => setImage(null)}
+                onPress={() => removeImage(index)}
               >
-                <Ionicons name="close-circle" size={28} color="#001F3F" />
+                <Ionicons name="close-circle" size={24} color="#001F3F" />
               </TouchableOpacity>
             </View>
-          ) : (
-            <View style={styles.imagePlaceholder}>
-              <Feather name="image" size={32} color="#666" />
-              <Text style={styles.placeholderText}>Tap to select an image</Text>
-            </View>
+          ))}
+          
+          {images.length < MAX_IMAGES && (
+            <TouchableOpacity 
+              style={styles.addImageContainer}
+              onPress={pickImage}
+            >
+              <Feather name="plus" size={32} color="#666" />
+              <Text style={styles.addImageText}>Add image</Text>
+            </TouchableOpacity>
           )}
-        </TouchableOpacity>
+        </View>
         
         <TouchableOpacity 
           style={[
@@ -308,7 +326,6 @@ export default function AddJobScreen() {
         <View style={{ height: 30 }} />
       </ScrollView>
       
-      {/* Success Modal */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -333,6 +350,7 @@ export default function AddJobScreen() {
           </View>
         </View>
       </Modal>
+      
       <Modal
         animationType="fade"
         transparent={true}
@@ -492,25 +510,22 @@ const styles = StyleSheet.create({
     height: 120,
     textAlignVertical: 'top',
   },
-  imageUploadContainer: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
+  // Image Grid Layout
+  imageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     marginBottom: 24,
-    height: 200,
-    overflow: 'hidden',
   },
   imageContainer: {
-    width: '100%',
-    height: '100%',
+    width: '30%',
+    aspectRatio: 1,
+    marginRight: '3%',
+    marginBottom: 12,
+    borderRadius: 8,
+    overflow: 'hidden',
     position: 'relative',
-  },
-  imagePlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f9f9f9',
+    borderWidth: 1,
+    borderColor: '#ddd',
   },
   uploadedImage: {
     width: '100%',
@@ -519,16 +534,31 @@ const styles = StyleSheet.create({
   },
   removeImageButton: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 4,
+    right: 4,
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: 14,
-    padding: 2,
+    borderRadius: 12,
+    padding: 1,
+  },
+  addImageContainer: {
+    width: '30%',
+    aspectRatio: 1,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f9f9f9',
+  },
+  addImageText: {
+    color: '#666',
+    fontSize: 14,
+    marginTop: 4,
   },
   placeholderText: {
     color: '#666',
     fontSize: 16,
-    marginTop: 8,
   },
   saveButton: {
     backgroundColor: '#001F3F',
@@ -603,7 +633,6 @@ const styles = StyleSheet.create({
     color: '#001F3F',
     fontWeight: '500',
   },
- 
   successModalContainer: {
     flex: 1,
     justifyContent: 'center',
