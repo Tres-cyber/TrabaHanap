@@ -10,6 +10,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { SignUpData } from "api/signup-request";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function UserTypeScreen() {
   const router = useRouter();
@@ -30,10 +31,18 @@ export default function UserTypeScreen() {
       });
     }
   };
+  const handleBack = () => {
+    router.back();
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="auto" />
+      <View style={styles.header}>
+        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#000033" />
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.contentContainer}>
         <Text style={styles.title}>What type of{"\n"}user are you?</Text>
@@ -93,6 +102,20 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 40,
     paddingTop: 60,
+    alignItems: "center",
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginTop: 30,
+    borderColor: "#000033",
+    justifyContent: "center",
     alignItems: "center",
   },
   title: {
