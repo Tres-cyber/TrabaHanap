@@ -13,12 +13,12 @@ export async function AddJobRequest(params) {
     );
   }
 
-  if (params.jobImage.length != 0) {
-    parseMultipleImages(params.jobImage);
+  if (params.client) {
+    formData.append("client", params.client.id);
   }
 
-  if (params.client) {
-    formData.append("client", JSON.stringify(params.client));
+  if (params.jobImage.length != 0) {
+    parseMultipleImages(params.jobImage);
   }
 
   Object.keys(params).forEach((key) => {
@@ -26,7 +26,7 @@ export async function AddJobRequest(params) {
       formData.append(key, params[key]);
     }
   });
-
+  console.log(formData);
   try {
     const jobPost = await axios.post(
       `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/client-home/add-jobs`,
@@ -37,7 +37,7 @@ export async function AddJobRequest(params) {
         },
       },
     );
-    console.log(jobPost.data);
+    console.log("Successful Job Post", jobPost.data);
   } catch (e) {
     console.log(e);
   }
