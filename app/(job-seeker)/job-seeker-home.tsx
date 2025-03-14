@@ -1,27 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  TouchableOpacity, 
-  ScrollView, 
-  Image, 
-  SafeAreaView, 
-  StatusBar 
+  StyleSheet, Text, View, TouchableOpacity, ScrollView, Image, 
+  SafeAreaView, StatusBar, ActivityIndicator
 } from 'react-native';
-import { Ionicons, Feather, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
+import { useLocalSearchParams } from "expo-router";
 
-interface Job {
+interface JobRequest {
   id: number;
-  title: string;
-  subTitle: string;
-  description: string;
-  category: string;
-  price: string;
-  location: string;
-  postedDate: string;
-  image?: any; 
+  jobTitle: string;
+  jobDescription: string;
+  category: string[];
+  budget: string;
+  jobLocation: string;
+  datePosted: string;
+  image?: any;
+}
+
+interface JobSeeker {
+  jobTags: string[];
 }
 
 type TabType = 'suggested' | 'recent';
@@ -29,19 +29,55 @@ type TabType = 'suggested' | 'recent';
 export default function JobListingScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('suggested');
+  const [jobRequests, setJobRequests] = useState<JobRequest[]>([]);
+  const [jobSeeker, setJobSeeker] = useState<JobSeeker | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleProfilePress = () => {
+  const fetchData = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        router.replace("/sign_in");
+        return;
+      }
+
+      const jobResponse = await fetch("http://192.168.254.111:3000/api/job-requests", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const jobData = await jobResponse.json();
+      setJobRequests(jobData);
+
+      const tagsResponse = await fetch("http://192.168.254.111:3000/api/job-seeker/tags", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const tagsData = await tagsResponse.json();
+      setJobSeeker({ jobTags: tagsData.jobTags || [] });
+
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSearchPress = () => {
-  };
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchData();
+    }, [])
+  );
 
-  const handleNotificationPress = () => {
-  };
-
-  const handleSeeMorePress = (jobId: number) => {
+  const handleSeeMorePress = (job: JobRequest) => {
     router.push({
-        pathname: "job-seeker-screen/job-details" as any,
+      pathname: "/job-seeker-screen/job-details",
+      params: {
+        id: job.id,
+        title: job.jobTitle,
+        postedDate: job.datePosted,
+        description: job.jobDescription,
+        rate: job.budget,
+        location: job.jobLocation,
+        images: JSON.stringify(job.image), 
+      },
     });
   };
 
@@ -49,152 +85,93 @@ export default function JobListingScreen() {
     setActiveTab(tab);
   };
 
+  const matchingJobs = jobRequests.filter((job) =>
+    job.category.some((tag) =>
+      jobSeeker?.jobTags.some((userTag) => tag.toLowerCase() === userTag.toLowerCase())
+    )
+  );
 
-  const suggestedJobs: Job[] = [
-    {
-      id: 1,
-      title: 'Hiring Maid',
-      subTitle: 'ASAP',
-      description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam ligula nunc, semper ut turpis a.',
-      category: 'Electrician',
-      price: 'P500',
-      location: 'Carig Norte',
-      postedDate: 'Posted March 17, 2024',
-      image: require('assets/images/ediskarte-logo.png')
-    },
-    {
-      id: 2,
-      title: 'Hiring Maid',
-      subTitle: 'ASAP',
-      description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam ligula nunc, semper ut turpis a.',
-      category: 'Electrician',
-      price: 'P500',
-      location: 'Carig Norte',
-      postedDate: 'Posted March 17, 2024',
-      image: require('assets/images/client-user.png')
-    },
-    {
-      id: 3,
-      title: 'Hiring Maid',
-      subTitle: 'ASAP',
-      description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam ligula nunc, semper ut turpis a.',
-      category: 'Electrician',
-      price: 'P500',
-      location: 'Carig Norte',
-      postedDate: 'Posted March 17, 2024',
-      image: require('assets/images/client-user.png')
-    }
-  ];
+  const otherJobs = jobRequests.filter((job) =>
+    !job.category.some((tag) =>
+      jobSeeker?.jobTags.some((userTag) => tag.toLowerCase() === userTag.toLowerCase())
+    )
+  );
 
-  const recentListings: Job[] = [
-    {
-      id: 4,
-      title: 'Hiring Electrician',
-      subTitle: 'Urgent',
-      description: 'Need professional electrician for home wiring repair. Experience required. Immediate start.',
-      category: 'Electrician',
-      price: 'P750',
-      location: 'Carig Norte',
-      postedDate: 'Posted March 18, 2024',
-      image: require('assets/images/client-user.png')
-    },
-    {
-      id: 5,
-      title: 'Plumber Needed',
-      subTitle: 'Today',
-      description: 'Leaking pipe requires immediate attention. Professional plumber with tools needed right away.',
-      category: 'Pest Control Services',
-      price: 'P600',
-      location: 'Carig Norte',
-      postedDate: 'Posted March 18, 2024',
-      image: require('assets/images/client-user.png')
-    }
-  ];
-
- 
-  const displayedJobs = activeTab === 'suggested' ? suggestedJobs : recentListings;
+  const displayedJobs = activeTab === 'suggested' ? matchingJobs : otherJobs;
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       
       <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={handleProfilePress}
-          style={styles.profileButton}
-        >
-          <Image 
-            source={require('assets/images/client-user.png')} 
-            style={styles.profileImage}
-            defaultSource={require('assets/images/client-user.png')}
-          />
+        <TouchableOpacity style={styles.profileButton}>
+          <Image source={require('assets/images/client-user.png')} style={styles.profileImage} />
         </TouchableOpacity>
         
-        <TouchableOpacity 
-          style={styles.searchBar}
-          onPress={handleSearchPress}
-        >
+        <TouchableOpacity style={styles.searchBar}>
           <Ionicons name="search-outline" size={18} color="#666" />
           <Text style={styles.searchText}>Search jobs here</Text>
         </TouchableOpacity>
         
-        <TouchableOpacity 
-          onPress={handleNotificationPress}
-          style={styles.notificationButton}
-        >
+        <TouchableOpacity style={styles.notificationButton}>
           <Ionicons name="notifications-outline" size={24} color="#000" />
         </TouchableOpacity>
       </View>
-      
+
       <View style={styles.tabContainer}>
-        <TouchableOpacity 
-          style={styles.tab}
-          onPress={() => handleTabPress('suggested')}
-        >
+        <TouchableOpacity style={styles.tab} onPress={() => handleTabPress('suggested')}>
           <Text style={[styles.tabText, activeTab === 'suggested' && styles.activeTab]}>
-            Suggested jobs
+            Suggested Jobs
           </Text>
           {activeTab === 'suggested' && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.tab}
-          onPress={() => handleTabPress('recent')}
-        >
+
+        <TouchableOpacity style={styles.tab} onPress={() => handleTabPress('recent')}>
           <Text style={[styles.tabText, activeTab === 'recent' && styles.activeTab]}>
-            Recent listing
+            Other Jobs
           </Text>
           {activeTab === 'recent' && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scrollView}>
-        {displayedJobs.map(job => (
-          <View key={job.id} style={styles.jobCard}>
-            <View style={styles.jobContent}>
-              <Text style={styles.postedDate}>{job.postedDate}</Text>
-              <Text style={styles.jobTitle}>{job.title}</Text>
-              <Text style={styles.jobSubTitle}>{job.subTitle}</Text>
-              <Text style={styles.jobDescription} numberOfLines={3} ellipsizeMode="tail">
-                {job.description}
-              </Text>
-              <TouchableOpacity onPress={() => handleSeeMorePress(job.id)}>
-                <Text style={styles.seeMoreText}>See More</Text>
-              </TouchableOpacity>
-              
-              <View style={styles.jobFooter}>
-                <View style={styles.categoryBadge}>
-                  <Text style={styles.categoryText}>{job.category}</Text>
-                </View>
-                <View style={styles.priceLocationContainer}>
-                  <Text style={styles.priceText}>{job.price}</Text>
-                  <View style={styles.locationContainer}>
-                    <Ionicons name="location-outline" size={14} color="#666" />
-                    <Text style={styles.locationText}>{job.location}</Text>
+      {loading ? (
+        <ActivityIndicator size="large" color="#000" />
+      ) : (
+        <ScrollView style={styles.scrollView}>
+          {displayedJobs.length > 0 ? (
+            displayedJobs.map((job) => (
+              <View key={job.id} style={styles.jobCard}>
+                <View style={styles.jobContent}>
+                <Text style={styles.postedDate}>
+                  {new Date(job.datePosted).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </Text>
+                  <Text style={styles.jobTitle}>{job.jobTitle}</Text>
+         
+                  <Text style={styles.jobDescription} numberOfLines={3} ellipsizeMode="tail">
+                    {job.jobDescription}
+                  </Text>
+                  <TouchableOpacity onPress={() => handleSeeMorePress(job)}>
+                    <Text style={styles.seeMoreText}>See More</Text>
+                  </TouchableOpacity>
+                  
+                  <View style={styles.jobFooter}>
+                    <View style={styles.categoryBadge}>
+                      <Text style={styles.categoryText}>{job.category.join(", ")}</Text>
+                    </View>
+                    <View style={styles.priceLocationContainer}>
+                      <Text style={styles.priceText}>{job.budget}</Text>
+                      <View style={styles.locationContainer}>
+                        <Ionicons name="location-outline" size={14} color="#666" />
+                        <Text style={styles.locationText}>{job.jobLocation}</Text>
+                      </View>
+                    </View>
                   </View>
                 </View>
-              </View>
-            </View>
-            <View style={styles.jobImageContainer}>
+                <View style={styles.jobImageContainer}>
               <Image 
                 source={job.image} 
                 style={styles.jobImage}
@@ -202,9 +179,14 @@ export default function JobListingScreen() {
               />
               <View style={styles.imageOverlay} />
             </View>
-          </View>
-        ))}
-      </ScrollView>
+              </View>
+              
+            ))
+          ) : (
+            <Text >No jobs found.</Text>
+          )}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
