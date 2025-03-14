@@ -1,40 +1,53 @@
-import React, { useState, useRef } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  TouchableOpacity, 
-  Image, 
-  SafeAreaView, 
+import React, { useState, useRef } from "react";
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  Image,
+  SafeAreaView,
   StatusBar,
   ScrollView,
   Dimensions,
-  FlatList
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+  FlatList,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter, useLocalSearchParams } from "expo-router";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 export default function JobDetailsScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+
+  const jobData = {
+    title: params.title as string,
+    postedDate: params.postedDate as string,
+    description: params.description as string,
+    rate: params.rate as string,
+    location: params.location as string,
+    // images: params.images ? JSON.parse(params.images as string) : [],
+    images:[
+      require('assets/images/client-user.png'),
+      require('assets/images/client-user.png'),
+      require('assets/images/client-user.png'),
+    ]
+  };
+
   const [activeSlide, setActiveSlide] = useState<number>(0);
   const flatListRef = useRef<FlatList>(null);
-  
+
   const handleBackPress = () => {
     router.back();
   };
-  
+
   const handleApplyNow = () => {
-    console.log('Apply now pressed');
+    console.log("Apply now pressed");
   };
-  
+
   const handleDotPress = (index: number) => {
     setActiveSlide(index);
-    flatListRef.current?.scrollToIndex({
-      index,
-      animated: true
-    });
+    flatListRef.current?.scrollToIndex({ index, animated: true });
   };
 
   const handleScroll = (event: any) => {
@@ -45,64 +58,47 @@ export default function JobDetailsScreen() {
     }
   };
 
-  const jobData = {
-    title: 'Hiring Maid Asap',
-    postedDate: 'Posted March 17, 2025',
-    description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam in dui odio. Aenean non ante.',
-    rate: '500 Php',
-    location: 'Near Carig Norte Highway',
-    images: [
-      require('assets/images/placeholder.png'),
-      require('assets/images/placeholder.png'),
-      require('assets/images/placeholder.png')
-    ]
-  };
-  
-  const renderImageItem = ({ item }: { item: any }) => {
-    return (
-      <View style={styles.imageItem}>
-        <Image 
-          source={item} 
-          style={styles.carouselImage}
-          resizeMode="cover"
-        />
-      </View>
-    );
-  };
-  
+  const renderImageItem = ({ item }: { item: any }) => (
+    <View style={styles.imageItem}>
+      <Image source={item} style={styles.carouselImage} resizeMode="cover" />
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      
+
       <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={handleBackPress}
-          style={styles.backButton}
-        >
+        <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
           <Ionicons name="arrow-back-circle-outline" size={32} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Job Details</Text>
       </View>
-      
+
       <ScrollView style={styles.scrollView}>
         <View style={styles.contentContainer}>
           <Text style={styles.jobTitle}>{jobData.title}</Text>
-          <Text style={styles.postedDate}>{jobData.postedDate}</Text>
-          
+          <Text style={styles.postedDate}>
+          {new Date(jobData.postedDate).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })}
+          </Text>
           <Text style={styles.jobDescription}>{jobData.description}</Text>
-          
+
           <View style={styles.detailsContainer}>
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Rate:</Text>
               <Text style={styles.detailValue}>{jobData.rate}</Text>
             </View>
-            
+
             <View style={styles.detailRow}>
               <Ionicons name="location" size={16} color="#000" />
               <Text style={styles.locationText}>{jobData.location}</Text>
             </View>
           </View>
-          
+
           <View style={styles.imageSliderContainer}>
             <FlatList
               ref={flatListRef}
@@ -113,19 +109,17 @@ export default function JobDetailsScreen() {
               renderItem={renderImageItem}
               keyExtractor={(_, index) => index.toString()}
               onScroll={handleScroll}
-              onMomentumScrollEnd={handleScroll}
-              decelerationRate="fast"
               snapToInterval={width}
               snapToAlignment="center"
             />
-            
+
             <View style={styles.paginationContainer}>
-              {jobData.images.map((_, index: number) => (
+              {jobData.images.map((_: any, index: number) => (
                 <TouchableOpacity
                   key={index}
                   style={[
                     styles.paginationDot,
-                    activeSlide === index && styles.paginationDotActive
+                    activeSlide === index && styles.paginationDotActive,
                   ]}
                   onPress={() => handleDotPress(index)}
                 />
@@ -134,12 +128,9 @@ export default function JobDetailsScreen() {
           </View>
         </View>
       </ScrollView>
-      
+
       <View style={styles.footer}>
-        <TouchableOpacity 
-          style={styles.applyButton}
-          onPress={handleApplyNow}
-        >
+        <TouchableOpacity style={styles.applyButton} onPress={handleApplyNow}>
           <Text style={styles.applyButtonText}>Apply now</Text>
         </TouchableOpacity>
       </View>
