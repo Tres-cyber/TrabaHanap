@@ -37,8 +37,10 @@ export default function SignInScreen() {
       await AsyncStorage.setItem("token", data.token);
       setMessage("Login successful!");
 
-      const isJobSeeker = data.user?.userType === "jobSeeker";
-      router.push(isJobSeeker ? "/job-seeker-home" : "/(client)/client-home");
+      const isJobSeeker = data.user?.userType === "job-seeker";
+      router.push(
+        isJobSeeker ? "/(job-seeker)/job-seeker-home" : "/(client)/client-home",
+      );
     } catch (error) {
       console.error("Login error:", error);
     }

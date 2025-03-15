@@ -8,10 +8,34 @@ import {
   Image,
   SafeAreaView,
   StatusBar,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useQuery } from "@tanstack/react-query";
+import { fetchJobListings } from "@/api/client-request";
+
+interface JobDetails {
+  id: string;
+  jobTitle: string;
+  jobDescription: string;
+  category: string;
+  jobLocation: string;
+  jobStatus: string;
+  budget: string;
+  datePosted: string;
+}
+function reverseCamelCase(str: string) {
+  let result = str.replace(/([A-Z])/g, " $1").toLowerCase();
+  result = result.replace(/\s+and\b/g, " & ");
+
+  result = result.replace(/(^|\s)([a-z])/g, function (match, space, letter) {
+    return space + letter.toUpperCase();
+  });
+
+  return result.trim();
+}
 
 export default function JobListingScreen() {
   const router = useRouter();
@@ -28,37 +52,21 @@ export default function JobListingScreen() {
     });
   };
 
-  const handleEditJobPress = (jobId: number) => {
+  const handleEditJobPress = (jobId: string) => {
     router.push({
       pathname: "client-screen/edit-jobs" as any,
       params: { jobId },
     });
   };
 
-  const handleDeleteJobPress = (jobId: number) => {
+  const handleDeleteJobPress = (jobId: string) => {
     console.log(`Deleting job with ID: ${jobId}`);
   };
 
-  const jobs = [
-    {
-      id: 1,
-      title: "Hiring Maid",
-      description:
-        "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed aliquam commodo quam vel blandit. Ut sit amet mollis orci.",
-      category: "Cleaning",
-      status: "Pending",
-      date: "March, 7 2024",
-    },
-    {
-      id: 2,
-      title: "Hiring Electrician",
-      description:
-        "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed aliquam commodo quam vel blandit. Ut sit amet mollis orci.",
-      category: "Electrician",
-      status: "Done",
-      date: "March, 15 2024",
-    },
-  ];
+  const { data, isFetching } = useQuery({
+    queryKey: ["client-data"],
+    queryFn: fetchJobListings,
+  });
 
   const handleCheckToken = async () => {
     const dataToken = await AsyncStorage.getItem("token");
@@ -72,7 +80,7 @@ export default function JobListingScreen() {
     setTimeout(() => {
       handleCheckToken();
     }, 2000);
-  });
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -110,55 +118,73 @@ export default function JobListingScreen() {
       </View>
 
       <ScrollView style={styles.scrollView}>
-        {jobs.map((job) => (
-          <View key={job.id} style={styles.jobCard}>
-            <View style={styles.jobHeader}>
-              <Text style={styles.jobTitle}>{job.title}</Text>
+        {!isFetching ? (
+          data.map((job: JobDetails) => (
+            <View key={job.id} style={styles.jobCard}>
+              <View style={styles.jobHeader}>
+                <Text style={styles.jobTitle}>{job.jobTitle}</Text>
 
-              <View style={styles.actionsContainer}>
-                <TouchableOpacity
-                  onPress={() => handleEditJobPress(job.id)}
-                  style={styles.actionButton}
-                >
-                  <Feather name="edit" size={18} color="#000" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => handleDeleteJobPress(job.id)}
-                  style={styles.actionButton}
-                >
-                  <Feather name="trash-2" size={18} color="#ff4444" />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <Text style={styles.jobDescription}>{job.description}</Text>
-
-            <View style={styles.jobFooter}>
-              <View
-                style={[
-                  styles.categoryBadge,
-                  {
-                    backgroundColor:
-                      job.category === "Cleaning" ? "#9b59b6" : "#3498db",
-                  },
-                ]}
-              >
-                <Text style={styles.categoryText}>{job.category}</Text>
+                <View style={styles.actionsContainer}>
+                  <TouchableOpacity
+                    onPress={() => handleEditJobPress(job.id)}
+                    style={styles.actionButton}
+                  >
+                    <Feather name="edit" size={18} color="#000" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleDeleteJobPress(job.id)}
+                    style={styles.actionButton}
+                  >
+                    <Feather name="trash-2" size={18} color="#ff4444" />
+                  </TouchableOpacity>
+                </View>
               </View>
 
-              <Text
-                style={[
-                  styles.statusText,
-                  { color: job.status === "Pending" ? "#f39c12" : "#2ecc71" },
-                ]}
-              >
-                {job.status}
-              </Text>
+              <Text style={styles.jobDescription}>{job.jobDescription}</Text>
 
-              <Text style={styles.dateText}>{job.date}</Text>
+              <View style={styles.jobFooter}>
+                <View
+                  style={[
+                    styles.categoryBadge,
+                    {
+                      backgroundColor:
+                        job.category === "plumbing" ? "#9b59b6" : "#3498db",
+                    },
+                  ]}
+                >
+                  <Text style={styles.categoryText}>
+                    {reverseCamelCase(job.category)}
+                  </Text>
+                </View>
+
+                <Text
+                  style={[
+                    styles.statusText,
+                    {
+                      color: job.jobStatus === "Open" ? "#f39c12" : "#2ecc71",
+                    },
+                  ]}
+                >
+                  {job.jobStatus.charAt(0).toUpperCase() +
+                    job.jobStatus.slice(1)}
+                </Text>
+
+                <Text style={styles.dateText}>
+                  {new Date(job.datePosted).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </Text>
+              </View>
             </View>
-          </View>
-        ))}
+          ))
+        ) : (
+          <Text>
+            {" "}
+            <ActivityIndicator size="large" />
+          </Text>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
