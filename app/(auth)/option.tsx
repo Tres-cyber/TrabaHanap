@@ -9,8 +9,7 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
+import decodeToken from "@/api/token-decoder";
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -24,13 +23,9 @@ export default function WelcomeScreen() {
   };
 
   const handleCheckToken = async () => {
-    const dataToken = await AsyncStorage.getItem("token");
-    const decodedToken = await axios.get(
-      `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/decodeToken`,
-      { params: { token: dataToken } },
-    );
+    const { data, config } = await decodeToken();
 
-    if (dataToken && decodedToken.data.userType == "client") {
+    if (config.params && data.userType == "client") {
       router.push("/(client)/client-home");
     } else {
       router.push("/(auth)/sign_in");

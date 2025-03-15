@@ -1,4 +1,5 @@
 import axios from "axios";
+import decodeToken from "@/api/token-decoder";
 
 export async function AddJobRequest(params) {
   const formData = new FormData();
@@ -41,4 +42,13 @@ export async function AddJobRequest(params) {
   } catch (e) {
     console.log(e);
   }
+}
+
+export async function fetchJobListings() {
+  const { data } = await decodeToken();
+  const getClientListings = await axios.get(
+    `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/client-home/job-listings`,
+    { params: { client: data.id } },
+  );
+  return getClientListings.data;
 }
