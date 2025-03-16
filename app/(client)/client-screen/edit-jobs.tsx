@@ -67,6 +67,7 @@ interface JobData {
   description: string;
   position: string;
   budget: string;
+  duration: string;
   location: string;
   imageUri: string | null;
 }
@@ -77,6 +78,7 @@ const mockJobData: JobData = {
   description: 'Need an experienced plumber to fix a leaking sink in my bathroom. The issue started last week and is getting worse.',
   position: 'Plumbing',
   budget: '150',
+  duration: '5 Hours',
   location: 'Makati City',
   imageUri: null 
 };
@@ -87,6 +89,7 @@ interface FormState {
   position: string;
   budget: string;
   location: string;
+  duration: string;
   image: string | null;
 }
 
@@ -100,16 +103,18 @@ export default function EditJobScreen() {
   const [position, setPosition] = useState('');
   const [budget, setBudget] = useState('');
   const [location, setLocation] = useState('');
+  const [duration, setDuration] = useState('');
   const [image, setImage] = useState<string | null>(null);
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   const [titleError, setTitleError] = useState(false);
-  const [positionError, setPositionError] = useState(false);
+  const [positionError, setPositionError] = useState(false)
   const [initialFormState, setInitialFormState] = useState<FormState>({
     jobTitle: '',
     description: '',
     position: '',
     budget: '',
+    duration: '',
     location: '',
     image: null
   });
@@ -129,6 +134,7 @@ export default function EditJobScreen() {
     setPosition(jobData.position);
     setBudget(jobData.budget);
     setLocation(jobData.location);
+    setDuration(jobData.duration);
     setImage(jobData.imageUri);
     
 
@@ -138,6 +144,7 @@ export default function EditJobScreen() {
       position: jobData.position,
       budget: jobData.budget,
       location: jobData.location,
+      duration: jobData.duration,
       image: jobData.imageUri
     });
   };
@@ -173,6 +180,7 @@ export default function EditJobScreen() {
         position,
         budget,
         location,
+        duration,
         image
       };
       
@@ -332,6 +340,14 @@ export default function EditJobScreen() {
           style={styles.input}
           value={budget}
           onChangeText={setBudget}
+          placeholder="Enter budget"
+          keyboardType="numeric"
+        />
+        <Text style={styles.label}>Duration</Text>
+        <TextInput 
+          style={styles.input}
+          value={budget}
+          onChangeText={setDuration}
           placeholder="Enter budget"
           keyboardType="numeric"
         />
@@ -499,6 +515,7 @@ export default function EditJobScreen() {
                   position,
                   budget,
                   location,
+                  duration,
                   image
                 });
                 setUnsavedChanges(false);
