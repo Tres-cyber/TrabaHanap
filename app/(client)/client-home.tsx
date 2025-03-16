@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -13,8 +13,8 @@ import {
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useQuery } from "@tanstack/react-query";
-import { fetchJobListings } from "@/api/client-request";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { fetchJobListings, deleteJobListing } from "@/api/client-request";
 
 interface JobDetails {
   id: string;
@@ -45,6 +45,7 @@ export default function JobListingScreen() {
   const handleSearchPress = () => {};
 
   const handleNotificationPress = () => {};
+  const client = useQueryClient();
 
   const handleAddJobPress = () => {
     router.push({
@@ -60,12 +61,19 @@ export default function JobListingScreen() {
   };
 
   const handleDeleteJobPress = (jobId: string) => {
-    console.log(`Deleting job with ID: ${jobId}`);
+    deleteListReload(jobId);
   };
 
-  const { data, isFetching } = useQuery({
+  const { data, isFetching, refetch } = useQuery({
     queryKey: ["client-data"],
-    queryFn: fetchJobListings,
+    queryFn: () => fetchJobListings(),
+  });
+
+  const { mutateAsync: deleteListReload } = useMutation({
+    mutationFn: deleteJobListing,
+    onSuccess: () => {
+      refetch();
+    },
   });
 
   const handleCheckToken = async () => {
