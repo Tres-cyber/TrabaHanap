@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -13,7 +13,7 @@ import {
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { fetchJobListings, deleteJobListing } from "@/api/client-request";
 
 interface JobDetails {
@@ -45,7 +45,6 @@ export default function JobListingScreen() {
   const handleSearchPress = () => {};
 
   const handleNotificationPress = () => {};
-  const client = useQueryClient();
 
   const handleAddJobPress = () => {
     router.push({
@@ -67,6 +66,7 @@ export default function JobListingScreen() {
   const { data, isFetching, refetch } = useQuery({
     queryKey: ["client-data"],
     queryFn: () => fetchJobListings(),
+    refetchOnMount: true,
   });
 
   const { mutateAsync: deleteListReload } = useMutation({

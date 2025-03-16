@@ -248,7 +248,7 @@ export default function AddJobScreen() {
   const handleSuccessModalClose = () => {
     setSuccessModal(false);
     resetForm();
-    router.back();
+    router.push("/(client)/client-home");
   };
 
   const selectTag = (tag: string) => {
