@@ -27,7 +27,6 @@ export async function AddJobRequest(params) {
       formData.append(key, params[key]);
     }
   });
-  console.log(formData);
   try {
     const jobPost = await axios.post(
       `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/client-home/add-jobs`,
@@ -51,4 +50,13 @@ export async function fetchJobListings() {
     { params: { client: data.id } },
   );
   return getClientListings.data;
+}
+
+export async function deleteJobListing(id) {
+  const deleteListing = await axios.delete(
+    `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/client-home/delete-listing`,
+    { params: { jobID: id } },
+  );
+
+  return deleteListing.data;
 }

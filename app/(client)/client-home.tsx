@@ -13,8 +13,8 @@ import {
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useQuery } from "@tanstack/react-query";
-import { fetchJobListings } from "@/api/client-request";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { fetchJobListings, deleteJobListing } from "@/api/client-request";
 
 interface JobDetails {
   id: string;
@@ -60,12 +60,20 @@ export default function JobListingScreen() {
   };
 
   const handleDeleteJobPress = (jobId: string) => {
-    console.log(`Deleting job with ID: ${jobId}`);
+    deleteListReload(jobId);
   };
 
-  const { data, isFetching } = useQuery({
+  const { data, isFetching, refetch } = useQuery({
     queryKey: ["client-data"],
-    queryFn: fetchJobListings,
+    queryFn: () => fetchJobListings(),
+    refetchOnMount: true,
+  });
+
+  const { mutateAsync: deleteListReload } = useMutation({
+    mutationFn: deleteJobListing,
+    onSuccess: () => {
+      refetch();
+    },
   });
 
   const handleCheckToken = async () => {
