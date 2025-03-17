@@ -61,6 +61,8 @@ const allTags = jobCategories.reduce<string[]>((acc, category) => {
   return [...acc, ...category.tags];
 }, []);
 
+const MAX_IMAGES = 3;
+
 interface JobData {
   id: string;
   jobTitle: string;
@@ -69,7 +71,7 @@ interface JobData {
   budget: string;
   duration: string;
   location: string;
-  imageUri: string | null;
+  imageUri: string[] | null;
 }
 
 const mockJobData: JobData = {
@@ -90,7 +92,7 @@ interface FormState {
   budget: string;
   location: string;
   duration: string;
-  image: string | null;
+  imageUri: string[] | null;
 }
 
 export default function EditJobScreen() {
@@ -104,11 +106,11 @@ export default function EditJobScreen() {
   const [budget, setBudget] = useState('');
   const [location, setLocation] = useState('');
   const [duration, setDuration] = useState('');
-  const [image, setImage] = useState<string | null>(null);
+  const [images, setImages] = useState<string[]>([]);
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   const [titleError, setTitleError] = useState(false);
-  const [positionError, setPositionError] = useState(false)
+  const [positionError, setPositionError] = useState(false);
   const [initialFormState, setInitialFormState] = useState<FormState>({
     jobTitle: '',
     description: '',
@@ -116,7 +118,7 @@ export default function EditJobScreen() {
     budget: '',
     duration: '',
     location: '',
-    image: null
+    imageUri: null
   });
   
   const [showUnsavedChangesModal, setShowUnsavedChangesModal] = useState(false);
@@ -135,9 +137,8 @@ export default function EditJobScreen() {
     setBudget(jobData.budget);
     setLocation(jobData.location);
     setDuration(jobData.duration);
-    setImage(jobData.imageUri);
+    setImages(jobData.imageUri ? jobData.imageUri : []);
     
-
     setInitialFormState({
       jobTitle: jobData.jobTitle,
       description: jobData.description,
@@ -145,7 +146,7 @@ export default function EditJobScreen() {
       budget: jobData.budget,
       location: jobData.location,
       duration: jobData.duration,
-      image: jobData.imageUri
+      imageUri: jobData.imageUri
     });
   };
 
@@ -181,7 +182,7 @@ export default function EditJobScreen() {
         budget,
         location,
         duration,
-        image
+        imageUri: images.length > 0 ? images : null
       };
       
       const hasChanges = Object.keys(initialFormState).some(key => {
@@ -204,10 +205,19 @@ export default function EditJobScreen() {
       );
 
       return () => backHandler.remove();
-    }, [jobTitle, description, position, budget, location, image, initialFormState])
+    }, [jobTitle, description, position, budget, location, duration, images, initialFormState])
   );
 
   const pickImage = async () => {
+    if (images.length >= MAX_IMAGES) {
+      Alert.alert(
+        "Maximum Images",
+        `You can only upload up to ${MAX_IMAGES} images.`,
+        [{ text: "OK", style: "default" }],
+      );
+      return;
+    }
+  
     const hasPermission = await requestPermissions();
     if (!hasPermission) return;
     
@@ -220,7 +230,7 @@ export default function EditJobScreen() {
       });
       
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        setImage(result.assets[0].uri);
+        setImages([...images, result.assets[0].uri]);
       }
     } catch (error) {
       Alert.alert(
@@ -231,8 +241,10 @@ export default function EditJobScreen() {
     }
   };
 
-  const removeImage = () => {
-    setImage(null);
+  const removeImage = (index: number) => {
+    const newImages = [...images];
+    newImages.splice(index, 1);
+    setImages(newImages);
   };
 
   const validateForm = () => {
@@ -274,7 +286,8 @@ export default function EditJobScreen() {
     setPosition(initialFormState.position);
     setBudget(initialFormState.budget);
     setLocation(initialFormState.location);
-    setImage(initialFormState.image);
+    setDuration(initialFormState.duration);
+    setImages(initialFormState.imageUri ? initialFormState.imageUri : []);
     setUnsavedChanges(false);
   };
 
@@ -346,10 +359,9 @@ export default function EditJobScreen() {
         <Text style={styles.label}>Duration</Text>
         <TextInput 
           style={styles.input}
-          value={budget}
+          value={duration}
           onChangeText={setDuration}
-          placeholder="Enter budget"
-          keyboardType="numeric"
+          placeholder="Enter duration"
         />
         
         <Text style={styles.label}>Location</Text>
@@ -360,28 +372,30 @@ export default function EditJobScreen() {
           placeholder="Enter location"
         />
         
-        <Text style={styles.label}>Add an image</Text>
-        <TouchableOpacity 
-          style={styles.imageUploadContainer}
-          onPress={pickImage}
-        >
-          {image ? (
-            <View style={styles.imageContainer}>
-              <Image source={{ uri: image }} style={styles.uploadedImage} />
-              <TouchableOpacity 
-                style={styles.removeImageButton}
-                onPress={removeImage}
+         <Text style={styles.label}>Add images ({images.length}/{MAX_IMAGES})</Text>
+          <View style={styles.imageGrid}>
+            {images.map((uri, index) => (
+              <View key={index} style={styles.imageContainer}>
+                <Image source={{ uri }} style={styles.uploadedImage} />
+                <TouchableOpacity
+                  style={styles.removeImageButton}
+                  onPress={() => removeImage(index)}
+                >
+                  <Ionicons name="close-circle" size={24} color="#001F3F" />
+                </TouchableOpacity>
+              </View>
+            ))}
+
+            {images.length < MAX_IMAGES && (
+              <TouchableOpacity
+                style={styles.addImageContainer}
+                onPress={pickImage}
               >
-                <Ionicons name="close-circle" size={28} color="#001F3F" />
+                <Feather name="plus" size={32} color="#666" />
+                <Text style={styles.addImageText}>Add image</Text>
               </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.imagePlaceholder}>
-              <Feather name="image" size={32} color="#666" />
-              <Text style={styles.placeholderText}>Tap to select an image</Text>
-            </View>
-          )}
-        </TouchableOpacity>
+            )}
+        </View>
         
         <TouchableOpacity 
           style={[
@@ -471,7 +485,7 @@ export default function EditJobScreen() {
                 onPress={() => setShowUnsavedChangesModal(false)}
               >
                 <Text style={styles.stayButtonText}>Stay</Text>
-              </TouchableOpacity>
+                </TouchableOpacity>
               <TouchableOpacity 
                 style={styles.discardButton}
                 onPress={() => {
@@ -516,7 +530,7 @@ export default function EditJobScreen() {
                   budget,
                   location,
                   duration,
-                  image
+                  imageUri: images.length > 0 ? images : null
                 });
                 setUnsavedChanges(false);
                 router.back();
@@ -600,38 +614,50 @@ const styles = StyleSheet.create({
     height: 120,
     textAlignVertical: 'top',
   },
-  imageUploadContainer: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
+  imageGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     marginBottom: 24,
-    height: 200,
-    overflow: 'hidden',
   },
   imageContainer: {
-    width: '100%',
-    height: '100%',
-    position: 'relative',
-  },
-  imagePlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f9f9f9',
+    width: "30%",
+    aspectRatio: 1,
+    marginRight: "3%",
+    marginBottom: 12,
+    borderRadius: 8,
+    overflow: "hidden",
+    position: "relative",
+    borderWidth: 1,
+    borderColor: "#ddd",
   },
   uploadedImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
   },
   removeImageButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: 14,
-    padding: 2,
+    position: "absolute",
+    top: 4,
+    right: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
+    borderRadius: 12,
+    padding: 1,
+  },
+  addImageContainer: {
+    width: "30%",
+    aspectRatio: 1,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderStyle: "dashed",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f9f9f9",
+  },
+  addImageText: {
+    color: "#666",
+    fontSize: 14,
+    marginTop: 4,
   },
   placeholderText: {
     color: '#666',
