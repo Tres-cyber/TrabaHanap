@@ -20,7 +20,7 @@ interface JobRequest {
   id: number;
   jobTitle: string;
   jobDescription: string;
-  category: string[];
+  category: string;
   budget: string;
   jobLocation: string;
   datePosted: string;
@@ -98,20 +98,17 @@ export default function JobListingScreen() {
   };
 
   const matchingJobs = jobRequests.filter((job) =>
-    job.category.some((tag) =>
-      jobSeeker?.jobTags.some(
-        (userTag) => tag.toLowerCase() === userTag.toLowerCase(),
-      ),
-    ),
-  );
 
-  const otherJobs = jobRequests.filter(
-    (job) =>
-      !job.category.some((tag) =>
-        jobSeeker?.jobTags.some(
-          (userTag) => tag.toLowerCase() === userTag.toLowerCase(),
-        ),
-      ),
+    jobSeeker?.jobTags.some(
+      (tag) => tag.toLowerCase() === job.category.toLowerCase()
+    )
+  );
+  
+  const otherJobs = jobRequests.filter((job) =>
+    !jobSeeker?.jobTags.some(
+      (tag) => tag.toLowerCase() === job.category.toLowerCase()
+    )
+
   );
 
   const displayedJobs = activeTab === "suggested" ? matchingJobs : otherJobs;
@@ -139,17 +136,11 @@ export default function JobListingScreen() {
       </View>
 
       <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={styles.tab}
-          onPress={() => handleTabPress("suggested")}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === "suggested" && styles.activeTab,
-            ]}
-          >
-            Suggested Jobs
+
+        <TouchableOpacity style={styles.tab} onPress={() => handleTabPress('suggested')}>
+          <Text style={[styles.tabText, activeTab === 'suggested' && styles.activeTab]}>
+            Best Matches
+
           </Text>
           {activeTab === "suggested" && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
@@ -197,9 +188,7 @@ export default function JobListingScreen() {
 
                   <View style={styles.jobFooter}>
                     <View style={styles.categoryBadge}>
-                      <Text style={styles.categoryText}>
-                        {job.category.join(", ")}
-                      </Text>
+                      <Text style={styles.categoryText}>{job.category}</Text>
                     </View>
                     <View style={styles.priceLocationContainer}>
                       <Text style={styles.priceText}>{job.budget}</Text>
