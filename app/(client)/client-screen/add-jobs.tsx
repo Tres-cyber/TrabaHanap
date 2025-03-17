@@ -18,7 +18,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { AddJobRequest } from "@/api/client-request";
 import axios from "axios";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+//import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const jobCategories = [
   {
@@ -78,6 +78,7 @@ export default function AddJobScreen() {
   const [position, setPosition] = useState("");
   const [budget, setBudget] = useState("");
   const [location, setLocation] = useState("");
+  const [duration, setDuration] = useState("");
   const [images, setImages] = useState<string[]>([]);
 
   const [showTagPicker, setShowTagPicker] = useState(false);
@@ -93,6 +94,7 @@ export default function AddJobScreen() {
     setPosition("");
     setBudget("");
     setLocation("");
+    setDuration("");
     setImages([]);
 
     setTitleError(false);
@@ -237,12 +239,14 @@ export default function AddJobScreen() {
   };
 
   const handleCheckToken = async () => {
-    const dataToken = await AsyncStorage.getItem("token");
+    {/*
+          const dataToken = await AsyncStorage.getItem("token");
     const decodedToken = await axios.get(
       `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/decodeToken`,
       { params: { token: dataToken } },
     );
     return decodedToken.data;
+  */}
   };
 
   const handleSuccessModalClose = () => {
@@ -321,6 +325,14 @@ export default function AddJobScreen() {
           placeholder="Enter budget"
           keyboardType="numeric"
         />
+         <Text style={styles.label}>Duration</Text>
+        <TextInput
+          style={styles.input}
+          value={duration}
+          onChangeText={setDuration}
+          placeholder="Enter duration"
+          keyboardType="numeric"
+        />
 
         <Text style={styles.label}>Location</Text>
         <TextInput
@@ -334,7 +346,6 @@ export default function AddJobScreen() {
           Add images ({images.length}/{MAX_IMAGES})
         </Text>
 
-        {/* Image Grid */}
         <View style={styles.imageGrid}>
           {images.map((uri, index) => (
             <View key={index} style={styles.imageContainer}>
