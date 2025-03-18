@@ -1,21 +1,22 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  TouchableOpacity, 
-  TextInput, 
-  ScrollView, 
-  Image, 
+import React, { useState, useCallback, useEffect } from "react";
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  TextInput,
+  ScrollView,
+  Image,
   SafeAreaView,
   Modal,
   FlatList,
   Alert,
-  BackHandler
-} from 'react-native';
-import { Ionicons, Feather, MaterialIcons } from '@expo/vector-icons';
-import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
+  BackHandler,
+} from "react-native";
+import { Ionicons, Feather, MaterialIcons } from "@expo/vector-icons";
+import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
+import { fetchSingleJobListing } from "@/api/client-request";
 
 const jobCategories = [
   {
@@ -30,8 +31,8 @@ const jobCategories = [
       "Glass Installation",
       "Aircon Repair & Cleaning",
       "Appliance Repair",
-      "Pest Control Services"
-    ]
+      "Pest Control Services",
+    ],
   },
   {
     title: "🚗 Vehicle Services",
@@ -40,8 +41,8 @@ const jobCategories = [
       "Car Wash",
       "Motorcycle Repair",
       "Car Aircon Repair",
-      "Window Tinting"
-    ]
+      "Window Tinting",
+    ],
   },
   {
     title: "👨‍👩‍👧‍👦 Housekeeping Services",
@@ -52,9 +53,9 @@ const jobCategories = [
       "Pet Grooming & Pet Care",
       "Home Cleaning Services",
       "Laundry Services",
-      "Gardening"
-    ]
-  }
+      "Gardening",
+    ],
+  },
 ];
 
 const allTags = jobCategories.reduce<string[]>((acc, category) => {
@@ -74,15 +75,16 @@ interface JobData {
   imageUri: string[] | null;
 }
 
-const mockJobData: JobData = {
-  id: '123',
-  jobTitle: 'Fix Leaking Sink',
-  description: 'Need an experienced plumber to fix a leaking sink in my bathroom. The issue started last week and is getting worse.',
-  position: 'Plumbing',
-  budget: '150',
-  duration: '5 Hours',
-  location: 'Makati City',
-  imageUri: null 
+const singleJobData: JobData = {
+  id: "123",
+  jobTitle: "Fix Leaking Sink",
+  description:
+    "Need an experienced plumber to fix a leaking sink in my bathroom. The issue started last week and is getting worse.",
+  position: "Plumbing",
+  budget: "150",
+  duration: "5 Hours",
+  location: "Makati City",
+  imageUri: null,
 };
 
 interface FormState {
@@ -100,27 +102,27 @@ export default function EditJobScreen() {
   const params = useLocalSearchParams();
   const jobId = params.id as string;
 
-  const [jobTitle, setJobTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [position, setPosition] = useState('');
-  const [budget, setBudget] = useState('');
-  const [location, setLocation] = useState('');
-  const [duration, setDuration] = useState('');
+  const [jobTitle, setJobTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [position, setPosition] = useState("");
+  const [budget, setBudget] = useState("");
+  const [location, setLocation] = useState("");
+  const [duration, setDuration] = useState("");
   const [images, setImages] = useState<string[]>([]);
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   const [titleError, setTitleError] = useState(false);
   const [positionError, setPositionError] = useState(false);
   const [initialFormState, setInitialFormState] = useState<FormState>({
-    jobTitle: '',
-    description: '',
-    position: '',
-    budget: '',
-    duration: '',
-    location: '',
-    imageUri: null
+    jobTitle: "",
+    description: "",
+    position: "",
+    budget: "",
+    duration: "",
+    location: "",
+    imageUri: null,
   });
-  
+
   const [showUnsavedChangesModal, setShowUnsavedChangesModal] = useState(false);
   const [showJobUpdatedModal, setShowJobUpdatedModal] = useState(false);
 
@@ -128,17 +130,26 @@ export default function EditJobScreen() {
     loadJobData();
   }, [jobId]);
 
-  const loadJobData = () => {
-    const jobData = mockJobData;
-    
+  const loadJobData = async () => {
+    const jobData = await fetchSingleJobListing(jobId);
+
+    const parsedImage = jobData.jobImage.map(
+      (imgPath: string) =>
+        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${imgPath}`,
+    );
+
+    console.log("Parsed Image", parsedImage);
+    console.log(jobData);
+
     setJobTitle(jobData.jobTitle);
-    setDescription(jobData.description);
-    setPosition(jobData.position);
+    setDescription(jobData.jobDescription);
+    setPosition(jobData.category);
     setBudget(jobData.budget);
-    setLocation(jobData.location);
+    setLocation(jobData.jobLocation);
     setDuration(jobData.duration);
-    setImages(jobData.imageUri ? jobData.imageUri : []);
-    
+    // setImages(jobData.imageUri ? jobData.imageUri : []);
+    setImages(parsedImage);
+
     setInitialFormState({
       jobTitle: jobData.jobTitle,
       description: jobData.description,
@@ -146,17 +157,17 @@ export default function EditJobScreen() {
       budget: jobData.budget,
       location: jobData.location,
       duration: jobData.duration,
-      imageUri: jobData.imageUri
+      imageUri: jobData.jobImage,
     });
   };
 
   const requestPermissions = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
+    if (status !== "granted") {
       Alert.alert(
         "Permission Required",
         "Please allow access to your photo library to upload images.",
-        [{ text: "OK", style: "default" }]
+        [{ text: "OK", style: "default" }],
       );
       return false;
     }
@@ -166,7 +177,7 @@ export default function EditJobScreen() {
   const handleGoBack = () => {
     if (unsavedChanges) {
       setShowUnsavedChangesModal(true);
-      return true; 
+      return true;
     } else {
       router.back();
       return true;
@@ -182,30 +193,39 @@ export default function EditJobScreen() {
         budget,
         location,
         duration,
-        imageUri: images.length > 0 ? images : null
+        imageUri: images.length > 0 ? images : null,
       };
-      
-      const hasChanges = Object.keys(initialFormState).some(key => {
+
+      const hasChanges = Object.keys(initialFormState).some((key) => {
         const formKey = key as keyof FormState;
         return initialFormState[formKey] !== currentFormState[formKey];
       });
-      
+
       setUnsavedChanges(hasChanges);
-      
+
       const backHandler = BackHandler.addEventListener(
-        'hardwareBackPress',
+        "hardwareBackPress",
         () => {
           if (hasChanges) {
             setShowUnsavedChangesModal(true);
-            return true; 
+            return true;
           }
           router.back();
           return true;
-        }
+        },
       );
 
       return () => backHandler.remove();
-    }, [jobTitle, description, position, budget, location, duration, images, initialFormState])
+    }, [
+      jobTitle,
+      description,
+      position,
+      budget,
+      location,
+      duration,
+      images,
+      initialFormState,
+    ]),
   );
 
   const pickImage = async () => {
@@ -217,10 +237,10 @@ export default function EditJobScreen() {
       );
       return;
     }
-  
+
     const hasPermission = await requestPermissions();
     if (!hasPermission) return;
-    
+
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -228,7 +248,7 @@ export default function EditJobScreen() {
         aspect: [4, 3],
         quality: 0.8,
       });
-      
+
       if (!result.canceled && result.assets && result.assets.length > 0) {
         setImages([...images, result.assets[0].uri]);
       }
@@ -236,7 +256,7 @@ export default function EditJobScreen() {
       Alert.alert(
         "Image Selection Failed",
         "There was a problem selecting your image. Please try again.",
-        [{ text: "OK", style: "default" }]
+        [{ text: "OK", style: "default" }],
       );
     }
   };
@@ -249,20 +269,20 @@ export default function EditJobScreen() {
 
   const validateForm = () => {
     let isValid = true;
-    
+
     setTitleError(false);
     setPositionError(false);
-    
+
     if (!jobTitle.trim()) {
       setTitleError(true);
       isValid = false;
     }
-  
+
     if (!position) {
       setPositionError(true);
       isValid = false;
     }
-    
+
     return isValid;
   };
 
@@ -272,11 +292,11 @@ export default function EditJobScreen() {
         "Missing Information",
         "Please provide a job title and select a position before updating.",
         [{ text: "OK", style: "default" }],
-        { cancelable: true }
+        { cancelable: true },
       );
       return;
     }
-    
+
     setShowJobUpdatedModal(true);
   };
 
@@ -296,23 +316,26 @@ export default function EditJobScreen() {
     setPositionError(false);
     setShowTagPicker(false);
   };
-  
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={handleGoBack}
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back-circle-outline" size={36} color="#001F3F" />
+        <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
+          <Ionicons
+            name="arrow-back-circle-outline"
+            size={36}
+            color="#001F3F"
+          />
         </TouchableOpacity>
       </View>
-      
+
       <Text style={styles.title}>Edit job</Text>
-      
+
       <ScrollView style={styles.scrollView}>
-        <Text style={styles.label}>Job title <Text style={styles.required}>*</Text></Text>
-        <TextInput 
+        <Text style={styles.label}>
+          Job title <Text style={styles.required}>*</Text>
+        </Text>
+        <TextInput
           style={[styles.input, titleError && styles.inputError]}
           value={jobTitle}
           onChangeText={(text) => {
@@ -324,9 +347,9 @@ export default function EditJobScreen() {
         {titleError && (
           <Text style={styles.errorText}>Job title is required</Text>
         )}
-        
+
         <Text style={styles.label}>Description</Text>
-        <TextInput 
+        <TextInput
           style={styles.textArea}
           value={description}
           onChangeText={setDescription}
@@ -334,9 +357,11 @@ export default function EditJobScreen() {
           multiline
           numberOfLines={4}
         />
-        
-        <Text style={styles.label}>Position <Text style={styles.required}>*</Text></Text>
-        <TouchableOpacity 
+
+        <Text style={styles.label}>
+          Position <Text style={styles.required}>*</Text>
+        </Text>
+        <TouchableOpacity
           style={[styles.input, positionError && styles.inputError]}
           onPress={() => setShowTagPicker(true)}
         >
@@ -349,7 +374,7 @@ export default function EditJobScreen() {
         )}
 
         <Text style={styles.label}>Budget</Text>
-        <TextInput 
+        <TextInput
           style={styles.input}
           value={budget}
           onChangeText={setBudget}
@@ -357,59 +382,61 @@ export default function EditJobScreen() {
           keyboardType="numeric"
         />
         <Text style={styles.label}>Duration</Text>
-        <TextInput 
+        <TextInput
           style={styles.input}
           value={duration}
           onChangeText={setDuration}
           placeholder="Enter duration"
         />
-        
+
         <Text style={styles.label}>Location</Text>
-        <TextInput 
+        <TextInput
           style={styles.input}
           value={location}
           onChangeText={setLocation}
           placeholder="Enter location"
         />
-        
-         <Text style={styles.label}>Add images ({images.length}/{MAX_IMAGES})</Text>
-          <View style={styles.imageGrid}>
-            {images.map((uri, index) => (
-              <View key={index} style={styles.imageContainer}>
-                <Image source={{ uri }} style={styles.uploadedImage} />
-                <TouchableOpacity
-                  style={styles.removeImageButton}
-                  onPress={() => removeImage(index)}
-                >
-                  <Ionicons name="close-circle" size={24} color="#001F3F" />
-                </TouchableOpacity>
-              </View>
-            ))}
 
-            {images.length < MAX_IMAGES && (
+        <Text style={styles.label}>
+          Add images ({images.length}/{MAX_IMAGES})
+        </Text>
+        <View style={styles.imageGrid}>
+          {images.map((uri, index) => (
+            <View key={index} style={styles.imageContainer}>
+              <Image source={{ uri }} style={styles.uploadedImage} />
               <TouchableOpacity
-                style={styles.addImageContainer}
-                onPress={pickImage}
+                style={styles.removeImageButton}
+                onPress={() => removeImage(index)}
               >
-                <Feather name="plus" size={32} color="#666" />
-                <Text style={styles.addImageText}>Add image</Text>
+                <Ionicons name="close-circle" size={24} color="#001F3F" />
               </TouchableOpacity>
-            )}
+            </View>
+          ))}
+
+          {images.length < MAX_IMAGES && (
+            <TouchableOpacity
+              style={styles.addImageContainer}
+              onPress={pickImage}
+            >
+              <Feather name="plus" size={32} color="#666" />
+              <Text style={styles.addImageText}>Add image</Text>
+            </TouchableOpacity>
+          )}
         </View>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={[
             styles.updateButton,
-            (!jobTitle.trim() || !position) && styles.updateButtonDisabled
+            (!jobTitle.trim() || !position) && styles.updateButtonDisabled,
           ]}
           onPress={handleUpdate}
         >
           <Text style={styles.updateButtonText}>Update Job</Text>
         </TouchableOpacity>
-        
+
         <View style={{ height: 30 }} />
       </ScrollView>
-      
+
       <Modal
         animationType="slide"
         transparent={true}
@@ -420,14 +447,14 @@ export default function EditJobScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Position</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.closeButton}
                 onPress={() => setShowTagPicker(false)}
               >
                 <Ionicons name="close" size={24} color="#001F3F" />
               </TouchableOpacity>
             </View>
-            
+
             <FlatList
               data={jobCategories}
               keyExtractor={(item) => item.title}
@@ -435,24 +462,28 @@ export default function EditJobScreen() {
                 <View>
                   <Text style={styles.categoryTitle}>{item.title}</Text>
                   {item.tags.map((tag) => (
-                    <TouchableOpacity 
-                      key={tag} 
+                    <TouchableOpacity
+                      key={tag}
                       style={[
                         styles.tagItem,
-                        position === tag && styles.selectedTagItem
+                        position === tag && styles.selectedTagItem,
                       ]}
                       onPress={() => selectTag(tag)}
                     >
-                      <Text 
+                      <Text
                         style={[
                           styles.tagText,
-                          position === tag && styles.selectedTagText
+                          position === tag && styles.selectedTagText,
                         ]}
                       >
                         {tag}
                       </Text>
                       {position === tag && (
-                        <Ionicons name="checkmark-circle" size={24} color="#001F3F" />
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={24}
+                          color="#001F3F"
+                        />
                       )}
                     </TouchableOpacity>
                   ))}
@@ -480,20 +511,20 @@ export default function EditJobScreen() {
               You have unsaved changes that will be lost.
             </Text>
             <View style={styles.modalButtonsContainer}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.stayButton}
                 onPress={() => setShowUnsavedChangesModal(false)}
               >
                 <Text style={styles.stayButtonText}>Stay</Text>
-                </TouchableOpacity>
-              <TouchableOpacity 
+              </TouchableOpacity>
+              <TouchableOpacity
                 style={styles.discardButton}
                 onPress={() => {
                   console.log("Discarding changes...");
                   setShowUnsavedChangesModal(false);
-             
+
                   resetFormToInitialState();
-              
+
                   setTimeout(() => router.back(), 100);
                 }}
               >
@@ -519,7 +550,7 @@ export default function EditJobScreen() {
             <Text style={styles.alertMessage}>
               Your job posting has been successfully updated.
             </Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.successButton}
               onPress={() => {
                 setShowJobUpdatedModal(false);
@@ -530,7 +561,7 @@ export default function EditJobScreen() {
                   budget,
                   location,
                   duration,
-                  imageUri: images.length > 0 ? images : null
+                  imageUri: images.length > 0 ? images : null,
                 });
                 setUnsavedChanges(false);
                 router.back();
@@ -548,21 +579,21 @@ export default function EditJobScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
   backButton: {
     padding: 4,
   },
   title: {
     fontSize: 30,
-    fontWeight: 'bold',
-    color: '#000',
+    fontWeight: "bold",
+    color: "#000",
     paddingHorizontal: 16,
     marginBottom: 16,
   },
@@ -572,47 +603,47 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#000',
+    fontWeight: "500",
+    color: "#000",
     marginBottom: 8,
   },
   required: {
-    color: '#FF3B30',
+    color: "#FF3B30",
   },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
     marginBottom: 16,
   },
   inputError: {
-    borderColor: '#FF3B30',
-    backgroundColor: '#FFF5F5',
+    borderColor: "#FF3B30",
+    backgroundColor: "#FFF5F5",
   },
   errorText: {
-    color: '#FF3B30',
+    color: "#FF3B30",
     fontSize: 14,
     marginTop: -12,
     marginBottom: 16,
     paddingLeft: 4,
   },
   inputText: {
-    color: '#000',
+    color: "#000",
     fontSize: 16,
   },
   textArea: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
     marginBottom: 16,
     height: 120,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
   imageGrid: {
     flexDirection: "row",
@@ -660,53 +691,53 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   placeholderText: {
-    color: '#666',
+    color: "#666",
     fontSize: 16,
     marginTop: 8,
   },
   updateButton: {
-    backgroundColor: '#001F3F',
+    backgroundColor: "#001F3F",
     borderRadius: 8,
     padding: 16,
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 16,
     elevation: 2,
   },
   updateButtonDisabled: {
-    backgroundColor: '#9AA5B1',
+    backgroundColor: "#9AA5B1",
   },
   updateButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   modalContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    width: '100%',
-    maxHeight: '80%',
-    position: 'absolute',
+    width: "100%",
+    maxHeight: "80%",
+    position: "absolute",
     bottom: 0,
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: "#eee",
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
+    fontWeight: "bold",
+    color: "#000",
   },
   closeButton: {
     padding: 4,
@@ -716,171 +747,171 @@ const styles = StyleSheet.create({
   },
   categoryTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginTop: 12,
     marginBottom: 8,
-    color: '#001F3F',
+    color: "#001F3F",
   },
   tagItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: "#eee",
   },
   selectedTagItem: {
-    backgroundColor: '#EBF8FF',
+    backgroundColor: "#EBF8FF",
   },
   tagText: {
     fontSize: 16,
-    color: '#333',
+    color: "#333",
   },
   selectedTagText: {
-    color: '#001F3F',
-    fontWeight: '500',
+    color: "#001F3F",
+    fontWeight: "500",
   },
   alertModalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 24,
-    width: '85%',
+    width: "85%",
     elevation: 5,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
   },
   warningIconContainer: {
     marginBottom: 16,
-    alignItems: 'center',
+    alignItems: "center",
   },
   alertTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000',
+    fontWeight: "bold",
+    color: "#000",
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: "center",
   },
   alertMessage: {
     fontSize: 16,
-    color: '#333',
+    color: "#333",
     marginBottom: 24,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 22,
   },
   alertButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   alertCancelButton: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
     padding: 15,
     borderRadius: 8,
     marginRight: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   alertCancelButtonText: {
-    color: '#333',
+    color: "#333",
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   alertConfirmButton: {
     flex: 1,
-    backgroundColor: '#FF3B30',
+    backgroundColor: "#FF3B30",
     padding: 8,
     borderRadius: 8,
     marginLeft: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   alertConfirmButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   successIconContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 16,
   },
   successButton: {
-    backgroundColor: '#001F3F',
+    backgroundColor: "#001F3F",
     padding: 12,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 8,
   },
   successButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   successModalContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
     padding: 20,
   },
   successModalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 24,
-    width: '90%',
+    width: "90%",
     maxWidth: 340,
-    alignItems: 'center',
+    alignItems: "center",
     elevation: 5,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
   },
   successTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000',
+    fontWeight: "bold",
+    color: "#000",
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: "center",
   },
   successMessage: {
     fontSize: 16,
-    color: '#666',
+    color: "#666",
     marginBottom: 24,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 22,
   },
   modalButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
   },
   stayButton: {
-    backgroundColor: '#EEEEEE',
+    backgroundColor: "#EEEEEE",
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 4,
     flex: 1,
     marginRight: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   stayButtonText: {
-    color: '#000',
+    color: "#000",
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   discardButton: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: "#FF3B30",
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 16,
     flex: 1.5,
     marginLeft: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   discardButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 });

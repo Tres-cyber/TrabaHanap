@@ -18,7 +18,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { AddJobRequest } from "@/api/client-request";
 import axios from "axios";
-//import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const jobCategories = [
   {
@@ -239,14 +239,12 @@ export default function AddJobScreen() {
   };
 
   const handleCheckToken = async () => {
-    {/*
-          const dataToken = await AsyncStorage.getItem("token");
+    const dataToken = await AsyncStorage.getItem("token");
     const decodedToken = await axios.get(
       `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/decodeToken`,
       { params: { token: dataToken } },
     );
     return decodedToken.data;
-  */}
   };
 
   const handleSuccessModalClose = () => {
@@ -325,7 +323,7 @@ export default function AddJobScreen() {
           placeholder="Enter budget"
           keyboardType="numeric"
         />
-         <Text style={styles.label}>Duration</Text>
+        <Text style={styles.label}>Duration</Text>
         <TextInput
           style={styles.input}
           value={duration}

@@ -52,6 +52,15 @@ export async function fetchJobListings() {
   return getClientListings.data;
 }
 
+export async function fetchSingleJobListing(id) {
+  const getSingleListing = await axios.get(
+    `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/client-home/job-listings/${id}`,
+    { params: { jobID: id } },
+  );
+
+  return getSingleListing.data;
+}
+
 export async function deleteJobListing(id) {
   const deleteListing = await axios.delete(
     `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/client-home/delete-listing`,
@@ -59,4 +68,13 @@ export async function deleteJobListing(id) {
   );
 
   return deleteListing.data;
+}
+
+export async function editJobListing(id) {
+  const editListing = await axios.patch(
+    `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/client-home/${id}/edit-listing`,
+    { params: { jobID: id } },
+  );
+
+  console.log(editListing.data);
 }
