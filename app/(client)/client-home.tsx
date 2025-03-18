@@ -55,7 +55,7 @@ export default function JobListingScreen() {
   const handleEditJobPress = (jobId: string) => {
     router.push({
       pathname: "client-screen/edit-jobs" as any,
-      params: { jobId },
+      params: { id: jobId },
     });
   };
 
@@ -69,7 +69,7 @@ export default function JobListingScreen() {
     refetchOnMount: true,
   });
 
-  const { mutateAsync: deleteListReload } = useMutation({
+  const { mutate: deleteListReload } = useMutation({
     mutationFn: deleteJobListing,
     onSuccess: () => {
       refetch();
