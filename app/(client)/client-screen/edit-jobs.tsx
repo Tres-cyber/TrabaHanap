@@ -138,29 +138,14 @@ export default function EditJobScreen() {
         `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${imgPath}`,
     );
 
-    console.log("Parsed Image", parsedImage);
-    console.log(jobData);
-
     setJobTitle(jobData.jobTitle);
     setDescription(jobData.jobDescription);
     setPosition(jobData.category);
     setBudget(jobData.budget);
     setLocation(jobData.jobLocation);
     setDuration(jobData.duration);
-    // setImages(jobData.imageUri ? jobData.imageUri : []);
     setImages(parsedImage);
-
-    setInitialFormState({
-      jobTitle: jobData.jobTitle,
-      description: jobData.description,
-      position: jobData.position,
-      budget: jobData.budget,
-      location: jobData.location,
-      duration: jobData.duration,
-      imageUri: jobData.jobImage,
-    });
   };
-
   const requestPermissions = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
