@@ -16,7 +16,7 @@ import {
 import { Ionicons, Feather, MaterialIcons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-import { fetchSingleJobListing } from "@/api/client-request";
+import { fetchSingleJobListing, editJobListing } from "@/api/client-request";
 
 const jobCategories = [
   {
@@ -75,18 +75,6 @@ interface JobData {
   imageUri: string[] | null;
 }
 
-const singleJobData: JobData = {
-  id: "123",
-  jobTitle: "Fix Leaking Sink",
-  description:
-    "Need an experienced plumber to fix a leaking sink in my bathroom. The issue started last week and is getting worse.",
-  position: "Plumbing",
-  budget: "150",
-  duration: "5 Hours",
-  location: "Makati City",
-  imageUri: null,
-};
-
 interface FormState {
   jobTitle: string;
   description: string;
@@ -135,39 +123,24 @@ export default function EditJobScreen() {
 
     const parsedImage = jobData.jobImage.map(
       (imgPath: string) =>
-        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${imgPath}`,
+        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${imgPath}`
     );
-
-    console.log("Parsed Image", parsedImage);
-    console.log(jobData);
 
     setJobTitle(jobData.jobTitle);
     setDescription(jobData.jobDescription);
     setPosition(jobData.category);
     setBudget(jobData.budget);
     setLocation(jobData.jobLocation);
-    setDuration(jobData.duration);
-    // setImages(jobData.imageUri ? jobData.imageUri : []);
+    setDuration(jobData.duration || "");
     setImages(parsedImage);
-
-    setInitialFormState({
-      jobTitle: jobData.jobTitle,
-      description: jobData.description,
-      position: jobData.position,
-      budget: jobData.budget,
-      location: jobData.location,
-      duration: jobData.duration,
-      imageUri: jobData.jobImage,
-    });
   };
-
   const requestPermissions = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
       Alert.alert(
         "Permission Required",
         "Please allow access to your photo library to upload images.",
-        [{ text: "OK", style: "default" }],
+        [{ text: "OK", style: "default" }]
       );
       return false;
     }
@@ -212,7 +185,7 @@ export default function EditJobScreen() {
           }
           router.back();
           return true;
-        },
+        }
       );
 
       return () => backHandler.remove();
@@ -225,7 +198,7 @@ export default function EditJobScreen() {
       duration,
       images,
       initialFormState,
-    ]),
+    ])
   );
 
   const pickImage = async () => {
@@ -233,7 +206,7 @@ export default function EditJobScreen() {
       Alert.alert(
         "Maximum Images",
         `You can only upload up to ${MAX_IMAGES} images.`,
-        [{ text: "OK", style: "default" }],
+        [{ text: "OK", style: "default" }]
       );
       return;
     }
@@ -256,7 +229,7 @@ export default function EditJobScreen() {
       Alert.alert(
         "Image Selection Failed",
         "There was a problem selecting your image. Please try again.",
-        [{ text: "OK", style: "default" }],
+        [{ text: "OK", style: "default" }]
       );
     }
   };
@@ -292,10 +265,20 @@ export default function EditJobScreen() {
         "Missing Information",
         "Please provide a job title and select a position before updating.",
         [{ text: "OK", style: "default" }],
-        { cancelable: true },
+        { cancelable: true }
       );
       return;
     }
+    editJobListing({
+      id: jobId,
+      jobTitle: jobTitle,
+      jobDescription: description,
+      category: position,
+      budget: budget,
+      jobLocation: location,
+      // duration: duration,
+      jobImage: images,
+    });
 
     setShowJobUpdatedModal(true);
   };
@@ -564,7 +547,7 @@ export default function EditJobScreen() {
                   imageUri: images.length > 0 ? images : null,
                 });
                 setUnsavedChanges(false);
-                router.back();
+                router.push("/(client)/client-home");
               }}
             >
               <Text style={styles.successButtonText}>OK</Text>
