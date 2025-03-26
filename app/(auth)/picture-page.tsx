@@ -43,11 +43,11 @@ export default function ProfilePictureScreen() {
   const handleNext = () => {
     SignUpData({ profileImage: profileImage });
     handleFormData();
-    router.push("/(main)/(tabs)/explore");
+    router.push("/(auth)/sign_in");
   };
 
   const handleSkip = () => {
-    router.push("/(main)/(tabs)/explore");
+    router.push("/(auth)/sign_in");
   };
 
   return (

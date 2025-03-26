@@ -34,6 +34,7 @@ export default function WelcomeScreen() {
 
   useEffect(() => {
     setTimeout(() => {
+      // Disabled temporarily the auto-login if client recently logged in
       handleCheckToken();
     }, 100);
   });
