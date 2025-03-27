@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -9,8 +9,9 @@ import {
   SafeAreaView,
   StatusBar,
   ActivityIndicator,
+  Modal,
 } from "react-native";
-import { Ionicons, Feather } from "@expo/vector-icons";
+import { Ionicons, Feather, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -26,6 +27,7 @@ interface JobDetails {
   budget: string;
   datePosted: string;
 }
+
 function reverseCamelCase(str: string) {
   let result = str.replace(/([A-Z])/g, " $1").toLowerCase();
   result = result.replace(/\s+and\b/g, " & ");
@@ -39,6 +41,7 @@ function reverseCamelCase(str: string) {
 
 export default function JobListingScreen() {
   const router = useRouter();
+  const [deleteJobId, setDeleteJobId] = useState<string | null>(null);
 
   const handleProfilePress = () => {};
 
@@ -60,7 +63,18 @@ export default function JobListingScreen() {
   };
 
   const handleDeleteJobPress = (jobId: string) => {
-    deleteListReload(jobId);
+    setDeleteJobId(jobId);
+  };
+
+  const handleConfirmDelete = () => {
+    if (deleteJobId) {
+      deleteListReload(deleteJobId);
+      setDeleteJobId(null);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteJobId(null);
   };
 
   const { data, isFetching, refetch } = useQuery({
@@ -194,9 +208,44 @@ export default function JobListingScreen() {
           </Text>
         )}
       </ScrollView>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={deleteJobId !== null}
+        onRequestClose={handleCancelDelete}
+      >
+        <View style={styles.successModalContainer}>
+          <View style={styles.successModalContent}>
+            <View style={styles.warningIconContainer}>
+              <MaterialIcons name="warning" size={60} color="#FF9500" />
+            </View>
+            <Text style={styles.successTitle}>Delete Job Listing</Text>
+            <Text style={styles.successMessage}>
+              Are you sure you want to delete this job listing? This action
+              cannot be undone.
+            </Text>
+            <View style={styles.modalButtonsContainer}>
+              <TouchableOpacity
+                style={styles.stayButton}
+                onPress={handleCancelDelete}
+              >
+                <Text style={styles.stayButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.discardButton}
+                onPress={handleConfirmDelete}
+              >
+                <Text style={styles.discardButtonText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
@@ -314,5 +363,75 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     marginLeft: 12,
+  },
+  successModalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+    padding: 20,
+  },
+  successModalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 24,
+    width: "90%",
+    maxWidth: 340,
+    alignItems: "center",
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  warningIconContainer: {
+    marginBottom: 16,
+  },
+  successTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#000",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  successMessage: {
+    fontSize: 16,
+    color: "#666",
+    marginBottom: 24,
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  modalButtonsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+  },
+  stayButton: {
+    backgroundColor: "#EEEEEE",
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    flex: 1,
+    marginRight: 8,
+    alignItems: "center",
+  },
+  stayButtonText: {
+    color: "#000",
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  discardButton: {
+    backgroundColor: "#FF3B30",
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flex: 1.5,
+    marginLeft: 8,
+    alignItems: "center",
+  },
+  discardButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "500",
   },
 });
