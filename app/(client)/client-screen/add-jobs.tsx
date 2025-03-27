@@ -329,7 +329,6 @@ export default function AddJobScreen() {
           value={duration}
           onChangeText={setDuration}
           placeholder="Enter duration"
-          keyboardType="numeric"
         />
 
         <Text style={styles.label}>Location</Text>
