@@ -10,6 +10,7 @@ import {
   StatusBar,
   ActivityIndicator,
   Modal,
+  Platform,
 } from "react-native";
 import { Ionicons, Feather, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -51,13 +52,13 @@ export default function JobListingScreen() {
 
   const handleAddJobPress = () => {
     router.push({
-      pathname: "client-screen/add-jobs" as any,
+      pathname: "../../../screen/client-screen/add-jobs" as any,
     });
   };
 
   const handleEditJobPress = (jobId: string) => {
     router.push({
-      pathname: "client-screen/edit-jobs" as any,
+      pathname: "../../../screen/client-screen/edit-jobs" as any,
       params: { id: jobId },
     });
   };
@@ -107,7 +108,7 @@ export default function JobListingScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      <View style={styles.header}>
+      <View style={[styles.header, Platform.OS === 'ios' && styles.iosHeader]}>
         <TouchableOpacity
           onPress={handleProfilePress}
           style={styles.profileButton}
@@ -257,6 +258,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
+    paddingTop: Platform.OS === 'android' ? 50 : 10
+  },
+  iosHeader: {
+    paddingTop: Platform.OS === 'ios' ? 10 : 10,
   },
   profileButton: {
     marginRight: 12,

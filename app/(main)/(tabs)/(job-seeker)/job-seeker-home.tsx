@@ -9,6 +9,7 @@ import {
   SafeAreaView,
   StatusBar,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -80,7 +81,7 @@ export default function JobListingScreen() {
 
   const handleSeeMorePress = (job: JobRequest) => {
     router.push({
-      pathname: "/job-seeker-screen/job-details",
+      pathname: "../../../screen/job-seeker-screen/job-details",
       params: {
         id: job.id,
         title: job.jobTitle,
@@ -117,7 +118,7 @@ export default function JobListingScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-      <View style={styles.header}>
+      <View style={[styles.header, Platform.OS === 'ios' && styles.iosHeader]}>
         <TouchableOpacity style={styles.profileButton}>
           <Image
             source={require("assets/images/client-user.png")}
@@ -234,6 +235,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
+    paddingTop: Platform.OS === 'android' ? 50 : 10,
+  },
+  iosHeader:{
+    paddingTop: Platform.OS === 'ios' ? 60 : 10,
   },
   profileButton: {
     marginRight: 12,
