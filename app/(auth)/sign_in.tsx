@@ -18,33 +18,35 @@ export default function SignInScreen() {
   const router = useRouter();
 
   const handleLogin = async () => {
-    // try {
-    //   const response = await fetch(
-    //     `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/login`,
-    //     {
-    //       method: "POST",
-    //       headers: { "Content-Type": "application/json" },
-    //       body: JSON.stringify({ email, password }),
-    //     },
-    //   );
+    try {
+      const response = await fetch(
+        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/login`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        }
+      );
 
-    //   const data = await response.json();
-    //   console.log(data);
-    //   if (!response.ok) {
-    //     throw new Error(data.error || "Invalid login");
-    //   }
+      const data = await response.json();
+      console.log(data);
+      if (!response.ok) {
+        throw new Error(data.error || "Invalid login");
+      }
 
-    //   await AsyncStorage.setItem("token", data.token);
-    //   setMessage("Login successful!");
+      await AsyncStorage.setItem("token", data.token);
+      setMessage("Login successful!");
 
-    //   const isJobSeeker = data.user?.userType === "job-seeker";
-    //   router.push(
-    //     isJobSeeker ? "/(job-seeker)/job-seeker-home" : "/(client)/client-home",
-    //   );
-    // } catch (error) {
-    //   console.error("Login error:", error);
-    // }
-    router.push("/(main)/(tabs)/(job-seeker)/job-seeker-home")
+      const isJobSeeker = data.user?.userType === "job-seeker";
+      router.push(
+        isJobSeeker
+          ? "/(main)/(tabs)/(job-seeker)/job-seeker-home"
+          : "/(main)/(tabs)/(client)/client-home"
+      );
+    } catch (error) {
+      console.error("Login error:", error);
+    }
+    // router.push("/(main)/(tabs)/(job-seeker)/job-seeker-home");
   };
 
   const handleForgotPassword = () => {
