@@ -107,4 +107,5 @@ export async function editJobListing(params) {
       },
     }
   );
+  console.log("Successfully sent data to be edited", editListing.data);
 }

@@ -19,6 +19,7 @@ import * as ImagePicker from "expo-image-picker";
 import { AddJobRequest } from "@/api/client-request";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as FileSystem from "expo-file-system";
 
 const jobCategories = [
   {
@@ -108,7 +109,7 @@ export default function AddJobScreen() {
       Alert.alert(
         "Permission Required",
         "Please allow access to your photo library to upload images.",
-        [{ text: "OK", style: "default" }],
+        [{ text: "OK", style: "default" }]
       );
       return false;
     }
@@ -149,11 +150,11 @@ export default function AddJobScreen() {
 
       const backHandler = BackHandler.addEventListener(
         "hardwareBackPress",
-        handleGoBack,
+        handleGoBack
       );
 
       return () => backHandler.remove();
-    }, [jobTitle, description, position, budget, location, images]),
+    }, [jobTitle, description, position, budget, location, images])
   );
 
   const pickImage = async () => {
@@ -161,7 +162,7 @@ export default function AddJobScreen() {
       Alert.alert(
         "Maximum Images",
         `You can only upload up to ${MAX_IMAGES} images.`,
-        [{ text: "OK", style: "default" }],
+        [{ text: "OK", style: "default" }]
       );
       return;
     }
@@ -178,13 +179,44 @@ export default function AddJobScreen() {
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedImage = result.assets[0];
+
+        const fileInfo = await FileSystem.getInfoAsync(selectedImage.uri, {
+          size: true,
+        });
+
+        if (!fileInfo.exists) {
+          Alert.alert("Error", "The selected image could not be accessed.", [
+            { text: "OK", style: "default" },
+          ]);
+          return;
+        }
+
+        if (fileInfo.size === undefined) {
+          Alert.alert(
+            "Error",
+            "Could not determine the size of the selected image.",
+            [{ text: "OK", style: "default" }]
+          );
+          return;
+        }
+
+        if (fileInfo.size > 1048576) {
+          Alert.alert(
+            "Image Too Large",
+            "Please select an image smaller than 1MB.",
+            [{ text: "OK", style: "default" }]
+          );
+          return;
+        }
+
         setImages([...images, result.assets[0].uri]);
       }
     } catch (error) {
       Alert.alert(
         "Image Selection Failed",
         "There was a problem selecting your image. Please try again.",
-        [{ text: "OK", style: "default" }],
+        [{ text: "OK", style: "default" }]
       );
     }
   };
@@ -220,7 +252,7 @@ export default function AddJobScreen() {
         "Missing Information",
         "Please provide a job title and select a position before saving.",
         [{ text: "OK", style: "default" }],
-        { cancelable: true },
+        { cancelable: true }
       );
       return;
     }
@@ -231,6 +263,7 @@ export default function AddJobScreen() {
       jobDescription: description,
       category: camelCase(position),
       budget: budget,
+      jobDuration: duration,
       jobLocation: location,
       jobImage: images,
     });
@@ -242,7 +275,7 @@ export default function AddJobScreen() {
     const dataToken = await AsyncStorage.getItem("token");
     const decodedToken = await axios.get(
       `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/decodeToken`,
-      { params: { token: dataToken } },
+      { params: { token: dataToken } }
     );
     return decodedToken.data;
   };
@@ -250,7 +283,7 @@ export default function AddJobScreen() {
   const handleSuccessModalClose = () => {
     setSuccessModal(false);
     resetForm();
-    router.push("/(client)/client-home");
+    router.push("/(main)/(tabs)/(client)/client-home");
   };
 
   const selectTag = (tag: string) => {

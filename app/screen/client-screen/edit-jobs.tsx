@@ -17,7 +17,7 @@ import { Ionicons, Feather, MaterialIcons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { fetchSingleJobListing, editJobListing } from "@/api/client-request";
-
+import * as FileSystem from "expo-file-system";
 const jobCategories = [
   {
     title: "🛠️ Repair and Maintenance",
@@ -131,7 +131,7 @@ export default function EditJobScreen() {
     setPosition(jobData.category);
     setBudget(jobData.budget);
     setLocation(jobData.jobLocation);
-    setDuration(jobData.duration || "");
+    setDuration(jobData.jobDuration || "");
     setImages(parsedImage);
   };
   const requestPermissions = async () => {
@@ -223,6 +223,37 @@ export default function EditJobScreen() {
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedImage = result.assets[0];
+
+        const fileInfo = await FileSystem.getInfoAsync(selectedImage.uri, {
+          size: true,
+        });
+
+        if (!fileInfo.exists) {
+          Alert.alert("Error", "The selected image could not be accessed.", [
+            { text: "OK", style: "default" },
+          ]);
+          return;
+        }
+
+        if (fileInfo.size === undefined) {
+          Alert.alert(
+            "Error",
+            "Could not determine the size of the selected image.",
+            [{ text: "OK", style: "default" }]
+          );
+          return;
+        }
+
+        if (fileInfo.size > 1048576) {
+          Alert.alert(
+            "Image Too Large",
+            "Please select an image smaller than 1MB.",
+            [{ text: "OK", style: "default" }]
+          );
+          return;
+        }
+
         setImages([...images, result.assets[0].uri]);
       }
     } catch (error) {
@@ -276,7 +307,7 @@ export default function EditJobScreen() {
       category: position,
       budget: budget,
       jobLocation: location,
-      // duration: duration,
+      jobDuration: duration,
       jobImage: images,
     });
 
@@ -547,7 +578,7 @@ export default function EditJobScreen() {
                   imageUri: images.length > 0 ? images : null,
                 });
                 setUnsavedChanges(false);
-                router.push("/(client)/client-home");
+                router.push("/(main)/(tabs)/(client)/client-home");
               }}
             >
               <Text style={styles.successButtonText}>OK</Text>
