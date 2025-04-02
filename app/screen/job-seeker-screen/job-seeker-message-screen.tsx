@@ -13,7 +13,8 @@ import {
   SafeAreaView,
   Modal,
   Animated,
-  Dimensions
+  Dimensions,
+  ScrollView
 } from 'react-native';
 import { 
   ArrowLeft,
@@ -28,7 +29,8 @@ import {
   X,
   Trash2,
   UserX,
-  Flag
+  Flag,
+  DollarSign
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 
@@ -60,7 +62,10 @@ const ChatScreen: React.FC<ChatProps> = ({
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [inputMessage, setInputMessage] = useState<string>('');
   const [modalVisible, setModalVisible] = useState(false);
+  const [offerModalVisible, setOfferModalVisible] = useState(false);
   const [modalAnimation] = useState(new Animated.Value(0));
+  const [offerAmount, setOfferAmount] = useState('');
+  const [offerDescription, setOfferDescription] = useState('');
   
 
   const menuOptions = [
@@ -89,6 +94,31 @@ const ChatScreen: React.FC<ChatProps> = ({
         useNativeDriver: true
       }).start();
     }
+  };
+
+  const openOfferModal = () => {
+    setOfferModalVisible(true);
+  };
+
+  const closeOfferModal = () => {
+    setOfferModalVisible(false);
+  };
+
+  const sendOffer = () => {
+    if (!offerAmount.trim()) return;
+    
+    const offerMessage: Message = {
+      id: Date.now().toString(),
+      text: `I've sent an offer of $${offerAmount}${offerDescription ? ': ' + offerDescription : ''}`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      type: 'sent',
+      senderPic: 'https://randomuser.me/api/portraits/women/3.jpg'
+    };
+    
+    setMessages([...messages, offerMessage]);
+    setOfferAmount('');
+    setOfferDescription('');
+    setOfferModalVisible(false);
   };
 
   const sendMessage = () => {
@@ -189,6 +219,13 @@ const ChatScreen: React.FC<ChatProps> = ({
         </TouchableOpacity>
       </View>
       
+      <TouchableOpacity 
+        style={styles.makeOfferButton}
+        onPress={openOfferModal}
+      >
+        <DollarSign size={16} color="#0b216f" />
+        <Text style={styles.makeOfferText}>Make Offer</Text>
+      </TouchableOpacity>
       
       <Modal
         transparent
@@ -234,6 +271,55 @@ const ChatScreen: React.FC<ChatProps> = ({
         </TouchableOpacity>
       </Modal>
       
+      <Modal
+        transparent
+        visible={offerModalVisible}
+        animationType="fade"
+        onRequestClose={closeOfferModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.offerModalContainer}>
+            <View style={styles.offerModalHeader}>
+              <Text style={styles.offerModalTitle}>Make an Offer</Text>
+              <TouchableOpacity onPress={closeOfferModal}>
+                <X size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.offerModalContent}>
+              <Text style={styles.offerLabel}>Amount ($)</Text>
+              <TextInput
+                style={styles.offerAmountInput}
+                placeholder="Enter amount"
+                value={offerAmount}
+                onChangeText={setOfferAmount}
+                keyboardType="numeric"
+              />
+              
+              <Text style={styles.offerLabel}>Description (Optional)</Text>
+              <TextInput
+                style={styles.offerDescriptionInput}
+                placeholder="Describe your offer"
+                value={offerDescription}
+                onChangeText={setOfferDescription}
+                multiline
+                numberOfLines={4}
+              />
+              
+              <TouchableOpacity 
+                style={[
+                  styles.sendOfferButton,
+                  !offerAmount.trim() && styles.sendOfferButtonDisabled
+                ]}
+                onPress={sendOffer}
+                disabled={!offerAmount.trim()}
+              >
+                <Text style={styles.sendOfferButtonText}>Send Offer</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
      
       <FlatList
         data={messages}
@@ -312,6 +398,21 @@ const styles = StyleSheet.create({
   },
   moreButton: {
     padding: 8,
+  },
+  makeOfferButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  makeOfferText: {
+    marginLeft: 5,
+    color: '#0b216f',
+    fontWeight: '500',
+    fontSize: 15,
   },
   messageList: {
     padding: 10,
@@ -406,7 +507,9 @@ const styles = StyleSheet.create({
   // Dropdown menu styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.1)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   dropdownMenu: {
     position: 'absolute',
@@ -458,6 +561,73 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#8e8e93',
     textAlign: 'center',
+  },
+  
+  // Offer Modal Styles
+  offerModalContainer: {
+    width: SCREEN_WIDTH * 0.9,
+    maxHeight: SCREEN_WIDTH * 1.1,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  offerModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  offerModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  offerModalContent: {
+    padding: 15,
+    maxHeight: 400,
+  },
+  offerLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 5,
+    marginTop: 10,
+  },
+  offerAmountInput: {
+    backgroundColor: '#f2f2f7',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 15,
+  },
+  offerDescriptionInput: {
+    backgroundColor: '#f2f2f7',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 20,
+    height: 100,
+    textAlignVertical: 'top',
+  },
+  sendOfferButton: {
+    backgroundColor: '#0b216f',
+    borderRadius: 8,
+    padding: 15,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  sendOfferButtonDisabled: {
+    backgroundColor: '#b0c0e0',
+  },
+  sendOfferButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   }
 });
 
