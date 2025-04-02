@@ -32,8 +32,7 @@ import {
   Flag,
   Check,
   XCircle,
-  User,
-  DollarSign
+  User
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 
@@ -65,11 +64,8 @@ const ChatScreen: React.FC<ChatProps> = ({
   const [inputMessage, setInputMessage] = useState<string>('');
   const [menuModalVisible, setMenuModalVisible] = useState(false);
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
-  const [offerModalVisible, setOfferModalVisible] = useState(false);
   const [chatStatus, setChatStatus] = useState(chatRequestStatus);
   const [modalAnimation] = useState(new Animated.Value(0));
-  const [offerAmount, setOfferAmount] = useState('');
-  const [offerDescription, setOfferDescription] = useState('');
   
   const getPendingMenuOptions = () => [
     { icon: <User size={18} color="#777" />, label: 'View Profile' }
@@ -120,31 +116,6 @@ const ChatScreen: React.FC<ChatProps> = ({
     setTimeout(() => {
       navigation.goBack();
     }, 500);
-  };
-
-  const openOfferModal = () => {
-    setOfferModalVisible(true);
-  };
-
-  const closeOfferModal = () => {
-    setOfferModalVisible(false);
-  };
-
-  const sendOffer = () => {
-    if (!offerAmount.trim()) return;
-    
-    const offerMessage: Message = {
-      id: Date.now().toString(),
-      text: `I've sent an offer of $${offerAmount}${offerDescription ? ': ' + offerDescription : ''}`,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      type: 'sent',
-      senderPic: 'https://randomuser.me/api/portraits/women/3.jpg'
-    };
-    
-    setMessages([...messages, offerMessage]);
-    setOfferAmount('');
-    setOfferDescription('');
-    setOfferModalVisible(false);
   };
 
   const sendMessage = () => {
@@ -250,16 +221,6 @@ const ChatScreen: React.FC<ChatProps> = ({
         </TouchableOpacity>
       </View>
       
-      {chatStatus === 'accepted' && (
-        <TouchableOpacity 
-          style={styles.makeOfferButton}
-          onPress={openOfferModal}
-        >
-          <DollarSign size={16} color="#0b216f" />
-          <Text style={styles.makeOfferText}>Make Offer</Text>
-        </TouchableOpacity>
-      )}
-      
       {chatStatus === 'pending' && (
         <View style={styles.requestBanner}>
           <Text style={styles.requestText}>
@@ -310,55 +271,6 @@ const ChatScreen: React.FC<ChatProps> = ({
                 <Text style={styles.confirmButtonText}>Yes, Reject</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
-      </Modal>
-      
-      <Modal
-        transparent
-        visible={offerModalVisible}
-        animationType="fade"
-        onRequestClose={closeOfferModal}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.offerModalContainer}>
-            <View style={styles.offerModalHeader}>
-              <Text style={styles.offerModalTitle}>Make an Offer</Text>
-              <TouchableOpacity onPress={closeOfferModal}>
-                <X size={24} color="#666" />
-              </TouchableOpacity>
-            </View>
-            
-            <ScrollView style={styles.offerModalContent}>
-              <Text style={styles.offerLabel}>Amount ($)</Text>
-              <TextInput
-                style={styles.offerAmountInput}
-                placeholder="Enter amount"
-                value={offerAmount}
-                onChangeText={setOfferAmount}
-              />
-              
-              <Text style={styles.offerLabel}>Description (Optional)</Text>
-              <TextInput
-                style={styles.offerDescriptionInput}
-                placeholder="Describe your offer"
-                value={offerDescription}
-                onChangeText={setOfferDescription}
-                multiline
-                numberOfLines={4}
-              />
-              
-              <TouchableOpacity 
-                style={[
-                  styles.sendOfferButton,
-                  !offerAmount.trim() && styles.sendOfferButtonDisabled
-                ]}
-                onPress={sendOffer}
-                disabled={!offerAmount.trim()}
-              >
-                <Text style={styles.sendOfferButtonText}>Send Offer</Text>
-              </TouchableOpacity>
-            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -496,21 +408,6 @@ const styles = StyleSheet.create({
   },
   moreButton: {
     padding: 8,
-  },
-  makeOfferButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  makeOfferText: {
-    marginLeft: 5,
-    color: '#0b216f',
-    fontWeight: '500',
-    fontSize: 15,
   },
   messageList: {
     flexGrow: 1,
@@ -744,71 +641,6 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     marginTop: 15,
-  },
-  offerModalContainer: {
-    width: SCREEN_WIDTH * 0.9,
-    maxHeight: SCREEN_WIDTH * 1.1,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  offerModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  offerModalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  offerModalContent: {
-    padding: 15,
-    maxHeight: 400,
-  },
-  offerLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 5,
-    marginTop: 10,
-  },
-  offerAmountInput: {
-    backgroundColor: '#f2f2f7',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 15,
-  },
-  offerDescriptionInput: {
-    backgroundColor: '#f2f2f7',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 20,
-    height: 100,
-    textAlignVertical: 'top',
-  },
-  sendOfferButton: {
-    backgroundColor: '#0b216f',
-    borderRadius: 8,
-    padding: 15,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  sendOfferButtonDisabled: {
-    backgroundColor: '#b0c0e0',
-  },
-  sendOfferButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
   },
   // Empty chat state styles
   emptyContainer: {
