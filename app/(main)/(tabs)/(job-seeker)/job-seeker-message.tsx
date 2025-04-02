@@ -20,10 +20,12 @@ import {
   Search,
   User
 } from 'lucide-react-native';
+
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter,useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import io,{Socket} from 'socket.io-client';
+
 
 interface Chat {
   id: string;
@@ -82,6 +84,7 @@ const ChatScreen: React.FC = () => {
     if (selectedFilter === 'All') return true;
     return msg.chatStatus === selectedFilter;
   });
+
 
   useEffect(() => {
 
@@ -166,6 +169,7 @@ const ChatScreen: React.FC = () => {
   const renderChatItem = ({ item }: { item: Chat }) => (
     <TouchableOpacity 
       style={styles.ChatContainer}
+
       onLongPress={() => {
         setSelectedChat(item);
         setChatOptionsModalVisible(true);
