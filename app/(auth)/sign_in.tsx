@@ -35,9 +35,12 @@ export default function SignInScreen() {
       }
 
       await AsyncStorage.setItem("token", data.token);
+      await AsyncStorage.setItem("currentUserId",data.user.id);
+      await AsyncStorage.setItem("userType",data.user.userType);
       setMessage("Login successful!");
 
       const isJobSeeker = data.user?.userType === "job-seeker";
+     
       router.push(
         isJobSeeker
           ? "/(main)/(tabs)/(job-seeker)/job-seeker-home"
