@@ -17,6 +17,7 @@ import {
   Search,
   User
 } from 'lucide-react-native';
+import { router } from 'expo-router'; // Using Expo Router, replace with your specific router if needed
 
 type Message = { 
   id: string; 
@@ -66,9 +67,17 @@ const MessageScreen: React.FC = () => {
     return msg.status === selectedFilter;
   });
 
+  const handleMessagePress = (message: Message) => {
+    router.push({
+      pathname: "../../../screen/client-screen/client-message-screen",
+      params: { messageId: message.id }
+    });
+  };
+
   const renderMessageItem = ({ item }: { item: Message }) => (
     <TouchableOpacity 
       style={styles.messageContainer}
+      onPress={() => handleMessagePress(item)}
       onLongPress={() => {
         setSelectedMessage(item);
         setChatOptionsModalVisible(true);
