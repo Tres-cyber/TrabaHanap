@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState,useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -10,73 +10,170 @@ import {
   TouchableWithoutFeedback,
   StatusBar,
   Image,
-  Platform
+  Platform,
+  ActivityIndicator,
+  SafeAreaView,
+  RefreshControl,
 } from 'react-native';
 import { 
   Filter, 
   Search,
   User
 } from 'lucide-react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter,useLocalSearchParams } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import io,{Socket} from 'socket.io-client';
 
-type Message = { 
-  id: string; 
-  name: string; 
-  preview: string; 
-  status: 'Active' | 'Pending'; 
-  date: string; 
-  profilePic?: string;
-};
+interface Chat {
+  id: string;
+  participantName: string;
+  profileImage: string | null;
+  lastMessage: string | null;
+  lastMessageTime: string | null;
+  chatTitle: string;
+  chatStatus: string;
+}
 
-const initialMessages: Message[] = [
-  { 
-    id: '1', 
-    name: 'Eugenio Galamay III', 
-    preview: 'Hi! Are you interested in the project we discussed earlier? I have some updates and would like to go over the details with you when you have a moment.', 
-    status: 'Active',
-    date: 'March 17, 2025',
-    profilePic: 'https://example.com/profile1.jpg'
-  },
-  { 
-    id: '2', 
-    name: 'Eugenio Galamay III', 
-    preview: 'Hi! Are you interested in the project we discussed earlier? I have some updates and would like to go over the details with you when you have a moment.', 
-    status: 'Pending',
-    date: 'March 17, 2025',
-    profilePic: 'https://example.com/profile2.jpg'
-  },
-  { 
-    id: '3', 
-    name: 'Eugenio Galamay III', 
-    preview: 'Hi! Are you interested in the project we discussed earlier? I have some updates and would like to go over the details with you when you have a moment.', 
-    status: 'Active',
-    date: 'March 17, 2025',
-    profilePic: 'https://example.com/profile3.jpg'
-  }
-];
-
-const MessageScreen: React.FC = () => {
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+const ChatScreen: React.FC = () => {
+  const [chats, setChats] = useState<Chat[]>([]);
   const [filterModalVisible, setFilterModalVisible] = useState<boolean>(false);
   const [chatOptionsModalVisible, setChatOptionsModalVisible] = useState<boolean>(false);
   const [selectedFilter, setSelectedFilter] = useState<string>('All');
-  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const { chatId, chatTitle } = useLocalSearchParams();
+  
+  const fetchChats = async (socketInstance?: Socket) => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      
+      if (!token) {
+        router.replace("/sign_in");
+        return;
+      }
 
-  const filteredMessages = messages.filter(msg => {
+      const currentSocket = socketInstance || socket;
+      if (currentSocket) {
+        currentSocket.emit('fetch_user_chats');
+      }
+    } catch (error) {
+      console.error("Error fetching chats:", error);
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchChats();
+  };
+
+  const handleChatPress = (chatId: string,participantName: string,chatStatus:string) => {
+    // router.push({
+    //   pathname: "/(job-seeker)/chat-room",
+    //   params: { chatId,receiverName: participantName,chatStatus: chatStatus },
+      
+    // });
+  };
+  const filteredChats = chats.filter(msg => {
     if (selectedFilter === 'All') return true;
-    return msg.status === selectedFilter;
+    return msg.chatStatus === selectedFilter;
   });
 
-  const renderMessageItem = ({ item }: { item: Message }) => (
+  useEffect(() => {
+
+    const initializeSocket = async () => {
+      try {
+        const token = await AsyncStorage.getItem("token");
+
+        if (!token) {
+          router.replace("/sign_in");
+          return;
+        }
+
+        const newSocket = io(`http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000`, {
+          auth: { token }
+        });
+        newSocket.onAny((event, ...args) => {
+          console.log(`📡 Socket event: ${event}`, args);
+        });
+  
+        newSocket.on("new_chat", (data) => {
+          setChats(prev => {
+            return [data, ...prev];
+          });
+        });
+        newSocket.on('connect', () => {
+          fetchChats(newSocket);
+        });
+
+        newSocket.on('user_chats_fetched', (fetchedChats: Chat[]) => {
+          setChats(fetchedChats);
+          setLoading(false);
+          setRefreshing(false);
+        });
+
+
+        newSocket.on("chat_updated", (updatedChat: Chat) => {
+          setChats((prevChats) => {
+            const existingChatIndex = prevChats.findIndex((chat) => chat.id === updatedChat.id);
+            let updatedChats;
+
+            if (existingChatIndex !== -1) {
+              updatedChats = [...prevChats];
+              updatedChats[existingChatIndex] = {
+                ...updatedChats[existingChatIndex],
+                lastMessage: updatedChat.lastMessage,
+                lastMessageTime: updatedChat.lastMessageTime
+              };
+            } else {
+              updatedChats = [updatedChat, ...prevChats];
+            }
+
+            return updatedChats.sort((a, b) =>
+              new Date(b.lastMessageTime || 0).getTime() -
+              new Date(a.lastMessageTime || 0).getTime()
+            );
+          });
+        });
+
+        newSocket.on('user_chats_error', (error) => {
+          console.error('Chats fetch error:', error);
+          setLoading(false);
+          setRefreshing(false);
+        });
+
+        setSocket(newSocket);
+
+        return () => {
+          newSocket.disconnect();
+        };
+      } catch (error) {
+        console.error("Error initializing socket:", error);
+        setLoading(false);
+        setRefreshing(false);
+      }
+    };
+
+    initializeSocket();
+
+
+  }, []);
+
+  const renderChatItem = ({ item }: { item: Chat }) => (
     <TouchableOpacity 
-      style={styles.messageContainer}
+      style={styles.ChatContainer}
       onLongPress={() => {
-        setSelectedMessage(item);
+        setSelectedChat(item);
         setChatOptionsModalVisible(true);
       }}
     >
-      {item.profilePic ? (
+      {item.profileImage ? (
         <Image 
-          source={{ uri: item.profilePic }} 
+          source={{ uri: item.profileImage}} 
           style={styles.avatarPlaceholder} 
         />
       ) : (
@@ -84,19 +181,20 @@ const MessageScreen: React.FC = () => {
           <User size={24} color="#999" />
         </View>
       )}
-      <View style={styles.messageContent}>
-        <Text style={styles.messageName}>{item.name}</Text>
+      <View style={styles.ChatContent}>
+        <Text style={styles.ChatName}>{item.participantName}</Text>
+        <Text>{item.chatTitle}</Text>
         <Text 
-          style={styles.messagePreview} 
+          style={styles.ChatPreview} 
           numberOfLines={2}
           ellipsizeMode="tail"
         >
-          {item.preview}
+          {item.lastMessage || 'No messages yet'}
         </Text>
-        <Text style={styles.messageDate}>{item.date}</Text>
+        <Text style={styles.ChatDate}>{item.lastMessageTime}</Text>
       </View>
-      {item.status === 'Active' && <View style={[styles.statusIndicator, styles.activeStatus]} />}
-      {item.status === 'Pending' && <View style={[styles.statusIndicator, styles.pendingStatus]} />}
+      {item.chatStatus === 'approved' && <View style={[styles.statusIndicator, styles.activeStatus]} />}
+      {item.chatStatus === 'pending' && <View style={[styles.statusIndicator, styles.pendingStatus]} />}
     </TouchableOpacity>
   );
 
@@ -129,7 +227,7 @@ const MessageScreen: React.FC = () => {
         <View style={styles.modalOptionIcon}>
           <Text style={styles.modalOptionIconText}>📬</Text>
         </View>
-        <Text style={styles.modalOptionText}>All Messages</Text>
+        <Text style={styles.modalOptionText}>All Chats</Text>
       </TouchableOpacity>
       <TouchableOpacity 
         style={styles.modalOption}
@@ -141,19 +239,19 @@ const MessageScreen: React.FC = () => {
         <View style={styles.modalOptionIcon}>
           <Text style={styles.modalOptionIconText}>✅</Text>
         </View>
-        <Text style={styles.modalOptionText}>Active Messages</Text>
+        <Text style={styles.modalOptionText}>Active Chats</Text>
       </TouchableOpacity>
       <TouchableOpacity 
         style={styles.modalOption}
         onPress={() => {
-          setSelectedFilter('Pending');
+          setSelectedFilter('pending');
           setFilterModalVisible(false);
         }}
       >
         <View style={styles.modalOptionIcon}>
           <Text style={styles.modalOptionIconText}>⏳</Text>
         </View>
-        <Text style={styles.modalOptionText}>Pending Messages</Text>
+        <Text style={styles.modalOptionText}>Pending Chats</Text>
       </TouchableOpacity>
     </View>
   );
@@ -162,7 +260,7 @@ const MessageScreen: React.FC = () => {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
       <View style={[styles.header, Platform.OS === 'ios' && styles.iosHeader]}>
-        <Text style={styles.headerTitle}>Messages</Text>
+        <Text style={styles.headerTitle}>Chats</Text>
         <TouchableOpacity 
           onPress={() => setFilterModalVisible(true)}
         >
@@ -174,15 +272,15 @@ const MessageScreen: React.FC = () => {
         <View style={styles.searchInputWrapper}>
           <Search size={20} color="#999" style={styles.searchIcon} />
           <TextInput 
-            placeholder="Search Messages" 
+            placeholder="Search Chats" 
             style={styles.searchInput} 
           />
         </View>
       </View>
 
       <FlatList
-        data={filteredMessages}
-        renderItem={renderMessageItem}
+        data={filteredChats}
+        renderItem={renderChatItem}
         keyExtractor={(item) => item.id}
       />
 
@@ -258,7 +356,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
   },
-  messageContainer: {
+  ChatContainer: {
     flexDirection: 'row',
     padding: 15,
     alignItems: 'center',
@@ -274,17 +372,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  messageContent: {
+  ChatContent: {
     flex: 1,
   },
-  messageName: {
+  ChatName: {
     fontWeight: 'bold',
   },
-  messagePreview: {
+  ChatPreview: {
     color: '#666',
     marginVertical: 5,
   },
-  messageDate: {
+  ChatDate: {
     color: '#999',
     fontSize: 12,
   },
@@ -335,4 +433,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default MessageScreen;
+export default ChatScreen;

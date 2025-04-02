@@ -26,8 +26,13 @@ interface JobRequest {
   jobLocation: string;
   datePosted: string;
   image?: any;
+  client:Client;
 }
-
+interface Client{
+  id:string;
+  firstName:string;
+  lastName:string;
+}
 interface JobSeeker {
   jobTags: string[];
 }
@@ -89,6 +94,7 @@ export default function JobListingScreen() {
         description: job.jobDescription,
         rate: job.budget,
         location: job.jobLocation,
+        clientId:job.client.id,
         images: JSON.stringify(job.image),
       },
     });
@@ -192,7 +198,7 @@ export default function JobListingScreen() {
                       <Text style={styles.categoryText}>{job.category}</Text>
                     </View>
                     <View style={styles.priceLocationContainer}>
-                      <Text style={styles.priceText}>{job.budget}</Text>
+                      <Text style={styles.priceText}>₱ {job.budget}</Text>
                       <View style={styles.locationContainer}>
                         <Ionicons
                           name="location-outline"

@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
-
+import AsyncStorage from "@react-native-async-storage/async-storage";
 const { width } = Dimensions.get("window");
 
 export default function JobDetailsScreen() {
@@ -26,6 +26,7 @@ export default function JobDetailsScreen() {
     description: params.description as string,
     rate: params.rate as string,
     location: params.location as string,
+    clientId:params.clientId as string,
     // images: params.images ? JSON.parse(params.images as string) : [],
     images:[
       require('assets/images/client-user.png'),
@@ -41,8 +42,47 @@ export default function JobDetailsScreen() {
     router.back();
   };
 
-  const handleApplyNow = () => {
-    console.log("Apply now pressed");
+  const handleApplyNow = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        console.warn("No token found, redirecting to sign-in...");
+        router.push("/sign_in");
+        return;
+      }
+
+      const response = await fetch(`http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/chat/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+
+        body: JSON.stringify({
+          jobId: params.id, 
+          clientId: params.clientId,
+        }),
+      });
+  
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to start chat");
+      }
+  
+      console.log("Chat created:", data.chatId);
+  
+      // Redirect user to the Chat Screen with the chatId
+      router.push({
+        pathname:"../../../(main)/(tabs)/(job-seeker)/job-seeker-message",
+        params: { chatId: data.chatId,
+          chatTitle: data.chatTitle || jobData.title,
+         },
+      });
+  
+    } catch (error) {
+      console.error("Error creating chat:", error);
+    }
   };
 
   const handleDotPress = (index: number) => {
