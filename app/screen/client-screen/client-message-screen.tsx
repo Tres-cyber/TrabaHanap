@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -32,7 +32,8 @@ import {
   Flag,
   Check,
   XCircle,
-  User
+  User,
+  DollarSign
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 
@@ -42,7 +43,7 @@ type Message = {
   id: string;
   text: string;
   time: string;
-  type: 'sent' | 'received';
+  type: 'sent' | 'received' | 'system';
   senderPic?: string;
 };
 
@@ -66,6 +67,55 @@ const ChatScreen: React.FC<ChatProps> = ({
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [chatStatus, setChatStatus] = useState(chatRequestStatus);
   const [modalAnimation] = useState(new Animated.Value(0));
+  const [offerModalVisible, setOfferModalVisible] = useState(false);
+  const [offerStatus, setOfferStatus] = useState<'pending' | 'accepted' | 'rejected'>('pending');
+  const [offerAmount] = useState('$50.00'); // Define the money offer amount
+  const [acceptOfferConfirmationVisible, setAcceptOfferConfirmationVisible] = useState(false);
+  
+  // Initialize with mock conversation
+  useEffect(() => {
+    if (chatStatus === 'accepted') {
+      const mockConversation: Message[] = [
+        {
+          id: '1',
+          text: "Hi there! I saw your profile and I'm interested in your photography skills.",
+          time: '9:30 AM',
+          type: 'received',
+          senderPic: recipientPic
+        },
+        {
+          id: '2',
+          text: "Hello! Thanks for reaching out. What type of photography project do you have in mind?",
+          time: '9:32 AM',
+          type: 'sent',
+          senderPic: 'https://randomuser.me/api/portraits/women/3.jpg'
+        },
+        {
+          id: '3',
+          text: "I need some professional product photos for my online store. Would you be available for a session next week?",
+          time: '9:35 AM',
+          type: 'received',
+          senderPic: recipientPic
+        },
+        {
+          id: '5',
+          text: "Yes, I'd be happy to help with your product photography. I have availability on Tuesday and Thursday next week.",
+          time: '9:38 AM',
+          type: 'sent',
+          senderPic: 'https://randomuser.me/api/portraits/women/3.jpg'
+        },
+        {
+          id: '6',
+          text: "Great! Thursday works best for me. Can we meet at my studio around 2 PM?",
+          time: '9:40 AM',
+          type: 'received',
+          senderPic: recipientPic
+        }
+      ];
+      
+      setMessages(mockConversation);
+    }
+  }, [chatStatus, offerAmount, recipientName, recipientPic]);
   
   const getPendingMenuOptions = () => [
     { icon: <User size={18} color="#777" />, label: 'View Profile' }
@@ -102,7 +152,10 @@ const ChatScreen: React.FC<ChatProps> = ({
 
   const handleAcceptChat = () => {
     setChatStatus('accepted');
-    
+    // Show offer modal after accepting chat
+    setTimeout(() => {
+      setOfferModalVisible(true);
+    }, 500);
   };
 
   const handleRejectChat = () => {
@@ -116,6 +169,47 @@ const ChatScreen: React.FC<ChatProps> = ({
     setTimeout(() => {
       navigation.goBack();
     }, 500);
+  };
+
+  const handleInitiateAcceptOffer = () => {
+    // Show the confirmation modal instead of accepting immediately
+    setAcceptOfferConfirmationVisible(true);
+  };
+
+  const handleAcceptOffer = () => {
+    // Close confirmation modal
+    setAcceptOfferConfirmationVisible(false);
+    
+    // Process the offer acceptance
+    setOfferStatus('accepted');
+    setOfferModalVisible(false);
+    
+    // Add the system message about accepting the offer
+    const systemMessage: Message = {
+      id: Date.now().toString(),
+      text: `You accepted the ${offerAmount} payment offer from ${recipientName}`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      type: 'system',
+    };
+    
+    // Add to messages array
+    setMessages([...messages, systemMessage]);
+  };
+
+  const handleRejectOffer = () => {
+    setOfferStatus('rejected');
+    setOfferModalVisible(false);
+    
+    // Add a system message about rejecting the offer
+    const systemMessage: Message = {
+      id: Date.now().toString(),
+      text: `You declined the ${offerAmount} payment offer from ${recipientName}`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      type: 'system',
+    };
+    
+    // Add to messages array
+    setMessages([...messages, systemMessage]);
   };
 
   const sendMessage = () => {
@@ -133,46 +227,60 @@ const ChatScreen: React.FC<ChatProps> = ({
     setInputMessage('');
   };
 
-  const renderMessageItem = ({ item }: { item: Message }) => (
-    <View style={[
-      styles.messageRow,
-      item.type === 'sent' ? styles.sentMessageRow : styles.receivedMessageRow
-    ]}>
-      {item.type === 'received' && item.senderPic && (
-        <Image 
-          source={{ uri: item.senderPic }} 
-          style={styles.senderAvatar} 
-        />
-      )}
-      
+  const renderMessageItem = ({ item }: { item: Message }) => {
+    // Handle system messages differently
+    if (item.type === 'system') {
+      return (
+        <View style={styles.systemMessageContainer}>
+          <View style={styles.systemMessageBubble}>
+            <Text style={styles.systemMessageText}>{item.text}</Text>
+            <Text style={styles.systemMessageTime}>{item.time}</Text>
+          </View>
+        </View>
+      );
+    }
+    
+    // Handle regular sent/received messages
+    return (
       <View style={[
-        styles.messageBubble,
-        item.type === 'sent' ? styles.sentBubble : styles.receivedBubble
+        styles.messageRow,
+        item.type === 'sent' ? styles.sentMessageRow : styles.receivedMessageRow
       ]}>
-        <Text style={[
-          styles.messageText,
-          item.type === 'sent' ? styles.sentMessageText : styles.receivedMessageText
+        {item.type === 'received' && item.senderPic && (
+          <Image 
+            source={{ uri: item.senderPic }} 
+            style={styles.senderAvatar} 
+          />
+        )}
+        
+        <View style={[
+          styles.messageBubble,
+          item.type === 'sent' ? styles.sentBubble : styles.receivedBubble
         ]}>
-          {item.text}
-        </Text>
-        <Text style={[
-          styles.messageTime,
-          item.type === 'sent' ? styles.sentMessageTime : styles.receivedMessageTime
-        ]}>
-          {item.time}
-        </Text>
+          <Text style={[
+            styles.messageText,
+            item.type === 'sent' ? styles.sentMessageText : styles.receivedMessageText
+          ]}>
+            {item.text}
+          </Text>
+          <Text style={[
+            styles.messageTime,
+            item.type === 'sent' ? styles.sentMessageTime : styles.receivedMessageTime
+          ]}>
+            {item.time}
+          </Text>
+        </View>
+        
+        {item.type === 'sent' && item.senderPic && (
+          <Image 
+            source={{ uri: item.senderPic }} 
+            style={styles.senderAvatar} 
+          />
+        )}
       </View>
-      
-      {item.type === 'sent' && item.senderPic && (
-        <Image 
-          source={{ uri: item.senderPic }} 
-          style={styles.senderAvatar} 
-        />
-      )}
-    </View>
-  );
+    );
+  };
 
-  // Empty state component to show when no messages exist
   const renderEmptyChat = () => (
     <View style={styles.emptyContainer}>
       <Text style={styles.emptyText}>No messages yet</Text>
@@ -244,6 +352,70 @@ const ChatScreen: React.FC<ChatProps> = ({
           </View>
         </View>
       )}
+      
+      {chatStatus === 'accepted' && offerModalVisible && (
+        <View style={styles.offerBanner}>
+          <View style={styles.offerContent}>
+            <DollarSign size={24} color="#0b8043" style={styles.offerIcon} />
+            <View style={styles.offerTextContainer}>
+              <Text style={styles.offerTitle}>Payment Offer: {offerAmount}</Text>
+              <Text style={styles.offerDescription}>
+                {recipientName} has sent you a payment offer. Would you like to accept?
+              </Text>
+            </View>
+          </View>
+          <View style={styles.offerActions}>
+            <TouchableOpacity 
+              style={styles.offerRejectButton}
+              onPress={handleRejectOffer}
+            >
+              <XCircle size={20} color="#fff" />
+              <Text style={styles.actionButtonText}>Decline</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.offerAcceptButton}
+              onPress={handleInitiateAcceptOffer}
+            >
+              <Check size={20} color="#fff" />
+              <Text style={styles.actionButtonText}>Accept</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+      
+      {/* Offer Acceptance Confirmation Modal */}
+      <Modal
+        transparent
+        visible={acceptOfferConfirmationVisible}
+        animationType="fade"
+        onRequestClose={() => setAcceptOfferConfirmationVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.confirmModalContainer}>
+            <Text style={styles.confirmModalTitle}>Accept Offer?</Text>
+            <Text style={styles.confirmModalText}>
+              Are you sure you want to accept the {offerAmount} payment offer from {recipientName}?
+            </Text>
+            <Text style={styles.warningText}>
+              There's no turning back once you accept this offer.
+            </Text>
+            <View style={styles.confirmModalButtons}>
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={() => setAcceptOfferConfirmationVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.acceptConfirmButton}
+                onPress={handleAcceptOffer}
+              >
+                <Text style={styles.confirmButtonText}>Yes, Accept</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
       
       <Modal
         transparent
@@ -463,6 +635,29 @@ const styles = StyleSheet.create({
   receivedMessageTime: {
     color: '#8e8e93',
   },
+  systemMessageContainer: {
+    alignItems: 'center',
+    marginVertical: 10,
+    paddingHorizontal: 20,
+  },
+  systemMessageBubble: {
+    backgroundColor: 'rgba(142, 142, 147, 0.12)',
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    maxWidth: '80%',
+  },
+  systemMessageText: {
+    fontSize: 14,
+    color: '#636366',
+    textAlign: 'center',
+  },
+  systemMessageTime: {
+    fontSize: 11,
+    color: '#8e8e93',
+    textAlign: 'center',
+    marginTop: 2,
+  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -590,10 +785,28 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
+  confirmModalContainer: {
+    width: SCREEN_WIDTH * 0.85,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
   rejectModalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 10,
+  },
+  confirmModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#0b8043',
   },
   rejectModalText: {
     fontSize: 16,
@@ -601,7 +814,25 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     color: '#666',
   },
+  confirmModalText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 10,
+    color: '#666',
+  },
+  warningText: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#ff3b30',
+    fontWeight: '500',
+  },
   rejectModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  confirmModalButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
@@ -619,6 +850,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     marginLeft: 8,
     backgroundColor: '#ff3b30',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  acceptConfirmButton: {
+    flex: 1,
+    paddingVertical: 12,
+    marginLeft: 8,
+    backgroundColor: '#0b8043',
     borderRadius: 8,
     alignItems: 'center',
   },
@@ -642,7 +881,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 15,
   },
-  // Empty chat state styles
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -660,6 +898,58 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#8e8e93',
     textAlign: 'center',
+  },
+  offerBanner: {
+    backgroundColor: '#f0f8f0',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  offerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  offerIcon: {
+    marginRight: 10,
+  },
+  offerTextContainer: {
+    flex: 1,
+  },
+  offerTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#0b8043',
+    marginBottom: 4,
+  },
+  offerDescription: {
+    fontSize: 14,
+    color: '#666',
+  },
+  offerActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 10,
+  },
+  offerAcceptButton: {
+    backgroundColor: '#0b8043', 
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    minWidth: 100,
+  },
+  offerRejectButton: {
+    backgroundColor: '#8e8e93', 
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    minWidth: 100,
   }
 });
 
