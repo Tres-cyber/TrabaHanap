@@ -497,6 +497,11 @@ const ChatScreen: React.FC<ChatProps> = ({
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.messageList}
         ListEmptyComponent={chatStatus === 'accepted' ? renderEmptyChat : null}
+        ref={ref => {
+          if (ref && messages.length > 0) {
+            setTimeout(() => ref.scrollToEnd({ animated: true }), 100);
+          }
+        }}
       />
       
       {chatStatus === 'accepted' && (
@@ -562,7 +567,8 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 10 : 10,
   },
   androidHeader: {
-    paddingTop: StatusBar.currentHeight || 0,
+    marginTop: StatusBar.currentHeight || 0,
+    paddingTop: 50,
   },
   headerUserInfo: {
     flexDirection: 'row',
