@@ -51,7 +51,57 @@ type ChatProps = {
   recipientPic?: string;
 };
 
-const initialMessages: Message[] = [];
+// Add type for the offer
+type Offer = {
+  amount: string;
+  timestamp: string;
+} | null;
+
+// Mock conversation data
+const initialMessages: Message[] = [
+  {
+    id: '1',
+    text: "Hi there! I saw your listing for the vintage camera. Is it still available?",
+    time: "10:30 AM",
+    type: "sent",
+    senderPic: "https://randomuser.me/api/portraits/women/3.jpg"
+  },
+  {
+    id: '2',
+    text: "Hello! Yes, the camera is still available. It's in great condition.",
+    time: "10:32 AM",
+    type: "received",
+    senderPic: "https://randomuser.me/api/portraits/men/1.jpg"
+  },
+  {
+    id: '3',
+    text: "That's great! Does it come with the original lens and case?",
+    time: "10:33 AM",
+    type: "sent",
+    senderPic: "https://randomuser.me/api/portraits/women/3.jpg"
+  },
+  {
+    id: '4',
+    text: "Yes, it includes the original 50mm lens, leather case, and even the manual. Everything works perfectly.",
+    time: "10:36 AM",
+    type: "received",
+    senderPic: "https://randomuser.me/api/portraits/men/1.jpg"
+  },
+  {
+    id: '5',
+    text: "That sounds perfect! I've been collecting vintage cameras for years. Would you be willing to meet in person so I can check it out?",
+    time: "10:38 AM",
+    type: "sent",
+    senderPic: "https://randomuser.me/api/portraits/women/3.jpg"
+  },
+  {
+    id: '6',
+    text: "Sure, I'd be happy to meet. I'm available this weekend if that works for you.",
+    time: "10:40 AM",
+    type: "received",
+    senderPic: "https://randomuser.me/api/portraits/men/1.jpg"
+  }
+];
 
 const ChatScreen: React.FC<ChatProps> = ({ 
   recipientId = '1',
@@ -67,6 +117,13 @@ const ChatScreen: React.FC<ChatProps> = ({
   const [offerAmount, setOfferAmount] = useState('');
   const [offerDescription, setOfferDescription] = useState('');
   
+ 
+  const [currentOffer, setCurrentOffer] = useState<Offer>({
+    amount: "175",
+    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  });
+  
+  const [showOfferBanner, setShowOfferBanner] = useState(true);
 
   const menuOptions = [
     { icon: <Trash2 size={18} color="#777" />, label: 'Delete conversation' },
@@ -107,15 +164,13 @@ const ChatScreen: React.FC<ChatProps> = ({
   const sendOffer = () => {
     if (!offerAmount.trim()) return;
     
-    const offerMessage: Message = {
-      id: Date.now().toString(),
-      text: `I've sent an offer of $${offerAmount}${offerDescription ? ': ' + offerDescription : ''}`,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      type: 'sent',
-      senderPic: 'https://randomuser.me/api/portraits/women/3.jpg'
-    };
+    setCurrentOffer({
+      amount: offerAmount,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    });
     
-    setMessages([...messages, offerMessage]);
+    setShowOfferBanner(true);
+    
     setOfferAmount('');
     setOfferDescription('');
     setOfferModalVisible(false);
@@ -134,6 +189,7 @@ const ChatScreen: React.FC<ChatProps> = ({
     
     setMessages([...messages, newMessage]);
     setInputMessage('');
+    
   };
 
   const renderMessageItem = ({ item }: { item: Message }) => (
@@ -198,7 +254,11 @@ const ChatScreen: React.FC<ChatProps> = ({
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
      
-      <View style={[styles.header, Platform.OS === 'ios' && styles.iosHeader]}>
+      <View style={[
+        styles.header, 
+        Platform.OS === 'ios' && styles.iosHeader,
+        Platform.OS === 'android' && styles.androidHeader
+      ]}>
         <TouchableOpacity onPress={handleBack}>
           <ArrowLeft size={24} color="#000" />
         </TouchableOpacity>
@@ -218,6 +278,15 @@ const ChatScreen: React.FC<ChatProps> = ({
           <MoreVertical size={24} color="#000" />
         </TouchableOpacity>
       </View>
+      
+      {currentOffer && showOfferBanner && (
+        <View style={styles.offerNoticeBanner}>
+          <DollarSign size={16} color="#fff" />
+          <Text style={styles.offerNoticeText}>
+            You've sent an offer of ${currentOffer.amount}
+          </Text>
+        </View>
+      )}
       
       <TouchableOpacity 
         style={styles.makeOfferButton}
@@ -256,7 +325,6 @@ const ChatScreen: React.FC<ChatProps> = ({
                 ]}
                 onPress={() => {
                   toggleModal();
-               
                 }}
               >
                 <View style={styles.menuOptionIcon}>
@@ -327,6 +395,12 @@ const ChatScreen: React.FC<ChatProps> = ({
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.messageList}
         ListEmptyComponent={renderEmptyChat}
+        inverted={false}
+        ref={ref => {
+          if (ref && messages.length > 0) {
+            setTimeout(() => ref.scrollToEnd({ animated: true }), 100);
+          }
+        }}
       />
       
      
@@ -377,10 +451,13 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e0e0e0',
     backgroundColor: '#fff',
     zIndex: 10,
-    marginTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   iosHeader: {
     paddingTop: Platform.OS === 'ios' ? 10 : 10,
+  },
+  androidHeader: {
+    marginTop: StatusBar.currentHeight || 0,
+    paddingTop: 50,
   },
   headerUserInfo: {
     flexDirection: 'row',
@@ -398,6 +475,21 @@ const styles = StyleSheet.create({
   },
   moreButton: {
     padding: 8,
+  },
+  // Offer notice banner
+  offerNoticeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0b216f',
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+  },
+  offerNoticeText: {
+    color: '#fff',
+    fontWeight: '500',
+    fontSize: 14,
+    marginLeft: 8,
+    flexShrink: 1,
   },
   makeOfferButton: {
     flexDirection: 'row',
@@ -563,7 +655,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   
-  // Offer Modal Styles
   offerModalContainer: {
     width: SCREEN_WIDTH * 0.9,
     maxHeight: SCREEN_WIDTH * 1.1,
