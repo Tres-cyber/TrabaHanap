@@ -14,14 +14,16 @@ import {
   Alert,
   RefreshControl,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons, MaterialIcons, FontAwesome } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import { AddCommunityPost } from "@/api/community-request";
+import { AddCommunityPost, fetchCommunityPosts } from "@/api/community-request";
 import decodeToken from "@/api/token-decoder";
+import { useQuery } from "@tanstack/react-query";
 
-// Simplified types
+// Types
 type Comment = {
   id: string;
   username: string;
@@ -33,87 +35,19 @@ type Comment = {
 };
 
 type Post = {
-  id: string;
+  _id: string;
+  clientId?: string;
+  jobSeekerId?: string;
+  postContent: string;
+  postImage: string;
+  likeCount: number;
+  commentCount: number;
+  createdAt: string;
   username: string;
-  jobTitle?: string;
-  avatar: string;
-  time: string;
-  content: string;
-  image?: string;
-  upvotes: number;
-  comments: number;
-  commentsList: Comment[];
-  isUpvoted: boolean;
-  showComments: boolean;
 };
 
-// Sample data - reduced to essentials
-const sampleComments: Comment[] = [
-  {
-    id: "c1",
-    username: "Sarah Wilson",
-    avatar: "https://randomuser.me/api/portraits/women/22.jpg",
-    text: "Congratulations on completing the project ahead of schedule! What technologies did you use?",
-    time: "1 hour ago",
-    isUpvoted: false,
-    replies: [
-      {
-        id: "c1r1",
-        username: "John Doe",
-        avatar: "https://randomuser.me/api/portraits/men/32.jpg",
-        text: "Thanks Sarah! We used React Native for the frontend and Node.js for the backend.",
-        time: "45 minutes ago",
-      },
-    ],
-  },
-  {
-    id: "c2",
-    username: "Mike Chen",
-    avatar: "https://randomuser.me/api/portraits/men/54.jpg",
-    text: "Great work! I'd be interested in hearing more about how you managed the timeline.",
-    time: "30 minutes ago",
-    isUpvoted: false,
-    replies: [],
-  },
-];
-
-// Initial posts data - reduced to 1 post for simplicity
-const initialPosts: Post[] = [
-  {
-    id: "1",
-    username: "John Doe",
-    jobTitle: "Senior Software Engineer at TechCorp",
-    avatar: "https://randomuser.me/api/portraits/men/32.jpg",
-    time: "2 hours ago",
-    content:
-      "Just completed a major project using React Native. Excited to share that our team delivered ahead of schedule. Looking for similar opportunities in the Boston area!",
-    image: "https://randomuser.me/api/portraits/lego/5.jpg",
-    upvotes: 124,
-    comments: 28,
-    commentsList: sampleComments,
-    isUpvoted: false,
-    showComments: false,
-  },
-  {
-    id: "2",
-    username: "John Doe",
-    jobTitle: "Senior Software Engineer at TechCorp",
-    avatar: "https://randomuser.me/api/portraits/men/32.jpg",
-    time: "2 hours ago",
-    content:
-      "Just completed a major project using React Native. Excited to share that our team delivered ahead of schedule. Looking for similar opportunities in the Boston area!",
-    image: "https://randomuser.me/api/portraits/lego/5.jpg",
-    upvotes: 124,
-    comments: 28,
-    commentsList: sampleComments,
-    isUpvoted: false,
-    showComments: false,
-  },
-];
-
 const SocialFeedScreen = () => {
-  const router = useRouter(); // Import router from expo-router
-  const [posts, setPosts] = useState<Post[]>(initialPosts);
+  const router = useRouter();
   const [newPostText, setNewPostText] = useState<string>("");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showCreatePost, setShowCreatePost] = useState<boolean>(false);
@@ -123,8 +57,6 @@ const SocialFeedScreen = () => {
   const [replyingToUsername, setReplyingToUsername] = useState<string | null>(
     null
   );
-
-  // New state for comment modal
   const [commentModalVisible, setCommentModalVisible] =
     useState<boolean>(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
@@ -132,6 +64,16 @@ const SocialFeedScreen = () => {
   // Constants
   const CURRENT_USER_AVATAR =
     "https://randomuser.me/api/portraits/women/21.jpg";
+
+  // TanStack Query for fetching posts
+  const {
+    data: posts = [],
+    isLoading,
+    refetch,
+  } = useQuery<Post[]>({
+    queryKey: ["community-posts"],
+    queryFn: fetchCommunityPosts,
+  });
 
   // Navigate to search screen
   const navigateToSearch = () => {
@@ -141,14 +83,12 @@ const SocialFeedScreen = () => {
   // Simplified functions
   const onRefresh = () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 2000);
+    refetch().finally(() => setRefreshing(false));
   };
 
   const getUsername = async () => {
-    const { data, config } = await decodeToken();
-
+    const { data } = await decodeToken();
     const userName = `${data.firstName} ${data.middleName[0]}. ${data.lastName}`;
-
     return userName;
   };
 
@@ -173,44 +113,45 @@ const SocialFeedScreen = () => {
     if (newPostText.trim() === "" && !selectedImage) return;
 
     const newPost: Post = {
-      id: Date.now().toString(),
+      _id: Date.now().toString(),
       username: await getUsername(),
-      jobTitle: "UX Designer at CreativeDesign",
-      avatar: CURRENT_USER_AVATAR,
-      time: Date.now().toString(),
-      content: newPostText,
-      image: selectedImage || undefined,
-      upvotes: 0,
-      comments: 0,
-      commentsList: [],
-      isUpvoted: false,
-      showComments: false,
+      postContent: newPostText,
+      postImage: selectedImage || "",
+      likeCount: 0,
+      commentCount: 0,
+      createdAt: Date.now().toString(),
     };
 
-    AddCommunityPost(newPost);
-    setPosts([newPost, ...posts]);
-    setNewPostText("");
-    setSelectedImage(null);
-    setShowCreatePost(false);
+    try {
+      await AddCommunityPost(newPost);
+      refetch();
+      setNewPostText("");
+      setSelectedImage(null);
+      setShowCreatePost(false);
+    } catch (error) {
+      Alert.alert("Error", "Failed to create post");
+    }
+
+    console.log("Trying to add post");
   };
 
-  const toggleUpvote = (postId: string) => {
-    setPosts(
-      posts.map((post) => {
-        if (post.id === postId) {
-          const newUpvoteCount = post.isUpvoted
-            ? post.upvotes - 1
-            : post.upvotes + 1;
-          return {
-            ...post,
-            upvotes: newUpvoteCount,
-            isUpvoted: !post.isUpvoted,
-          };
-        }
-        return post;
-      })
-    );
-  };
+  // const toggleUpvote = (postId: string) => {
+  //   setPosts(
+  //     posts.map((post) => {
+  //       if (post.id === postId) {
+  //         const newUpvoteCount = post.isUpvoted
+  //           ? post.upvotes - 1
+  //           : post.upvotes + 1;
+  //         return {
+  //           ...post,
+  //           upvotes: newUpvoteCount,
+  //           isUpvoted: !post.isUpvoted,
+  //         };
+  //       }
+  //       return post;
+  //     })
+  //   );
+  // };
 
   // Updated to open comment modal instead of toggling inline comments
   const openCommentModal = (post: Post) => {
@@ -237,41 +178,41 @@ const SocialFeedScreen = () => {
       text: newCommentText,
       time: "Just now",
       isUpvoted: false,
-      replies: [], // Initialize with empty replies array
+      replies: [],
     };
 
-    setPosts(
-      posts.map((post) => {
-        if (post.id === postId) {
-          if (replyToComment) {
-            // Add reply to specific comment
-            const updatedComments = post.commentsList.map((comment) => {
-              if (comment.id === replyToComment) {
-                return {
-                  ...comment,
-                  replies: [...(comment.replies || []), newComment],
-                };
-              }
-              return comment;
-            });
+    // setPosts(
+    //   posts.map((post) => {
+    //     if (post.id === postId) {
+    //       if (replyToComment) {
+    //         // Add reply to specific comment
+    //         const updatedComments = post.commentsList.map((comment) => {
+    //           if (comment.id === replyToComment) {
+    //             return {
+    //               ...comment,
+    //               replies: [...(comment.replies || []), newComment],
+    //             };
+    //           }
+    //           return comment;
+    //         });
 
-            return {
-              ...post,
-              comments: post.comments + 1,
-              commentsList: updatedComments,
-            };
-          } else {
-            // Add new top-level comment
-            return {
-              ...post,
-              comments: post.comments + 1,
-              commentsList: [newComment, ...post.commentsList],
-            };
-          }
-        }
-        return post;
-      })
-    );
+    //         return {
+    //           ...post,
+    //           comments: post.comments + 1,
+    //           commentsList: updatedComments,
+    //         };
+    //       } else {
+    //         // Add new top-level comment
+    //         return {
+    //           ...post,
+    //           comments: post.comments + 1,
+    //           commentsList: [newComment, ...post.commentsList],
+    //         };
+    //       }
+    //     }
+    //     return post;
+    //   })
+    // );
 
     setNewCommentText("");
     setReplyToComment(null);
@@ -288,7 +229,7 @@ const SocialFeedScreen = () => {
     setReplyingToUsername(null);
   };
 
-  // Rendering functions - modified to remove upvote from comments and reply button from replies
+  // Rendering functions
   const renderComment = (comment: Comment, isReply = false, postId: string) => (
     <View
       key={comment.id}
@@ -302,8 +243,6 @@ const SocialFeedScreen = () => {
         </View>
         <View style={styles.commentActions}>
           <Text style={styles.commentTime}>{comment.time}</Text>
-
-          {/* Only show Reply button for main comments, not replies */}
           {!isReply && (
             <TouchableOpacity
               onPress={() => startReply(comment.id, comment.username)}
@@ -311,11 +250,7 @@ const SocialFeedScreen = () => {
               <Text style={styles.commentAction}>Reply</Text>
             </TouchableOpacity>
           )}
-
-          {/* Removed Upvote button completely */}
         </View>
-
-        {/* Render replies if they exist */}
         {comment.replies && comment.replies.length > 0 && (
           <View style={styles.repliesContainer}>
             {comment.replies.map((reply) => renderComment(reply, true, postId))}
@@ -325,49 +260,41 @@ const SocialFeedScreen = () => {
     </View>
   );
 
-  //IMPORTANT!! Reference for fetch posts
   const renderPost = ({ item }: { item: Post }) => (
     <View style={styles.postContainer}>
       <View style={styles.postHeader}>
-        <Image source={{ uri: item.avatar }} style={styles.avatar} />
+        <Image source={{ uri: item.postImage }} style={styles.avatar} />
         <View>
           <Text style={styles.username}>{item.username}</Text>
-          {item.jobTitle && (
-            <Text style={styles.jobTitle}>{item.jobTitle}</Text>
-          )}
-          <Text style={styles.time}>{item.time}</Text>
+          <Text style={styles.time}>{item.createdAt}</Text>
         </View>
       </View>
 
-      <Text style={styles.content}>{item.content}</Text>
-
-      {item.image && (
-        <Image source={{ uri: item.image }} style={styles.postImage} />
-      )}
+      <Text style={styles.content}>{item.postContent}</Text>
 
       <View style={styles.stats}>
         <Text style={styles.statsText}>
-          {item.upvotes} Upvotes • {item.comments} Comments
+          {item.likeCount} Likes • {item.commentCount} Comments
         </Text>
       </View>
 
       <View style={styles.actions}>
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => toggleUpvote(item.id)}
+          // onPress={() => toggleUpvote(item.id)}
         >
           <Ionicons
-            name={item.isUpvoted ? "arrow-up" : "arrow-up-outline"}
+            name={item.likeCount > 0 ? "heart" : "heart-outline"}
             size={20}
-            color={item.isUpvoted ? "#0077B5" : "#666"}
+            color={item.likeCount > 0 ? "#0077B5" : "#666"}
           />
           <Text
             style={[
               styles.actionText,
-              item.isUpvoted ? styles.activeActionText : null,
+              item.likeCount > 0 ? styles.activeActionText : null,
             ]}
           >
-            Upvote
+            Like
           </Text>
         </TouchableOpacity>
 
@@ -399,7 +326,6 @@ const SocialFeedScreen = () => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Community</Text>
-        {/* Updated search button to use router navigation */}
         <TouchableOpacity onPress={navigateToSearch}>
           <Ionicons name="search" size={24} color="#0b216f" />
         </TouchableOpacity>
@@ -422,21 +348,27 @@ const SocialFeedScreen = () => {
       </TouchableOpacity>
 
       {/* Posts Feed */}
-      <FlatList
-        data={posts}
-        renderItem={renderPost}
-        keyExtractor={(item) => item.id}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.feedContainer}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={["#0077B5"]}
-            tintColor="#0077B5"
-          />
-        }
-      />
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#0077B5" />
+        </View>
+      ) : (
+        <FlatList
+          data={posts}
+          renderItem={renderPost}
+          keyExtractor={(item) => item._id}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.feedContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={["#0077B5"]}
+              tintColor="#0077B5"
+            />
+          }
+        />
+      )}
 
       {/* Create Post Modal */}
       <Modal
@@ -553,30 +485,24 @@ const SocialFeedScreen = () => {
               <View style={styles.originalPostReference}>
                 <View style={styles.postHeader}>
                   <Image
-                    source={{ uri: selectedPost.avatar }}
+                    source={{ uri: selectedPost.postImage }}
                     style={styles.smallAvatar}
                   />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.username}>{selectedPost.username}</Text>
-                    <Text style={styles.time}>{selectedPost.time}</Text>
+                    <Text style={styles.time}>{selectedPost.createdAt}</Text>
                   </View>
                 </View>
                 <Text style={styles.originalPostContent} numberOfLines={2}>
-                  {selectedPost.content}
+                  {selectedPost.postContent}
                 </Text>
               </View>
 
               {/* Comments list */}
               <ScrollView style={styles.commentsScrollView}>
-                {selectedPost.commentsList.length > 0 ? (
-                  selectedPost.commentsList.map((comment) =>
-                    renderComment(comment, false, selectedPost.id)
-                  )
-                ) : (
-                  <Text style={styles.noComments}>
-                    No comments yet. Be the first to comment!
-                  </Text>
-                )}
+                <Text style={styles.noComments}>
+                  No comments yet. Be the first to comment!
+                </Text>
               </ScrollView>
 
               {/* Add comment section */}
@@ -612,7 +538,7 @@ const SocialFeedScreen = () => {
                   />
                   <TouchableOpacity
                     style={styles.sendButton}
-                    onPress={() => addComment(selectedPost.id)}
+                    onPress={() => addComment(selectedPost._id)}
                     disabled={newCommentText.trim() === ""}
                   >
                     <Ionicons
@@ -975,6 +901,11 @@ const styles = StyleSheet.create({
   replyingToText: {
     color: "#0077B5",
     fontSize: 13,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
 

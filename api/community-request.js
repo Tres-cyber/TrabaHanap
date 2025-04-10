@@ -13,17 +13,19 @@ export async function AddCommunityPost(params) {
   }
 
   formData.append("username", params.username);
-  formData.append("postContent", params.content);
-  formData.append("likeCount", 0);
-  formData.append("commentCount", 0);
+  formData.append("postContent", params.postContent);
+  formData.append("likeCount", params.likeCount);
+  formData.append("commentCount", params.commentCount);
 
-  if (params.image) {
+  if (params.postImage) {
     formData.append("postImage", {
-      uri: params.image,
-      name: params.image.split("/").pop(),
-      type: mime.lookup(params.image),
+      uri: params.postImage,
+      name: params.postImage.split("/").pop(),
+      type: mime.lookup(params.postImage),
     });
   }
+
+  console.log("formData", formData);
 
   try {
     const response = await axios.post(
@@ -41,4 +43,30 @@ export async function AddCommunityPost(params) {
     console.error("Error message:", error.message);
     throw error;
   }
+}
+
+export async function fetchCommunityPosts() {
+  const { data } = await axios.get(
+    `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/community/posts`
+  );
+
+  const extractIds = data.map((post) => ({
+    userId: post.clientId || post.jobSeekerId,
+  }));
+
+  const { data: usernames } = await axios.get(
+    `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/community/getUsername`,
+    {
+      params: {
+        ids: extractIds,
+      },
+    }
+  );
+
+  const postsWithUsernames = data.map((post, index) => ({
+    ...post,
+    username: usernames[index],
+  }));
+
+  return postsWithUsernames;
 }
