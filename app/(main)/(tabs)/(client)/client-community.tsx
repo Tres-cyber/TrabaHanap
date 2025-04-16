@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   View,
@@ -19,7 +19,13 @@ import {
 import { Ionicons, MaterialIcons, FontAwesome } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import { AddCommunityPost, fetchCommunityPosts } from "@/api/community-request";
+import {
+  AddCommunityPost,
+  fetchCommunityPosts,
+  likePost,
+  unlikePost,
+  checkIfLiked,
+} from "@/api/community-request";
 import decodeToken from "@/api/token-decoder";
 import { useQuery } from "@tanstack/react-query";
 
@@ -35,7 +41,7 @@ type Comment = {
 };
 
 type Post = {
-  _id: string;
+  id: string;
   clientId?: string;
   jobSeekerId?: string;
   postContent: string;
@@ -44,6 +50,9 @@ type Post = {
   commentCount: number;
   createdAt: string;
   username: string;
+  profileImage?: string;
+  isUpvoted?: boolean;
+  upvotes?: number;
 };
 
 const SocialFeedScreen = () => {
@@ -60,14 +69,13 @@ const SocialFeedScreen = () => {
   const [commentModalVisible, setCommentModalVisible] =
     useState<boolean>(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
+  const [username, setUsername] = useState<string>("");
+  const [data, setData] = useState<any>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
 
-  // Constants
-  const CURRENT_USER_AVATAR =
-    "https://randomuser.me/api/portraits/women/21.jpg";
-
-  // TanStack Query for fetching posts
   const {
-    data: posts = [],
+    data: fetchedPosts = [],
     isLoading,
     refetch,
   } = useQuery<Post[]>({
@@ -75,12 +83,63 @@ const SocialFeedScreen = () => {
     queryFn: fetchCommunityPosts,
   });
 
-  // Navigate to search screen
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        const { data } = await decodeToken();
+        const profileImagePath = data.profileImage;
+        const userName = `${data.firstName} ${data.middleName[0]}. ${data.lastName}`;
+
+        if (profileImagePath) {
+          setUserProfileImage(
+            `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${profileImagePath}`
+          );
+        }
+        setUsername(userName);
+        setData(data);
+      } catch (error) {
+        console.error("Error loading user data:", error);
+      }
+    };
+    loadUserData();
+  }, []);
+
+  useEffect(() => {
+    if (fetchedPosts.length > 0) {
+      const loadPostLikes = async () => {
+        const updatedPosts = await Promise.all(
+          fetchedPosts.map(async (post) => {
+            try {
+              const likeStatus = await checkIfLiked(post.id);
+              return {
+                ...post,
+                isUpvoted: !!likeStatus.likedAt,
+                upvotes: post.likeCount || 0,
+              };
+            } catch (error) {
+              console.error(
+                "Error checking like status for post:",
+                post.id,
+                error
+              );
+              return {
+                ...post,
+                isUpvoted: false,
+                upvotes: post.likeCount || 0,
+              };
+            }
+          })
+        );
+        setPosts(updatedPosts);
+      };
+      loadPostLikes();
+    }
+  }, [fetchedPosts]);
+
   const navigateToSearch = () => {
     router.push("./");
   };
 
-  // Simplified functions
   const onRefresh = () => {
     setRefreshing(true);
     refetch().finally(() => setRefreshing(false));
@@ -90,6 +149,12 @@ const SocialFeedScreen = () => {
     const { data } = await decodeToken();
     const userName = `${data.firstName} ${data.middleName[0]}. ${data.lastName}`;
     return userName;
+  };
+
+  async () => {
+    const { data } = await decodeToken();
+    const profileImage = data.profileImage;
+    return profileImage;
   };
 
   const pickImage = async () => {
@@ -113,7 +178,7 @@ const SocialFeedScreen = () => {
     if (newPostText.trim() === "" && !selectedImage) return;
 
     const newPost: Post = {
-      _id: Date.now().toString(),
+      id: Date.now().toString(),
       username: await getUsername(),
       postContent: newPostText,
       postImage: selectedImage || "",
@@ -131,27 +196,63 @@ const SocialFeedScreen = () => {
     } catch (error) {
       Alert.alert("Error", "Failed to create post");
     }
-
-    console.log("Trying to add post");
   };
 
-  // const toggleUpvote = (postId: string) => {
-  //   setPosts(
-  //     posts.map((post) => {
-  //       if (post.id === postId) {
-  //         const newUpvoteCount = post.isUpvoted
-  //           ? post.upvotes - 1
-  //           : post.upvotes + 1;
-  //         return {
-  //           ...post,
-  //           upvotes: newUpvoteCount,
-  //           isUpvoted: !post.isUpvoted,
-  //         };
-  //       }
-  //       return post;
-  //     })
-  //   );
-  // };
+  const toggleUpvote = async (postId: string) => {
+    try {
+      const post = posts.find((p) => p.id === postId);
+      if (!post) return;
+
+      // Immediately update the UI state
+      setPosts(
+        posts.map((post) => {
+          if (post.id === postId) {
+            const currentLikeCount = post.likeCount || 0;
+            const newIsUpvoted = !post.isUpvoted;
+            return {
+              ...post,
+              isUpvoted: newIsUpvoted,
+              likeCount: newIsUpvoted
+                ? currentLikeCount + 1
+                : Math.max(0, currentLikeCount - 1),
+              upvotes: newIsUpvoted
+                ? currentLikeCount + 1
+                : Math.max(0, currentLikeCount - 1),
+            };
+          }
+          return post;
+        })
+      );
+
+      // Make the API call in the background
+      if (post.isUpvoted) {
+        await unlikePost(postId);
+      } else {
+        await likePost(postId);
+      }
+    } catch (error) {
+      console.error("Error toggling upvote:", error);
+      // Revert the UI state if the API call fails
+      setPosts(
+        posts.map((post) => {
+          if (post.id === postId) {
+            const currentLikeCount = post.likeCount || 0;
+            return {
+              ...post,
+              isUpvoted: post.isUpvoted,
+              likeCount: post.isUpvoted
+                ? currentLikeCount + 1
+                : Math.max(0, currentLikeCount - 1),
+              upvotes: post.isUpvoted
+                ? currentLikeCount + 1
+                : Math.max(0, currentLikeCount - 1),
+            };
+          }
+          return post;
+        })
+      );
+    }
+  };
 
   // Updated to open comment modal instead of toggling inline comments
   const openCommentModal = (post: Post) => {
@@ -174,7 +275,7 @@ const SocialFeedScreen = () => {
     const newComment: Comment = {
       id: Date.now().toString(),
       username: "Current User",
-      avatar: CURRENT_USER_AVATAR,
+      avatar: userProfileImage || "",
       text: newCommentText,
       time: "Just now",
       isUpvoted: false,
@@ -229,7 +330,6 @@ const SocialFeedScreen = () => {
     setReplyingToUsername(null);
   };
 
-  // Rendering functions
   const renderComment = (comment: Comment, isReply = false, postId: string) => (
     <View
       key={comment.id}
@@ -260,59 +360,90 @@ const SocialFeedScreen = () => {
     </View>
   );
 
-  const renderPost = ({ item }: { item: Post }) => (
-    <View style={styles.postContainer}>
-      <View style={styles.postHeader}>
-        <Image source={{ uri: item.postImage }} style={styles.avatar} />
-        <View>
-          <Text style={styles.username}>{item.username}</Text>
-          <Text style={styles.time}>{item.createdAt}</Text>
+  const renderPost = ({ item }: { item: Post }) => {
+    const imageUrl = item.postImage
+      ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${item.postImage}`
+      : null;
+
+    const profileImageUrl = item.profileImage
+      ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${item.profileImage}`
+      : null;
+
+    return (
+      <View style={styles.postContainer}>
+        <View style={styles.postHeader}>
+          <Image
+            source={
+              profileImageUrl
+                ? { uri: profileImageUrl }
+                : require("assets/images/default-user.png")
+            }
+            style={styles.avatar}
+          />
+          <View>
+            <Text style={styles.username}>{item.username}</Text>
+            <Text style={styles.time}>
+              {new Date(item.createdAt).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={styles.content}>{item.postContent}</Text>
+
+        {imageUrl && (
+          <Image
+            source={{ uri: imageUrl }}
+            style={styles.postImage}
+            resizeMode="cover"
+          />
+        )}
+
+        <View style={styles.stats}>
+          <Text style={styles.statsText}>
+            {item.likeCount} Likes • {item.commentCount} Comments
+          </Text>
+        </View>
+
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => toggleUpvote(item.id)}
+          >
+            <Ionicons
+              name={item.isUpvoted ? "heart" : "heart-outline"}
+              size={20}
+              color={item.isUpvoted ? "#0077B5" : "#666"}
+            />
+            <Text
+              style={[
+                styles.actionText,
+                item.isUpvoted ? styles.activeActionText : null,
+              ]}
+            >
+              Like
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => openCommentModal(item)}
+          >
+            <Ionicons name="chatbubble-outline" size={20} color="#666" />
+            <Text style={styles.actionText}>Comment</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.actionButton}>
+            <Ionicons name="share-social-outline" size={20} color="#666" />
+            <Text style={styles.actionText}>Share</Text>
+          </TouchableOpacity>
         </View>
       </View>
-
-      <Text style={styles.content}>{item.postContent}</Text>
-
-      <View style={styles.stats}>
-        <Text style={styles.statsText}>
-          {item.likeCount} Likes • {item.commentCount} Comments
-        </Text>
-      </View>
-
-      <View style={styles.actions}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          // onPress={() => toggleUpvote(item.id)}
-        >
-          <Ionicons
-            name={item.likeCount > 0 ? "heart" : "heart-outline"}
-            size={20}
-            color={item.likeCount > 0 ? "#0077B5" : "#666"}
-          />
-          <Text
-            style={[
-              styles.actionText,
-              item.likeCount > 0 ? styles.activeActionText : null,
-            ]}
-          >
-            Like
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => openCommentModal(item)}
-        >
-          <Ionicons name="chatbubble-outline" size={20} color="#666" />
-          <Text style={styles.actionText}>Comment</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="share-social-outline" size={20} color="#666" />
-          <Text style={styles.actionText}>Share</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <SafeAreaView
@@ -337,7 +468,11 @@ const SocialFeedScreen = () => {
         onPress={() => setShowCreatePost(true)}
       >
         <Image
-          source={{ uri: CURRENT_USER_AVATAR }}
+          source={
+            userProfileImage
+              ? { uri: userProfileImage }
+              : require("assets/images/default-user.png")
+          }
           style={styles.userAvatar}
         />
         <View style={styles.createPostPlaceholder}>
@@ -355,8 +490,10 @@ const SocialFeedScreen = () => {
       ) : (
         <FlatList
           data={posts}
-          renderItem={renderPost}
-          keyExtractor={(item) => item._id}
+          renderItem={({ item, index }) => (
+            <View key={`post-${item.id || index}`}>{renderPost({ item })}</View>
+          )}
+          keyExtractor={(item, index) => `post-${item.id || index}`}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.feedContainer}
           refreshControl={
@@ -411,13 +548,17 @@ const SocialFeedScreen = () => {
           <ScrollView style={styles.modalContent}>
             <View style={styles.userInfoContainer}>
               <Image
-                source={{ uri: CURRENT_USER_AVATAR }}
+                source={
+                  userProfileImage
+                    ? { uri: userProfileImage }
+                    : require("assets/images/default-user.png")
+                }
                 style={styles.userAvatar}
               />
               <View>
-                <Text style={styles.username}>Current User</Text>
+                <Text style={styles.username}>{username}</Text>
                 <Text style={styles.jobTitle}>
-                  UX Designer at CreativeDesign
+                  {data?.userType === "client" ? "Client" : "Job Seeker"}
                 </Text>
               </View>
             </View>
@@ -522,7 +663,7 @@ const SocialFeedScreen = () => {
                 )}
                 <View style={styles.addCommentContainer}>
                   <Image
-                    source={{ uri: CURRENT_USER_AVATAR }}
+                    // source={{ uri: CURRENT_USER_AVATAR }}
                     style={styles.commentAvatar}
                   />
                   <TextInput
@@ -538,7 +679,7 @@ const SocialFeedScreen = () => {
                   />
                   <TouchableOpacity
                     style={styles.sendButton}
-                    onPress={() => addComment(selectedPost._id)}
+                    onPress={() => addComment(selectedPost.id)}
                     disabled={newCommentText.trim() === ""}
                   >
                     <Ionicons
@@ -644,10 +785,11 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     marginRight: 10,
+    backgroundColor: "#f0f0f0",
   },
   smallAvatar: {
     width: 36,
@@ -677,9 +819,9 @@ const styles = StyleSheet.create({
   },
   postImage: {
     width: "100%",
-    height: 200,
-    borderRadius: 5,
-    marginBottom: 15,
+    height: 300,
+    borderRadius: 8,
+    marginVertical: 10,
   },
   stats: {
     marginBottom: 10,

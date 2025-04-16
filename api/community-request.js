@@ -1,6 +1,7 @@
 import axios from "axios";
 import decodeToken from "@/api/token-decoder";
 import * as mime from "react-native-mime-types";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export async function AddCommunityPost(params) {
   const formData = new FormData();
@@ -63,10 +64,100 @@ export async function fetchCommunityPosts() {
     }
   );
 
-  const postsWithUsernames = data.map((post, index) => ({
-    ...post,
-    username: usernames[index],
-  }));
+  const postsWithUsernames = data.map((post) => {
+    const userId = post.clientId || post.jobSeekerId;
+    const userDetails = usernames[userId];
+    const fullName = userDetails
+      ? `${userDetails.firstName} ${userDetails.middleName[0]}. ${userDetails.lastName}`
+      : "Unknown User";
+
+    return {
+      ...post,
+      username: fullName,
+      profileImage: userDetails?.profileImage || null,
+    };
+  });
 
   return postsWithUsernames;
+}
+
+export async function likePost(postId) {
+  try {
+    const token = await AsyncStorage.getItem("token");
+    const { data } = await decodeToken();
+
+    const requestData = {
+      postId: postId,
+      userId: data.id,
+      userType: data.userType,
+    };
+
+    const response = await axios.post(
+      `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/community/posts/${postId}/hasLiked`,
+      requestData,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error("Error toggling post like:", error);
+    throw error;
+  }
+}
+
+// Function to check if a post is already liked
+export async function checkIfLiked(postId) {
+  try {
+    const token = await AsyncStorage.getItem("token");
+    const { data } = await decodeToken();
+
+    const response = await axios.get(
+      `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/community/posts/${postId}/checkIfLiked`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        params: {
+          userId: data.id,
+          userType: data.userType,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error checking like status:", error);
+    throw error;
+  }
+}
+
+// Function to unlike a post
+export async function unlikePost(postId) {
+  try {
+    const token = await AsyncStorage.getItem("token");
+    const { data } = await decodeToken();
+
+    const requestData = {
+      postId: postId,
+      userId: data.id,
+      userType: data.userType,
+    };
+
+    const response = await axios.delete(
+      `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/community/posts/${postId}/unlike`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        data: requestData,
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error unliking post:", error);
+    throw error;
+  }
 }
