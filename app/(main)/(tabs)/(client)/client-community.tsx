@@ -25,9 +25,11 @@ import {
   likePost,
   unlikePost,
   checkIfLiked,
+  addComment,
+  fetchPostComments,
 } from "@/api/community-request";
 import decodeToken from "@/api/token-decoder";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 // Types
 type Comment = {
@@ -53,10 +55,23 @@ type Post = {
   profileImage?: string;
   isUpvoted?: boolean;
   upvotes?: number;
+  comments?: number;
+  commentsList?: Comment[];
+};
+
+// Add proper types for the mutation
+type AddCommentMutation = {
+  postId: string;
+  comment: {
+    comment: string;
+    userId: string;
+    userType: string;
+  };
 };
 
 const SocialFeedScreen = () => {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [newPostText, setNewPostText] = useState<string>("");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showCreatePost, setShowCreatePost] = useState<boolean>(false);
@@ -81,6 +96,63 @@ const SocialFeedScreen = () => {
   } = useQuery<Post[]>({
     queryKey: ["community-posts"],
     queryFn: fetchCommunityPosts,
+  });
+
+  const {
+    data: comments,
+    isLoading: commentsLoading,
+    error,
+  } = useQuery({
+    queryKey: ["post-comments", selectedPost?.id],
+    queryFn: async () => {
+      if (!selectedPost) return [];
+      const response = await fetchPostComments(selectedPost.id);
+      if (selectedPost) {
+        setSelectedPost((prev) =>
+          prev
+            ? {
+                ...prev,
+                commentCount: response.length,
+              }
+            : null
+        );
+
+        setPosts((prevPosts) =>
+          prevPosts.map((post) =>
+            post.id === selectedPost.id
+              ? { ...post, commentCount: response.length }
+              : post
+          )
+        );
+      }
+      return response.map((comment: any) => ({
+        id: comment.id,
+        username: `${comment.client.firstName} ${comment.client.middleName[0]}. ${comment.client.lastName}`,
+        avatar: comment.client.profileImage
+          ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${comment.client.profileImage}`
+          : require("assets/images/default-user.png"),
+        text: comment.comment,
+        time: new Date(comment.createdAt).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        }),
+        replies: comment.replies || [],
+        isUpvoted: false,
+      }));
+    },
+    enabled: !!selectedPost,
+  });
+
+  const addCommentMutation = useMutation({
+    mutationFn: async ({ postId, comment }: AddCommentMutation) => {
+      return await addComment(postId, comment);
+    },
+    onSuccess: (_, { postId }) => {
+      queryClient.invalidateQueries({ queryKey: ["post-comments", postId] });
+
+      queryClient.invalidateQueries({ queryKey: ["community-posts"] });
+    },
   });
 
   useEffect(() => {
@@ -268,13 +340,12 @@ const SocialFeedScreen = () => {
     setReplyingToUsername(null);
   };
 
-  // Fixed the comment adding function
-  const addComment = (postId: string) => {
+  const handleAddComment = async (postId: string) => {
     if (newCommentText.trim() === "") return;
 
     const newComment: Comment = {
       id: Date.now().toString(),
-      username: "Current User",
+      username: username,
       avatar: userProfileImage || "",
       text: newCommentText,
       time: "Just now",
@@ -282,44 +353,27 @@ const SocialFeedScreen = () => {
       replies: [],
     };
 
-    // setPosts(
-    //   posts.map((post) => {
-    //     if (post.id === postId) {
-    //       if (replyToComment) {
-    //         // Add reply to specific comment
-    //         const updatedComments = post.commentsList.map((comment) => {
-    //           if (comment.id === replyToComment) {
-    //             return {
-    //               ...comment,
-    //               replies: [...(comment.replies || []), newComment],
-    //             };
-    //           }
-    //           return comment;
-    //         });
+    try {
+      // Make the API call using mutation
+      await addCommentMutation.mutateAsync({
+        postId,
+        comment: {
+          comment: newCommentText,
+          userId: data.id,
+          userType: data.userType,
+        },
+      });
 
-    //         return {
-    //           ...post,
-    //           comments: post.comments + 1,
-    //           commentsList: updatedComments,
-    //         };
-    //       } else {
-    //         // Add new top-level comment
-    //         return {
-    //           ...post,
-    //           comments: post.comments + 1,
-    //           commentsList: [newComment, ...post.commentsList],
-    //         };
-    //       }
-    //     }
-    //     return post;
-    //   })
-    // );
-
-    setNewCommentText("");
-    setReplyToComment(null);
-    setReplyingToUsername(null);
+      setNewCommentText("");
+      setReplyToComment(null);
+      setReplyingToUsername(null);
+    } catch (error) {
+      console.error("Error adding comment:", error);
+      Alert.alert("Error", "Failed to add comment");
+    }
   };
 
+  // Add the startReply function
   const startReply = (commentId: string, username: string) => {
     setReplyToComment(commentId);
     setReplyingToUsername(username);
@@ -626,12 +680,27 @@ const SocialFeedScreen = () => {
               <View style={styles.originalPostReference}>
                 <View style={styles.postHeader}>
                   <Image
-                    source={{ uri: selectedPost.postImage }}
+                    source={
+                      selectedPost.profileImage
+                        ? {
+                            uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${selectedPost.profileImage}`,
+                          }
+                        : require("assets/images/default-user.png")
+                    }
                     style={styles.smallAvatar}
                   />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.username}>{selectedPost.username}</Text>
-                    <Text style={styles.time}>{selectedPost.createdAt}</Text>
+                    <Text style={styles.time}>
+                      {new Date(selectedPost.createdAt).toLocaleDateString(
+                        "en-US",
+                        {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        }
+                      )}
+                    </Text>
                   </View>
                 </View>
                 <Text style={styles.originalPostContent} numberOfLines={2}>
@@ -639,11 +708,32 @@ const SocialFeedScreen = () => {
                 </Text>
               </View>
 
-              {/* Comments list */}
               <ScrollView style={styles.commentsScrollView}>
-                <Text style={styles.noComments}>
-                  No comments yet. Be the first to comment!
-                </Text>
+                {selectedPost && (
+                  <>
+                    {commentsLoading ? (
+                      <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="small" color="#0077B5" />
+                      </View>
+                    ) : error ? (
+                      <View style={styles.errorContainer}>
+                        <Text style={styles.errorText}>
+                          Failed to load comments
+                        </Text>
+                      </View>
+                    ) : !comments || comments.length === 0 ? (
+                      <View style={styles.noCommentsContainer}>
+                        <Text style={styles.noCommentsText}>
+                          No comments yet. Be the first to comment!
+                        </Text>
+                      </View>
+                    ) : (
+                      comments.map((comment: Comment) =>
+                        renderComment(comment, false, selectedPost.id)
+                      )
+                    )}
+                  </>
+                )}
               </ScrollView>
 
               {/* Add comment section */}
@@ -663,7 +753,11 @@ const SocialFeedScreen = () => {
                 )}
                 <View style={styles.addCommentContainer}>
                   <Image
-                    // source={{ uri: CURRENT_USER_AVATAR }}
+                    source={
+                      userProfileImage
+                        ? { uri: userProfileImage }
+                        : require("assets/images/default-user.png")
+                    }
                     style={styles.commentAvatar}
                   />
                   <TextInput
@@ -673,13 +767,14 @@ const SocialFeedScreen = () => {
                         ? `Reply to ${replyingToUsername}...`
                         : "Write a comment..."
                     }
+                    placeholderTextColor="#333"
                     value={newCommentText}
                     onChangeText={setNewCommentText}
                     multiline
                   />
                   <TouchableOpacity
                     style={styles.sendButton}
-                    onPress={() => addComment(selectedPost.id)}
+                    onPress={() => handleAddComment(selectedPost.id)}
                     disabled={newCommentText.trim() === ""}
                   >
                     <Ionicons
@@ -1045,9 +1140,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
+    padding: 20,
     alignItems: "center",
+  },
+  errorContainer: {
+    padding: 20,
+    alignItems: "center",
+  },
+  errorText: {
+    color: "red",
+  },
+  noCommentsContainer: {
+    padding: 20,
+    alignItems: "center",
+  },
+  noCommentsText: {
+    color: "#666",
   },
 });
 

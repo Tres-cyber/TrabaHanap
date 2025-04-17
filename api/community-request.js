@@ -64,7 +64,27 @@ export async function fetchCommunityPosts() {
     }
   );
 
-  const postsWithUsernames = data.map((post) => {
+  const postsWithComments = await Promise.all(
+    data.map(async (post) => {
+      try {
+        const { data: comments } = await axios.get(
+          `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/community/posts/${post.id}/getComments`
+        );
+        return {
+          ...post,
+          commentCount: comments.length,
+        };
+      } catch (error) {
+        console.error("Error fetching comments for post:", post.id, error);
+        return {
+          ...post,
+          commentCount: 0,
+        };
+      }
+    })
+  );
+
+  const postsWithUsernames = postsWithComments.map((post) => {
     const userId = post.clientId || post.jobSeekerId;
     const userDetails = usernames[userId];
     const fullName = userDetails
@@ -158,6 +178,51 @@ export async function unlikePost(postId) {
     return response.data;
   } catch (error) {
     console.error("Error unliking post:", error);
+    throw error;
+  }
+}
+
+export async function addComment(postId, comment) {
+  try {
+    const token = await AsyncStorage.getItem("token");
+    const { data } = await decodeToken();
+
+    const response = await axios.post(
+      `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/community/posts/${postId}/addComment`,
+      {
+        comment: comment,
+        userId: data.id,
+        userType: data.userType,
+        postId: postId,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error("Error adding comment:", error);
+    throw error;
+  }
+}
+
+export async function fetchPostComments(postId) {
+  try {
+    const token = await AsyncStorage.getItem("token");
+    const response = await axios.get(
+      `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/community/posts/${postId}/getComments`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching comments:", error);
     throw error;
   }
 }
