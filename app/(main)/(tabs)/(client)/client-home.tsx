@@ -95,7 +95,7 @@ export default function JobListingScreen() {
     const dataToken = await AsyncStorage.getItem("token");
 
     if (!dataToken) {
-      router.push("/(auth)/sign_in");
+      router.replace("/(auth)/sign_in");
     }
   };
 

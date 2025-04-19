@@ -10,22 +10,23 @@ import {
   StatusBar,
   ActivityIndicator,
   Platform,
+  RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams } from "expo-router";
-
 interface JobRequest {
-  id: number;
+  id: string;
   jobTitle: string;
+  jobSeekerId:string;
   jobDescription: string;
   category: string;
   budget: string;
   jobLocation: string;
   datePosted: string;
-  image?: any;
+  jobImage: string[] | null;
   client:Client;
 }
 interface Client{
@@ -37,14 +38,16 @@ interface JobSeeker {
   jobTags: string[];
 }
 
-type TabType = "suggested" | "recent";
+type TabType = "bestMatch" | "otherJobs" | "pendingJobs";
 
 export default function JobListingScreen() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabType>("suggested");
+  const [activeTab, setActiveTab] = useState<TabType>("bestMatch");
   const [jobRequests, setJobRequests] = useState<JobRequest[]>([]);
+  const [myJobs, setMyJobs] = useState<JobRequest[]>([]);
   const [jobSeeker, setJobSeeker] = useState<JobSeeker | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -62,6 +65,13 @@ export default function JobListingScreen() {
       );
       const jobData = await jobResponse.json();
       setJobRequests(jobData);
+ 
+      const myJobsResponse = await fetch(
+        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/job-seeker/my-jobs`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const myJobsData = await myJobsResponse.json();
+      setMyJobs(myJobsData);
 
       const tagsResponse = await fetch(
         `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/job-seeker/tags`,
@@ -71,6 +81,7 @@ export default function JobListingScreen() {
       );
       const tagsData = await tagsResponse.json();
       setJobSeeker({ jobTags: tagsData.jobTags || [] });
+      setRefreshing(false);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -81,9 +92,33 @@ export default function JobListingScreen() {
   useFocusEffect(
     React.useCallback(() => {
       fetchData();
+      setRefreshing(false);
     }, []),
   );
-
+  const handleMarkAsFinished = async (jobId: string) => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) return;
+  
+      setLoading(true);
+      const response = await fetch(
+        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/jobs/${jobId}/complete`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+  
+      if (response.ok) {
+        // Refresh the jobs list
+        await fetchData();
+      }
+    } catch (error) {
+      console.error("Error marking job as finished:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
   const handleSeeMorePress = (job: JobRequest) => {
     router.push({
       pathname: "../../../screen/job-seeker-screen/job-details",
@@ -95,13 +130,18 @@ export default function JobListingScreen() {
         rate: job.budget,
         location: job.jobLocation,
         clientId:job.client.id,
-        images: JSON.stringify(job.image),
+        jobImages: job.jobImage,
       },
     });
   };
 
+
   const handleTabPress = (tab: TabType) => {
     setActiveTab(tab);
+  };
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchData();
   };
 
   const matchingJobs = jobRequests.filter((job) =>
@@ -117,9 +157,13 @@ export default function JobListingScreen() {
     )
 
   );
+  
 
-  const displayedJobs = activeTab === "suggested" ? matchingJobs : otherJobs;
-
+  const displayedJobs = 
+  activeTab === "bestMatch" ? matchingJobs :
+  activeTab === "otherJobs" ? otherJobs :
+  myJobs;
+  
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -144,31 +188,46 @@ export default function JobListingScreen() {
 
       <View style={styles.tabContainer}>
 
-        <TouchableOpacity style={styles.tab} onPress={() => handleTabPress('suggested')}>
-          <Text style={[styles.tabText, activeTab === 'suggested' && styles.activeTab]}>
+        <TouchableOpacity style={styles.tab} onPress={() => handleTabPress('bestMatch')}>
+          <Text style={[styles.tabText, activeTab === 'bestMatch' && styles.activeTab]}>
             Best Matches
 
           </Text>
-          {activeTab === "suggested" && <View style={styles.activeIndicator} />}
+          {activeTab === "bestMatch" && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.tab}
-          onPress={() => handleTabPress("recent")}
+          onPress={() => handleTabPress("otherJobs")}
         >
           <Text
-            style={[styles.tabText, activeTab === "recent" && styles.activeTab]}
+            style={[styles.tabText, activeTab === "otherJobs" && styles.activeTab]}
           >
             Other Jobs
           </Text>
-          {activeTab === "recent" && <View style={styles.activeIndicator} />}
+          {activeTab === "otherJobs" && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
+
+        <TouchableOpacity style={styles.tab} onPress={() => handleTabPress("pendingJobs")}>
+                <Text style={[styles.tabText, activeTab === "pendingJobs" && styles.activeTab]}>
+                  My Jobs
+                </Text>
+                {activeTab === "pendingJobs" && <View style={styles.activeIndicator} />}
+              </TouchableOpacity>
+              
       </View>
 
       {loading ? (
         <ActivityIndicator size="large" color="#000" />
       ) : (
-        <ScrollView style={styles.scrollView}>
+        <ScrollView style={styles.scrollView}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+          />
+        }>
+          
           {displayedJobs.length > 0 ? (
             displayedJobs.map((job) => (
               <View key={job.id} style={styles.jobCard}>
@@ -180,6 +239,7 @@ export default function JobListingScreen() {
                       day: "numeric",
                     })}
                   </Text>
+                  <Text style={styles.posterName}>{job.client.firstName + " "+ job.client.lastName}</Text>
                   <Text style={styles.jobTitle}>{job.jobTitle}</Text>
 
                   <Text
@@ -213,18 +273,29 @@ export default function JobListingScreen() {
                   </View>
                 </View>
                 <View style={styles.jobImageContainer}>
-                  <Image
-                    source={job.image}
-                    style={styles.jobImage}
-                    resizeMode="cover"
-                  />
+  
+                <Image
+                  source={{ uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/${job.jobImage?.[0].split("job_request_files/")[1]}` }}
+                  style={styles.jobImage}
+                  resizeMode="cover"
+                />
                   <View style={styles.imageOverlay} />
                 </View>
+                {activeTab === "pendingJobs" && (
+                  <TouchableOpacity 
+                    style={styles.finishButton}
+                    onPress={() => handleMarkAsFinished(job.id)}
+                  >
+                    <Text style={styles.finishButtonText}>Mark as Finished</Text>
+                  </TouchableOpacity>
+                )}
+               
               </View>
             ))
           ) : (
-            <Text>No jobs found.</Text>
+            <Text style = {styles.noJobs}>No jobs found.</Text>
           )}
+          
         </ScrollView>
       )}
     </SafeAreaView>
@@ -333,6 +404,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#666",
     marginBottom: 4,
+    
+  },
+  posterName: {
+    fontSize: 14,
+    marginBottom: 4,
   },
   jobTitle: {
     fontSize: 18,
@@ -392,5 +468,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#666",
     marginLeft: 2,
+  },  
+  noJobs:{
+    textAlign:"center",
+    marginTop:20,
+
   },
+  finishButton: {
+    backgroundColor: '#2ecc71',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 10,
+    alignSelf: 'flex-start',
+  },
+  finishButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+    
+  
 });
