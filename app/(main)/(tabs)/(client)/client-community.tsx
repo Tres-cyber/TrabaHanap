@@ -15,6 +15,7 @@ import {
   RefreshControl,
   Platform,
   ActivityIndicator,
+  Share,
 } from "react-native";
 import { Ionicons, MaterialIcons, FontAwesome } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -31,11 +32,10 @@ import {
 import decodeToken from "@/api/token-decoder";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-// Types
 type Comment = {
   id: string;
   username: string;
-  avatar: string;
+  avatar: string | null;
   text: string;
   time: string;
   replies?: Comment[];
@@ -59,13 +59,13 @@ type Post = {
   commentsList?: Comment[];
 };
 
-// Add proper types for the mutation
 type AddCommentMutation = {
   postId: string;
   comment: {
     comment: string;
     userId: string;
     userType: string;
+    parentCommentId?: string | null;
   };
 };
 
@@ -101,45 +101,14 @@ const SocialFeedScreen = () => {
   const {
     data: comments,
     isLoading: commentsLoading,
-    error,
+    error: commentsError,
   } = useQuery({
     queryKey: ["post-comments", selectedPost?.id],
     queryFn: async () => {
       if (!selectedPost) return [];
-      const response = await fetchPostComments(selectedPost.id);
-      if (selectedPost) {
-        setSelectedPost((prev) =>
-          prev
-            ? {
-                ...prev,
-                commentCount: response.length,
-              }
-            : null
-        );
+      const formattedComments = await fetchPostComments(selectedPost.id);
 
-        setPosts((prevPosts) =>
-          prevPosts.map((post) =>
-            post.id === selectedPost.id
-              ? { ...post, commentCount: response.length }
-              : post
-          )
-        );
-      }
-      return response.map((comment: any) => ({
-        id: comment.id,
-        username: `${comment.client.firstName} ${comment.client.middleName[0]}. ${comment.client.lastName}`,
-        avatar: comment.client.profileImage
-          ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${comment.client.profileImage}`
-          : require("assets/images/default-user.png"),
-        text: comment.comment,
-        time: new Date(comment.createdAt).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        }),
-        replies: comment.replies || [],
-        isUpvoted: false,
-      }));
+      return formattedComments;
     },
     enabled: !!selectedPost,
   });
@@ -275,7 +244,6 @@ const SocialFeedScreen = () => {
       const post = posts.find((p) => p.id === postId);
       if (!post) return;
 
-      // Immediately update the UI state
       setPosts(
         posts.map((post) => {
           if (post.id === postId) {
@@ -296,7 +264,6 @@ const SocialFeedScreen = () => {
         })
       );
 
-      // Make the API call in the background
       if (post.isUpvoted) {
         await unlikePost(postId);
       } else {
@@ -304,7 +271,7 @@ const SocialFeedScreen = () => {
       }
     } catch (error) {
       console.error("Error toggling upvote:", error);
-      // Revert the UI state if the API call fails
+
       setPosts(
         posts.map((post) => {
           if (post.id === postId) {
@@ -326,7 +293,6 @@ const SocialFeedScreen = () => {
     }
   };
 
-  // Updated to open comment modal instead of toggling inline comments
   const openCommentModal = (post: Post) => {
     setSelectedPost(post);
     setCommentModalVisible(true);
@@ -354,13 +320,13 @@ const SocialFeedScreen = () => {
     };
 
     try {
-      // Make the API call using mutation
       await addCommentMutation.mutateAsync({
         postId,
         comment: {
           comment: newCommentText,
           userId: data.id,
           userType: data.userType,
+          parentCommentId: replyToComment || null,
         },
       });
 
@@ -373,7 +339,6 @@ const SocialFeedScreen = () => {
     }
   };
 
-  // Add the startReply function
   const startReply = (commentId: string, username: string) => {
     setReplyToComment(commentId);
     setReplyingToUsername(username);
@@ -389,7 +354,14 @@ const SocialFeedScreen = () => {
       key={comment.id}
       style={[styles.commentContainer, isReply && styles.replyContainer]}
     >
-      <Image source={{ uri: comment.avatar }} style={styles.commentAvatar} />
+      <Image
+        source={
+          comment.avatar
+            ? { uri: comment.avatar }
+            : require("assets/images/default-user.png")
+        }
+        style={styles.commentAvatar}
+      />
       <View style={styles.commentContent}>
         <View style={styles.commentBubble}>
           <Text style={styles.commentUsername}>{comment.username}</Text>
@@ -397,14 +369,13 @@ const SocialFeedScreen = () => {
         </View>
         <View style={styles.commentActions}>
           <Text style={styles.commentTime}>{comment.time}</Text>
-          {!isReply && (
-            <TouchableOpacity
-              onPress={() => startReply(comment.id, comment.username)}
-            >
-              <Text style={styles.commentAction}>Reply</Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            onPress={() => startReply(comment.id, comment.username)}
+          >
+            <Text style={styles.commentAction}>Reply</Text>
+          </TouchableOpacity>
         </View>
+
         {comment.replies && comment.replies.length > 0 && (
           <View style={styles.repliesContainer}>
             {comment.replies.map((reply) => renderComment(reply, true, postId))}
@@ -413,6 +384,20 @@ const SocialFeedScreen = () => {
       </View>
     </View>
   );
+
+  const handleShare = async (post: Post) => {
+    try {
+      const postUrl = `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/community/posts/${post.id}`;
+      const message = `Check out this post from ${post.username}:\n\n${post.postContent}\n\n${postUrl}`;
+
+      const result = await Share.share({
+        message,
+        title: "Share Post",
+      });
+    } catch (error) {
+      Alert.alert("Error", "Failed to share post");
+    }
+  };
 
   const renderPost = ({ item }: { item: Post }) => {
     const imageUrl = item.postImage
@@ -490,7 +475,10 @@ const SocialFeedScreen = () => {
             <Text style={styles.actionText}>Comment</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleShare(item)}
+          >
             <Ionicons name="share-social-outline" size={20} color="#666" />
             <Text style={styles.actionText}>Share</Text>
           </TouchableOpacity>
@@ -508,7 +496,6 @@ const SocialFeedScreen = () => {
     >
       <StatusBar backgroundColor="#fff" barStyle="dark-content" />
 
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Community</Text>
         <TouchableOpacity onPress={navigateToSearch}>
@@ -516,7 +503,6 @@ const SocialFeedScreen = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Create Post Trigger */}
       <TouchableOpacity
         style={styles.createPostTrigger}
         onPress={() => setShowCreatePost(true)}
@@ -536,7 +522,6 @@ const SocialFeedScreen = () => {
         </View>
       </TouchableOpacity>
 
-      {/* Posts Feed */}
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#0077B5" />
@@ -561,7 +546,6 @@ const SocialFeedScreen = () => {
         />
       )}
 
-      {/* Create Post Modal */}
       <Modal
         animationType="slide"
         transparent={false}
@@ -653,7 +637,6 @@ const SocialFeedScreen = () => {
         </SafeAreaView>
       </Modal>
 
-      {/* Comment Modal */}
       <Modal
         animationType="slide"
         transparent={false}
@@ -676,7 +659,6 @@ const SocialFeedScreen = () => {
 
           {selectedPost && (
             <>
-              {/* Original post reference */}
               <View style={styles.originalPostReference}>
                 <View style={styles.postHeader}>
                   <Image
@@ -715,7 +697,7 @@ const SocialFeedScreen = () => {
                       <View style={styles.loadingContainer}>
                         <ActivityIndicator size="small" color="#0077B5" />
                       </View>
-                    ) : error ? (
+                    ) : commentsError ? (
                       <View style={styles.errorContainer}>
                         <Text style={styles.errorText}>
                           Failed to load comments
@@ -736,7 +718,6 @@ const SocialFeedScreen = () => {
                 )}
               </ScrollView>
 
-              {/* Add comment section */}
               <View style={styles.commentInputSection}>
                 {replyingToUsername && (
                   <View style={styles.replyingToContainer}>
@@ -795,14 +776,12 @@ const SocialFeedScreen = () => {
   );
 };
 
-// Styles preserved with additions for Android top margin
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f3f6f8",
   },
   androidContainer: {
-    // Add top margin for Android to account for status bar
     marginTop: Platform.OS === "android" ? StatusBar.currentHeight || 25 : 0,
   },
   header: {
@@ -976,10 +955,14 @@ const styles = StyleSheet.create({
   commentContainer: {
     flexDirection: "row",
     marginBottom: 15,
+    alignItems: "flex-start",
   },
   replyContainer: {
-    marginLeft: 20,
-    marginBottom: 10,
+    marginLeft: 40,
+    paddingLeft: 10,
+    marginTop: 8,
+    borderLeftWidth: 1,
+    borderLeftColor: "#e1e9ee",
   },
   commentAvatar: {
     width: 36,
@@ -991,51 +974,39 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   commentBubble: {
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#f0f2f5",
     padding: 10,
     borderRadius: 15,
     borderTopLeftRadius: 0,
   },
   commentUsername: {
     fontWeight: "bold",
-    marginBottom: 2,
     fontSize: 14,
-    color: "#333",
+    color: "#1c1e21",
+    marginBottom: 2,
   },
   commentText: {
     fontSize: 14,
-    color: "#333",
+    color: "#1c1e21",
   },
   commentActions: {
     flexDirection: "row",
-    marginTop: 5,
-    paddingLeft: 5,
+    alignItems: "center",
+    marginTop: 4,
+    marginBottom: 4,
   },
   commentTime: {
     fontSize: 12,
-    color: "#999",
-    marginRight: 15,
+    color: "#65676B",
+    marginRight: 12,
   },
   commentAction: {
     fontSize: 12,
-    color: "#666",
-    fontWeight: "500",
-    marginRight: 15,
-  },
-  activeCommentAction: {
-    color: "#0077B5",
-    fontWeight: "bold",
-  },
-  noComments: {
-    textAlign: "center",
-    color: "#666",
-    padding: 30,
+    color: "#65676B",
+    fontWeight: "600",
   },
   repliesContainer: {
-    marginTop: 10,
-    borderLeftWidth: 2,
-    borderLeftColor: "#e1e9ee",
-    paddingLeft: 10,
+    marginTop: 8,
   },
   modalHeader: {
     flexDirection: "row",
@@ -1102,7 +1073,6 @@ const styles = StyleSheet.create({
   optionButton: {
     padding: 10,
   },
-  // Comment modal styles
   commentsScrollView: {
     flex: 1,
     padding: 15,
@@ -1117,13 +1087,14 @@ const styles = StyleSheet.create({
   originalPostContent: {
     fontSize: 14,
     color: "#666",
-    paddingLeft: 46, // To align with the username (avatar width + margin)
+    paddingLeft: 46,
   },
   commentInputSection: {
     backgroundColor: "#fff",
     borderTopWidth: 1,
     borderTopColor: "#e1e9ee",
-    padding: 15,
+    padding: 10,
+    paddingBottom: Platform.OS === "ios" ? 20 : 10,
   },
   replyingToContainer: {
     flexDirection: "row",

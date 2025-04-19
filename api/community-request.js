@@ -10,7 +10,7 @@ export async function AddCommunityPost(params) {
   if (data.userType === "client") {
     formData.append("client", data.id);
   } else if (data.userType === "job-seeker") {
-    formData.append("job-seeker", data.id);
+    formData.append("jobSeeker", data.id);
   }
 
   formData.append("username", params.username);
@@ -25,8 +25,6 @@ export async function AddCommunityPost(params) {
       type: mime.lookup(params.postImage),
     });
   }
-
-  console.log("formData", formData);
 
   try {
     const response = await axios.post(
@@ -129,7 +127,6 @@ export async function likePost(postId) {
   }
 }
 
-// Function to check if a post is already liked
 export async function checkIfLiked(postId) {
   try {
     const token = await AsyncStorage.getItem("token");
@@ -147,6 +144,7 @@ export async function checkIfLiked(postId) {
         },
       }
     );
+
     return response.data;
   } catch (error) {
     console.error("Error checking like status:", error);
@@ -154,7 +152,6 @@ export async function checkIfLiked(postId) {
   }
 }
 
-// Function to unlike a post
 export async function unlikePost(postId) {
   try {
     const token = await AsyncStorage.getItem("token");
@@ -190,10 +187,11 @@ export async function addComment(postId, comment) {
     const response = await axios.post(
       `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/community/posts/${postId}/addComment`,
       {
-        comment: comment,
+        comment: comment.comment,
         userId: data.id,
         userType: data.userType,
         postId: postId,
+        parentCommentId: comment.parentCommentId,
       },
       {
         headers: {
@@ -209,6 +207,37 @@ export async function addComment(postId, comment) {
   }
 }
 
+function transformCommentData(comment) {
+  const userData = comment.client || comment.jobSeeker?.user;
+
+  const profileImage = userData?.profileImage;
+  const firstName = userData?.firstName || "Unknown";
+  const middleName = userData?.middleName || "";
+  const lastName = userData?.lastName || "User";
+
+  const formattedUsername = `${firstName} ${
+    middleName ? middleName[0] + "." : ""
+  } ${lastName}`.trim();
+
+  const avatarUrl = profileImage
+    ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${profileImage}`
+    : null;
+
+  return {
+    id: comment.id,
+    username: formattedUsername,
+    avatar: avatarUrl,
+    text: comment.comment,
+    time: new Date(comment.createdAt).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }),
+    replies: (comment.replies || []).map(transformCommentData),
+    isUpvoted: false,
+  };
+}
+
 export async function fetchPostComments(postId) {
   try {
     const token = await AsyncStorage.getItem("token");
@@ -220,7 +249,32 @@ export async function fetchPostComments(postId) {
         },
       }
     );
-    return response.data;
+
+    const commentsMap = new Map();
+    const topLevelCommentsData = [];
+
+    response.data.forEach((comment) => {
+      commentsMap.set(comment.id, {
+        ...comment,
+        replies: [],
+      });
+    });
+
+    response.data.forEach((comment) => {
+      const commentWithReplies = commentsMap.get(comment.id);
+      if (comment.parentCommentId) {
+        const parentComment = commentsMap.get(comment.parentCommentId);
+        if (parentComment) {
+          parentComment.replies.push(commentWithReplies);
+        }
+      } else {
+        topLevelCommentsData.push(commentWithReplies);
+      }
+    });
+
+    const transformedComments = topLevelCommentsData.map(transformCommentData);
+
+    return transformedComments;
   } catch (error) {
     console.error("Error fetching comments:", error);
     throw error;
