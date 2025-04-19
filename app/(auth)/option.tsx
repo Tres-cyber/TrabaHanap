@@ -27,6 +27,8 @@ export default function WelcomeScreen() {
 
     if (config.params && data.userType == "client") {
       router.push("/(client)/client-home");
+    } else if (config.params && data.userType == "job-seeker") {
+      router.push("/(job-seeker)/job-seeker-home");
     } else {
       router.push("/(auth)/sign_in");
     }
@@ -35,7 +37,7 @@ export default function WelcomeScreen() {
   useEffect(() => {
     setTimeout(() => {
       // Disabled temporarily the auto-login if client recently logged in
-      //handleCheckToken();
+      handleCheckToken();
     }, 100);
   });
 
