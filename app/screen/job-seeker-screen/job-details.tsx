@@ -28,11 +28,11 @@ export default function JobDetailsScreen() {
     location: params.location as string,
     clientId:params.clientId as string,
     // images: params.images ? JSON.parse(params.images as string) : [],
-    images:[
-      require('assets/images/client-user.png'),
-      require('assets/images/client-user.png'),
-      require('assets/images/client-user.png'),
-    ]
+    images: params.jobImages 
+    ? (params.jobImages as string).split(',').map((imgPath) => ({
+        uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/${imgPath.split('job_request_files/')[1]}`,
+      }))
+    : [],
   };
 
   const [activeSlide, setActiveSlide] = useState<number>(0);
@@ -98,11 +98,12 @@ export default function JobDetailsScreen() {
     }
   };
 
-  const renderImageItem = ({ item }: { item: any }) => (
+  const renderImageItem = ({ item }: { item: { uri: string } }) => (
     <View style={styles.imageItem}>
       <Image source={item} style={styles.carouselImage} resizeMode="cover" />
     </View>
   );
+
 
   return (
     <SafeAreaView style={styles.container}>

@@ -1,4 +1,4 @@
-import React, { useState,useEffect } from 'react';
+import React, { useState,useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -22,19 +22,27 @@ import {
 } from 'lucide-react-native';
 
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter,useLocalSearchParams } from 'expo-router';
+import { useRouter,useLocalSearchParams, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import io,{Socket} from 'socket.io-client';
 
 
 interface Chat {
   id: string;
+  createdAt: string
   participantName: string;
-  profileImage: string | null;
+  profileImage: string | 'https://randomuser.me/api/portraits/men/1.jpg';
   lastMessage: string | null;
   lastMessageTime: string | null;
   chatTitle: string;
   chatStatus: string;
+  jobId: string;
+  offer: string;
+  offerStatus:string;
+  senderId:string;
+  otherParticipantId: string;
+  deletedByReceiver:string;
+  deletedBySender:string;
 }
 
 const ChatScreen: React.FC = () => {
@@ -48,11 +56,35 @@ const ChatScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
   const { chatId, chatTitle } = useLocalSearchParams();
+  const [currentUserId,setCurrentUserId] = useState<string>('');
+  const [filteredSearchedChats, setFilteredSearchedChats] = useState<Chat[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const handleDeleteChat = (chatId: string) => {
+    if(!socket) return;
+    socket.emit('delete_chat', {
+      chatId,
+      userRole: 'job-seeker',
+    });
+    socket.emit('fetch_user_chats');
+    setChatOptionsModalVisible(false);
+  };
+  const handleSearch = (query: string) => {
+    const lowerQuery = query.toLowerCase();
   
+    const filtered = chats.filter(chat => {
+      const titleMatch = chat.chatTitle?.toLowerCase().includes(lowerQuery);
+      const nameMatch = chat.participantName?.toLowerCase().includes(lowerQuery);
+      return titleMatch || nameMatch;
+    });
+  
+    setFilteredSearchedChats(filtered);
+  };
   const fetchChats = async (socketInstance?: Socket) => {
     try {
       const token = await AsyncStorage.getItem("token");
-      
+      const userId = await AsyncStorage.getItem('currentUserId');
+      setCurrentUserId(userId+'');
       if (!token) {
         router.replace("/sign_in");
         return;
@@ -73,13 +105,41 @@ const ChatScreen: React.FC = () => {
     fetchChats();
   };
 
-  const handleChatPress = (chatId: string,participantName: string,chatStatus:string) => {
-    // router.push({
-    //   pathname: "/(job-seeker)/chat-room",
-    //   params: { chatId,receiverName: participantName,chatStatus: chatStatus },
+  const handleChatPress = (chatId: string,participantName: string,chatStatus:string,jobId:string,offerStatus:string,otherParticipantId:string) => {
+    router.push({
+      pathname: "../../../screen/job-seeker-screen/job-seeker-message-screen",
+      params: { chatId,receiverName: participantName,chatStatus: chatStatus,jobId:jobId ,offerStatus,otherParticipantId},
       
-    // });
+    });
   };
+
+  const formatTime = (dateString: string | number | Date) => {
+
+    const date = new Date(dateString);
+    const now = new Date();
+    if (isNaN(date.getTime())) return '';
+    const diffInMilliseconds = now.getTime() - date.getTime();
+    const diffInDays = diffInMilliseconds / (1000 * 60 * 60 * 24);
+
+    if (date.toDateString() === now.toDateString()) {
+        return date.toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        });
+    }
+
+    if (diffInDays < 7 && date.getDay() !== now.getDay()) {
+        return date.toLocaleDateString([], { weekday: 'long' });
+    }
+
+    return date.toLocaleDateString([], {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+};
+
   const filteredChats = chats.filter(msg => {
     if (selectedFilter === 'All') return true;
     return msg.chatStatus === selectedFilter;
@@ -165,6 +225,26 @@ const ChatScreen: React.FC = () => {
 
 
   }, []);
+    useFocusEffect(
+      useCallback(() => {
+        if (!socket) return;
+    
+        console.log("🔄 Screen refocused - fetching chats again");
+        socket.emit('fetch_user_chats');
+    
+        const handleFetchedChats = (fetchedChats: Chat[]) => {
+          setChats(fetchedChats);
+          setLoading(false);
+          setRefreshing(false);
+        };
+    
+        socket.on('user_chats_fetched', handleFetchedChats);
+    
+        return () => {
+          socket.off('user_chats_fetched', handleFetchedChats);
+        };
+      }, [socket])
+    );
 
   const renderChatItem = ({ item }: { item: Chat }) => (
     <TouchableOpacity 
@@ -174,15 +254,19 @@ const ChatScreen: React.FC = () => {
         setSelectedChat(item);
         setChatOptionsModalVisible(true);
       }}
+      onPress={() => handleChatPress(item.id, item.participantName, item.chatStatus,item.jobId,item.offerStatus,item.otherParticipantId)} 
+
     >
       {item.profileImage ? (
         <Image 
           source={{ uri: item.profileImage}} 
           style={styles.avatarPlaceholder} 
+          defaultSource={require('assets/images/client-user.png')}
         />
       ) : (
         <View style={styles.avatarPlaceholder}>
           <User size={24} color="#999" />
+          
         </View>
       )}
       <View style={styles.ChatContent}>
@@ -193,31 +277,52 @@ const ChatScreen: React.FC = () => {
           numberOfLines={2}
           ellipsizeMode="tail"
         >
-          {item.lastMessage || 'No messages yet'}
+          {item.deletedBySender === 'yes' && item.deletedByReceiver === 'yes' ? (
+            currentUserId === item.senderId
+              ? 'You removed a message'
+              : `${item.participantName} removed a message`
+          ) : item.lastMessage && item.lastMessage.includes('assets/messages_files/') ? (
+            currentUserId === item.senderId 
+              ? 'You sent a photo' 
+              : `${item.participantName} sent a photo`
+          ) : (
+            item.lastMessage ?? 'No messages yet'
+          )}
         </Text>
-        <Text style={styles.ChatDate}>{item.lastMessageTime}</Text>
+        <Text style={styles.ChatDate}>{ formatTime(item.lastMessageTime+'') || formatTime(item.createdAt)||'fdsfads'}</Text>
       </View>
       {item.chatStatus === 'approved' && <View style={[styles.statusIndicator, styles.activeStatus]} />}
       {item.chatStatus === 'pending' && <View style={[styles.statusIndicator, styles.pendingStatus]} />}
+     
     </TouchableOpacity>
   );
 
-  const renderChatOptions = () => (
-    <View style={styles.messengerModalContent}>
-      <TouchableOpacity style={styles.modalOption}>
-        <View style={styles.modalOptionIcon}>
-          <Text style={styles.modalOptionIconText}>🔇</Text>
-        </View>
-        <Text style={styles.modalOptionText}>Mute</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={[styles.modalOption, styles.deleteOption]}>
-        <View style={styles.modalOptionIcon}>
-          <Text style={styles.modalOptionIconText}>🗑️</Text>
-        </View>
-        <Text style={[styles.modalOptionText, styles.deleteText]}>Delete</Text>
-      </TouchableOpacity>
-    </View>
-  );
+  const renderChatOptions = () => {
+    if (!selectedChat) return null;
+  
+    return (
+      <View style={styles.messengerModalContent}>
+        <TouchableOpacity style={styles.modalOption}>
+          <View style={styles.modalOptionIcon}>
+            <Text style={styles.modalOptionIconText}>🔇</Text>
+          </View>
+          <Text style={styles.modalOptionText}>Mute</Text>
+        </TouchableOpacity>
+  
+        <TouchableOpacity
+          style={[styles.modalOption, styles.deleteOption]}
+          onPress={() =>
+            handleDeleteChat(selectedChat.id)
+          }
+        >
+          <View style={styles.modalOptionIcon}>
+            <Text style={styles.modalOptionIconText}>🗑️</Text>
+          </View>
+          <Text style={[styles.modalOptionText, styles.deleteText]}>Delete</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   const renderFilterModal = () => (
     <View style={styles.messengerModalContent}>
@@ -236,7 +341,7 @@ const ChatScreen: React.FC = () => {
       <TouchableOpacity 
         style={styles.modalOption}
         onPress={() => {
-          setSelectedFilter('Active');
+          setSelectedFilter('approved');
           setFilterModalVisible(false);
         }}
       >
@@ -275,17 +380,44 @@ const ChatScreen: React.FC = () => {
       <View style={styles.searchContainer}>
         <View style={styles.searchInputWrapper}>
           <Search size={20} color="#999" style={styles.searchIcon} />
+
           <TextInput 
             placeholder="Search Chats" 
             style={styles.searchInput} 
+            value={searchQuery}
+            onChangeText={(text) => {
+              setSearchQuery(text);
+              handleSearch(text);
+            }}
           />
+
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              style={styles.clearButton}
+              onPress={() => {
+                setSearchQuery('');
+                handleSearch('');
+              }}
+            >
+              <Text style={styles.clearButtonText}>✕</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
-      <FlatList
-        data={filteredChats}
+        <FlatList
+        data={searchQuery ? filteredSearchedChats : filteredChats}
         renderItem={renderChatItem}
         keyExtractor={(item) => item.id}
+        ListEmptyComponent={
+          <Text style={styles.emptyText}>No chats available</Text>
+        }
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+          />
+        }
       />
 
       <Modal
@@ -352,6 +484,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f0f0',
     borderRadius: 20,
     paddingHorizontal: 15,
+    position:'relative'
   },
   searchIcon: {
     marginRight: 10,
@@ -435,6 +568,22 @@ const styles = StyleSheet.create({
   deleteText: {
     color: 'red',
   },
+  emptyText:{
+    textAlign:"center",
+    marginTop:20,
+
+  },
+  clearButton: {
+    position: 'absolute',
+    right: 10,
+    padding: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  clearButtonText: {
+    color: '#999',
+  }
 });
 
 export default ChatScreen;
