@@ -17,6 +17,7 @@ export default function BirthdayEntryScreen() {
   const [birthdate, setBirthdate] = useState<Date | undefined>(undefined);
   const [age, setAge] = useState<number | null>(null);
   const [error, setError] = useState<string>("");
+  const [showAndroidPicker, setShowAndroidPicker] = useState(false);
 
   const calculateAge = (birthday: Date): number => {
     const today = new Date();
@@ -34,8 +35,11 @@ export default function BirthdayEntryScreen() {
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
-    const currentDate = selectedDate || birthdate;
+    if (Platform.OS === "android") {
+      setShowAndroidPicker(false);
+    }
 
+    const currentDate = selectedDate || birthdate;
     if (currentDate) {
       setBirthdate(currentDate);
       const calculatedAge = calculateAge(currentDate);
@@ -66,6 +70,49 @@ export default function BirthdayEntryScreen() {
     router.back();
   };
 
+  const renderDatePicker = () => {
+    if (Platform.OS === "ios") {
+      return (
+        <View style={[styles.input, error ? styles.inputError : null]}>
+          <DateTimePicker
+            testID="dateTimePicker"
+            value={birthdate || new Date()}
+            mode="date"
+            is24Hour={true}
+            onChange={handleDateChange}
+            maximumDate={new Date()}
+          />
+        </View>
+      );
+    }
+
+    return (
+      <>
+        <TouchableOpacity
+          style={[styles.input, error ? styles.inputError : null]}
+          onPress={() => setShowAndroidPicker(true)}
+        >
+          <Text style={styles.dateText}>
+            {birthdate
+              ? birthdate.toLocaleDateString()
+              : "Select your birthdate"}
+          </Text>
+        </TouchableOpacity>
+
+        {showAndroidPicker && (
+          <DateTimePicker
+            testID="dateTimePicker"
+            value={birthdate || new Date()}
+            mode="date"
+            is24Hour={true}
+            onChange={handleDateChange}
+            maximumDate={new Date()}
+          />
+        )}
+      </>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -81,21 +128,10 @@ export default function BirthdayEntryScreen() {
         <View style={styles.formContainer}>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Birthdate</Text>
-            <View style={[styles.input, error ? styles.inputError : null]}>
-              <DateTimePicker
-                testID="dateTimePicker"
-                value={birthdate || new Date()}
-                mode="date"
-                is24Hour={true}
-                onChange={handleDateChange}
-                maximumDate={new Date()}
-              />
-            </View>
-
+            {renderDatePicker()}
             {age !== null && (
               <Text style={styles.ageText}>Age: {age} years old</Text>
             )}
-
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
           </View>
         </View>
@@ -162,7 +198,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ccc",
     borderRadius: 4,
-    padding: 12,
+    padding: Platform.OS === "ios" ? 10 : 12,
+    fontSize: 16,
+  },
+  dateText: {
     fontSize: 16,
   },
   inputError: {
