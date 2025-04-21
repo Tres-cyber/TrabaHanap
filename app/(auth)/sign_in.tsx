@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
-import io, { Socket } from 'socket.io-client';
+import io, { Socket } from "socket.io-client";
 export default function SignInScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,36 +28,39 @@ export default function SignInScreen() {
           body: JSON.stringify({ email, password }),
         }
       );
-  
+
       const data = await response.json();
-      console.log(data);
+
       if (!response.ok) {
         throw new Error(data.error || "Invalid login");
       }
-  
+
       await AsyncStorage.setItem("token", data.token);
       await AsyncStorage.setItem("currentUserId", data.user.id);
       await AsyncStorage.setItem("userType", data.user.userType);
-  
+
       setCurrentUserId(data.user.id);
       setMessage("Login successful!");
-  
+
       // ✅ Initialize the socket and register the user
-      const newSocket = io(`http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000`, {
-        auth: {
-          token: data.token
+      const newSocket = io(
+        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000`,
+        {
+          auth: {
+            token: data.token,
+          },
         }
-      });
-  
+      );
+
       newSocket.on("connect", () => {
         // console.log("Connected to socket:", newSocket.id);
         newSocket.emit("register_user", data.user.id);
       });
-  
+
       setSocket(newSocket);
-  
+
       const isJobSeeker = data.user?.userType === "job-seeker";
-  
+
       router.replace(
         isJobSeeker
           ? "/(main)/(tabs)/(job-seeker)/job-seeker-home"
@@ -68,7 +71,6 @@ export default function SignInScreen() {
       setMessage("Login failed. Please check your credentials.");
     }
   };
-  
 
   const handleForgotPassword = () => {
     console.log("Forgot password");
