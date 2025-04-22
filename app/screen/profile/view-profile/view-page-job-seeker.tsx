@@ -16,6 +16,14 @@ import { useRouter } from 'expo-router';
 // Import the achievements data
 import achievementsData from '../achievements';
 
+interface Feedback {
+  id: string;
+  rating: number;
+  comment: string;
+  date: string;
+  anonymousName: string;
+}
+
 interface WorkerData {
   name: string;
   profileImage: string;
@@ -30,6 +38,7 @@ interface WorkerData {
   phoneNumber: string;
   gender: string;
   birthday: string;
+  feedbacks: Feedback[];
 }
 
 interface Achievement {
@@ -43,6 +52,8 @@ interface Achievement {
 const UtilityWorkerProfile: React.FC = () => {
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
+  const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
+  const [selectedFeedback, setSelectedFeedback] = useState<Feedback | null>(null);
   
   // Sample utility worker data
   const worker: WorkerData = {
@@ -57,7 +68,30 @@ const UtilityWorkerProfile: React.FC = () => {
     email: "mike.johnson@example.com",
     phoneNumber: "(503) 555-1234",
     gender: "Male",
-    birthday: "April 15, 1985"
+    birthday: "April 15, 1985",
+    feedbacks: [
+      {
+        id: "1",
+        rating: 5,
+        comment: "Excellent work! Very professional and completed the job quickly.",
+        date: "2024-03-15",
+        anonymousName: "Anonymous Client"
+      },
+      {
+        id: "2",
+        rating: 4,
+        comment: "Good service, would recommend. Slightly delayed but worth the wait.",
+        date: "2024-03-10",
+        anonymousName: "Anonymous Client"
+      },
+      {
+        id: "3",
+        rating: 5,
+        comment: "Amazing attention to detail and very knowledgeable.",
+        date: "2024-03-05",
+        anonymousName: "Anonymous Client"
+      }
+    ]
   };
 
   // Render stars for rating (will be used in info card)
@@ -116,6 +150,26 @@ const UtilityWorkerProfile: React.FC = () => {
       <Text style={styles.achievementDescription}>{achievement.description}</Text>
     </View>
   );
+
+  const handleFeedbackPress = (feedback: Feedback) => {
+    setSelectedFeedback(feedback);
+    setFeedbackModalVisible(true);
+  };
+
+  const renderFeedbackStars = (rating: number) => {
+    const stars = [];
+    for (let i = 0; i < 5; i++) {
+      stars.push(
+        <AntDesign 
+          key={`feedback-star-${i}`} 
+          name={i < rating ? "star" : "staro"} 
+          size={16} 
+          color={i < rating ? "#FFD700" : "#CCCCCC"} 
+        />
+      );
+    }
+    return <View style={styles.feedbackStars}>{stars}</View>;
+  };
 
   return (
     <ScrollView style={styles.container}>
@@ -210,6 +264,36 @@ const UtilityWorkerProfile: React.FC = () => {
         </ScrollView>
       </View>
 
+      <View style={styles.section}>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Recent Feedbacks</Text>
+          <TouchableOpacity 
+            style={styles.seeAllButton} 
+            onPress={() => router.push('./view-all-feedbacks')}
+          >
+            <Text style={styles.seeAllText}>See All</Text>
+            <AntDesign name="right" size={16} color="#0B153C" />
+          </TouchableOpacity>
+        </View>
+        
+        {worker.feedbacks.slice(0, 3).map((feedback) => (
+          <TouchableOpacity
+            key={feedback.id}
+            style={styles.feedbackCard}
+            onPress={() => handleFeedbackPress(feedback)}
+          >
+            <View style={styles.feedbackHeader}>
+              <Text style={styles.feedbackAnonymousName}>{feedback.anonymousName}</Text>
+              {renderFeedbackStars(feedback.rating)}
+            </View>
+            <Text style={styles.feedbackComment} numberOfLines={2}>
+              {feedback.comment}
+            </Text>
+            <Text style={styles.feedbackDate}>{feedback.date}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       {/* Modal for "See All" achievements */}
       <Modal
         animationType="slide"
@@ -237,6 +321,39 @@ const UtilityWorkerProfile: React.FC = () => {
               columnWrapperStyle={styles.achievementRow}
               contentContainerStyle={styles.modalAchievementsContainer}
             />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Feedback Detail Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={feedbackModalVisible}
+        onRequestClose={() => setFeedbackModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Feedback Details</Text>
+              <TouchableOpacity 
+                style={styles.closeButton} 
+                onPress={() => setFeedbackModalVisible(false)}
+              >
+                <AntDesign name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+            
+            {selectedFeedback && (
+              <View style={styles.feedbackDetailContainer}>
+                <View style={styles.feedbackDetailHeader}>
+                  <Text style={styles.feedbackDetailName}>{selectedFeedback.anonymousName}</Text>
+                  {renderFeedbackStars(selectedFeedback.rating)}
+                </View>
+                <Text style={styles.feedbackDetailDate}>{selectedFeedback.date}</Text>
+                <Text style={styles.feedbackDetailComment}>{selectedFeedback.comment}</Text>
+              </View>
+            )}
           </View>
         </View>
       </Modal>
@@ -505,6 +622,64 @@ const styles = StyleSheet.create({
   },
   modalAchievementsContainer: {
     padding: 16,
+  },
+  feedbackCard: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  feedbackHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  feedbackAnonymousName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  feedbackStars: {
+    flexDirection: 'row',
+  },
+  feedbackComment: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+  },
+  feedbackDate: {
+    fontSize: 12,
+    color: '#999',
+  },
+  feedbackDetailContainer: {
+    padding: 16,
+  },
+  feedbackDetailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  feedbackDetailName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  feedbackDetailDate: {
+    fontSize: 14,
+    color: '#999',
+    marginBottom: 12,
+  },
+  feedbackDetailComment: {
+    fontSize: 16,
+    color: '#333',
+    lineHeight: 24,
   },
 });
 
