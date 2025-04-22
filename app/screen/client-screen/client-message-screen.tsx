@@ -629,7 +629,11 @@ const ChatScreen: React.FC<ChatProps> = ({
 
     
   const getPendingMenuOptions = (): MenuOption[] => [
-    { icon: <User size={18} color="#777" />, label: 'View Profile', onPress: undefined }
+    { 
+      icon: <User size={18} color="#777" />, 
+      label: 'View Profile', 
+      onPress: () => router.push('/screen/profile/view-profile/view-page-job-seeker') 
+    }
   ];
   
   const getAcceptedMenuOptions = (): MenuOption[] => [
