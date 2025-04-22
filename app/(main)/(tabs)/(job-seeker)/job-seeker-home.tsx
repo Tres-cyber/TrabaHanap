@@ -157,6 +157,10 @@ export default function JobListingScreen() {
     )
 
   );
+
+  const handleProfilePress = () => {
+    router.push("../../../screen/profile/profile-screen");
+  };
   
 
   const displayedJobs = 
@@ -169,7 +173,7 @@ export default function JobListingScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
       <View style={[styles.header, Platform.OS === 'ios' && styles.iosHeader]}>
-        <TouchableOpacity style={styles.profileButton}>
+        <TouchableOpacity style={styles.profileButton}  onPress={handleProfilePress}>
           <Image
             source={require("assets/images/client-user.png")}
             style={styles.profileImage}
