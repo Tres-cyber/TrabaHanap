@@ -1,122 +1,159 @@
-import React from 'react';
-import { 
-  StyleSheet, 
-  View, 
-  Text, 
-  ScrollView, 
-  TouchableOpacity, 
+import React from "react";
+import {
+  StyleSheet,
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
   Platform,
-  Image 
-} from 'react-native';
-import { AntDesign, Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+  Image,
+} from "react-native";
+import {
+  AntDesign,
+  Ionicons,
+  MaterialCommunityIcons,
+  Feather,
+} from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useQuery } from "@tanstack/react-query";
+import { fetchUserProfile } from "@/api/profile-request";
 
 const AboutInfoPage: React.FC = () => {
   const router = useRouter();
-  
-  // This would normally come from a data store or API
-  const workerInfo = {
-    name: "Mike Johnson",
-    email: "mike.johnson@example.com",
-    phoneNumber: "(503) 555-1234",
-    gender: "Male",
-    birthday: "April 15, 1985",
-    address: "123 Main Street, Portland, OR 97201",
-    profilePicture: "https://randomuser.me/api/portraits/men/32.jpg" // Using a placeholder image
-  };
-  
+  const { data: workerInfo } = useQuery({
+    queryKey: ["profile"],
+    queryFn: fetchUserProfile,
+  });
+
   const handleBackPress = () => {
     router.back();
   };
-  
+
   const handleEditPress = () => {
     // Navigate to edit profile page with the current info as params
     router.push({
-      pathname: './edit-profile',
-      params: { ...workerInfo }
+      pathname: "./edit-profile",
+      params: { ...workerInfo },
     });
   };
-  
+
+  const formatGender = (gender: string | undefined) => {
+    if (!gender) return "";
+    return gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase();
+  };
+
+  const formatBirthday = (birthday: string | undefined) => {
+    if (!birthday) return "";
+    const date = new Date(birthday);
+    return date.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
   return (
     <View style={styles.mainContainer}>
       <ScrollView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={handleBackPress}
-          >
+          <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
             <AntDesign name="arrowleft" size={24} color="#0B153C" />
           </TouchableOpacity>
           <View style={styles.titleContainer}>
             <Text style={styles.headerTitle}>About</Text>
           </View>
-          <TouchableOpacity 
-            style={styles.editButton}
-            onPress={handleEditPress}
-          >
+          <TouchableOpacity style={styles.editButton} onPress={handleEditPress}>
             <Feather name="edit-2" size={16} color="#fff" />
             <Text style={styles.editButtonText}>Edit</Text>
           </TouchableOpacity>
         </View>
-        
+
         <View style={styles.profileSection}>
-          <Image 
-            source={{ uri: workerInfo.profilePicture }} 
-            style={styles.profileImage} 
+          <Image
+            source={{
+              uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${workerInfo?.profileImage}`,
+            }}
+            style={styles.profileImage}
           />
-          <Text style={styles.profileName}>{workerInfo.name}</Text>
+          <Text style={styles.profileName}>
+            {workerInfo?.firstName} {workerInfo?.middleName}{" "}
+            {workerInfo?.lastName} {workerInfo?.suffixName}
+          </Text>
         </View>
-        
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Contact Information</Text>
-          
+
           <View style={styles.infoItem}>
-            <MaterialCommunityIcons name="email-outline" size={24} color="#0B153C" />
+            <MaterialCommunityIcons
+              name="email-outline"
+              size={24}
+              color="#0B153C"
+            />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Email</Text>
-              <Text style={styles.infoValue}>{workerInfo.email}</Text>
+              <Text style={styles.infoValue}>{workerInfo?.emailAddress}</Text>
             </View>
           </View>
-          
+
           <View style={styles.divider} />
-          
+
           <View style={styles.infoItem}>
-            <MaterialCommunityIcons name="phone-outline" size={24} color="#0B153C" />
+            <MaterialCommunityIcons
+              name="phone-outline"
+              size={24}
+              color="#0B153C"
+            />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Phone Number</Text>
-              <Text style={styles.infoValue}>{workerInfo.phoneNumber}</Text>
+              <Text style={styles.infoValue}>{workerInfo?.phoneNumber}</Text>
             </View>
           </View>
-          
+
           <View style={styles.divider} />
-          
+
           <View style={styles.infoItem}>
-            <MaterialCommunityIcons name="home-outline" size={24} color="#0B153C" />
+            <MaterialCommunityIcons
+              name="home-outline"
+              size={24}
+              color="#0B153C"
+            />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Address</Text>
-              <Text style={styles.infoValue}>{workerInfo.address}</Text>
+              <Text style={styles.infoValue}>
+                {workerInfo?.houseNumber} {workerInfo?.street}{" "}
+                {workerInfo?.barangay}
+              </Text>
             </View>
           </View>
         </View>
-        
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Basic Information</Text>
-          
+
           <View style={styles.infoItem}>
             <Ionicons name="person-outline" size={24} color="#0B153C" />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Gender</Text>
-              <Text style={styles.infoValue}>{workerInfo.gender}</Text>
+              <Text style={styles.infoValue}>
+                {formatGender(workerInfo?.gender)}
+              </Text>
             </View>
           </View>
-          
+
           <View style={styles.divider} />
-          
+
           <View style={styles.infoItem}>
-            <MaterialCommunityIcons name="cake-variant-outline" size={24} color="#0B153C" />
+            <MaterialCommunityIcons
+              name="cake-variant-outline"
+              size={24}
+              color="#0B153C"
+            />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Birthday</Text>
-              <Text style={styles.infoValue}>{workerInfo.birthday}</Text>
+              <Text style={styles.infoValue}>
+                {formatBirthday(workerInfo?.birthday)}
+              </Text>
             </View>
           </View>
         </View>
@@ -128,18 +165,18 @@ const AboutInfoPage: React.FC = () => {
 const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
   },
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
     padding: 16,
-    paddingTop: Platform.OS === 'ios' ? 50 : 40,
+    paddingTop: Platform.OS === "ios" ? 50 : 40,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 24,
   },
   backButton: {
@@ -148,36 +185,36 @@ const styles = StyleSheet.create({
   },
   titleContainer: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
     fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: "center",
   },
   editButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0B153C',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#0B153C",
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
   },
   editButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     marginLeft: 4,
   },
   profileSection: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 24,
   },
   profileImage: {
@@ -188,15 +225,15 @@ const styles = StyleSheet.create({
   },
   profileName: {
     fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
   },
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
@@ -204,13 +241,13 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
     marginBottom: 16,
   },
   infoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 12,
   },
   infoContent: {
@@ -219,18 +256,18 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
   },
   infoValue: {
     fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
+    color: "#333",
+    fontWeight: "500",
     marginTop: 2,
   },
   divider: {
     height: 1,
-    backgroundColor: '#e0e0e0',
-  }
+    backgroundColor: "#e0e0e0",
+  },
 });
 
 export default AboutInfoPage;
