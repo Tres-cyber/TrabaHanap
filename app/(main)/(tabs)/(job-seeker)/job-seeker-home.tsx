@@ -17,6 +17,7 @@ import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams } from "expo-router";
+import decodeToken from "@/api/token-decoder";
 interface JobRequest {
   id: string;
   jobTitle: string;
@@ -48,7 +49,7 @@ export default function JobListingScreen() {
   const [jobSeeker, setJobSeeker] = useState<JobSeeker | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
+  const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
   const fetchData = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
@@ -70,6 +71,7 @@ export default function JobListingScreen() {
         `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/job-seeker/my-jobs`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      console.log(myJobsResponse);
       const myJobsData = await myJobsResponse.json();
       setMyJobs(myJobsData);
 
@@ -119,6 +121,26 @@ export default function JobListingScreen() {
       setLoading(false);
     }
   };
+
+    useEffect(() => {
+      const loadUserData = async () => {
+        try {
+          const { data } = await decodeToken();
+          const profileImagePath = data.profileImage;
+          const userName = `${data.firstName} ${data.middleName[0]}. ${data.lastName}`;
+  
+          if (profileImagePath) {
+            setUserProfileImage(
+              `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${profileImagePath}`
+            );
+          }
+        } catch (error) {
+          console.error("Error loading user data:", error);
+        }
+      };
+      loadUserData();
+    }, []);
+    
   const handleSeeMorePress = (job: JobRequest) => {
     router.push({
       pathname: "../../../screen/job-seeker-screen/job-details",
@@ -175,7 +197,11 @@ export default function JobListingScreen() {
       <View style={[styles.header, Platform.OS === 'ios' && styles.iosHeader]}>
         <TouchableOpacity style={styles.profileButton}  onPress={handleProfilePress}>
           <Image
-            source={require("assets/images/client-user.png")}
+                     source={
+                      userProfileImage
+                        ? { uri: userProfileImage }
+                        : require("assets/images/default-user.png")
+                    }
             style={styles.profileImage}
           />
         </TouchableOpacity>
@@ -279,10 +305,14 @@ export default function JobListingScreen() {
                 <View style={styles.jobImageContainer}>
   
                 <Image
-                  source={{ uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/${job.jobImage?.[0].split("job_request_files/")[1]}` }}
-                  style={styles.jobImage}
-                  resizeMode="cover"
-                />
+                    source={{ 
+                      uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/${
+                        job.jobImage?.[0]?.split("job_request_files/")?.[1] ?? ''
+                      }`
+                    }}
+                    style={styles.jobImage}
+                    resizeMode="cover"
+                  />
                   <View style={styles.imageOverlay} />
                 </View>
                 {activeTab === "pendingJobs" && (
@@ -479,15 +509,18 @@ const styles = StyleSheet.create({
 
   },
   finishButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
     backgroundColor: '#2ecc71',
-    padding: 10,
+    padding: 8,
     borderRadius: 8,
-    marginTop: 10,
-    alignSelf: 'flex-start',
+    zIndex: 2, // Ensure it appears above the image
   },
   finishButtonText: {
     color: 'white',
     fontWeight: 'bold',
+    fontSize: 12,
   },
     
   

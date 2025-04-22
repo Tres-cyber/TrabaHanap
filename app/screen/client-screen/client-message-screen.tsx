@@ -105,7 +105,7 @@ const ChatScreen: React.FC<ChatProps> = ({
   const [offerModalVisible, setOfferModalVisible] = useState(false);
   const [acceptOfferConfirmationVisible, setAcceptOfferConfirmationVisible] = useState(false);
   const router = useRouter();
-  const { chatId, receiverName,chatStatus,jobId,offer,offerStatus,otherParticipantId} = useLocalSearchParams();
+  const { chatId, receiverName,chatStatus,jobId,offer,offerStatus,otherParticipantId,profileImage} = useLocalSearchParams();
   const [offerAmount,setOfferAmount] = useState(offer); // Define the money offer amount
   const [currentOfferStatus, setOfferStatus] = useState(offerStatus);
   const [messageInput, setMessageInput] = useState("");
@@ -119,6 +119,7 @@ const ChatScreen: React.FC<ChatProps> = ({
   const actionSheetRef = useRef<any>();
   const [modalVisible, setModalVisible] = useState(false);
   const [visibleImageIndex, setVisibleImageIndex] = useState<number | null>(null);
+  const [picIndex, setPicIndex] = useState<number>(0);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
   const [statusText, setStatusText] = useState('');
@@ -232,7 +233,7 @@ const ChatScreen: React.FC<ChatProps> = ({
       );
       
       setMessages(sortedMessages);
-      console.log(response);
+      // console.log(response);
       if(currentOfferStatus == 'pending') setOfferModalVisible(true);
       return sortedMessages;
     } catch (error) {
@@ -744,6 +745,7 @@ const ChatScreen: React.FC<ChatProps> = ({
   
 
   const renderMessageItem = ({ item, index }: { item: Message; index: number }) => {
+
     const isCurrentUser = String(item.senderId) === String(currentUserId);
     const isLastMessage = index === 0; // Since list is inverted
     const showStatus = isCurrentUser && isLastMessage;
@@ -772,7 +774,6 @@ const ChatScreen: React.FC<ChatProps> = ({
         : item.isDelivered
           ? 'Delivered'
           : '';
-    
     
   
 
@@ -858,7 +859,13 @@ const ChatScreen: React.FC<ChatProps> = ({
           {/* Avatar on left for received */}
           {!isCurrentUser && recipientPic && (
             <Image
-              source={{ uri: recipientPic }}
+            source={{ 
+              uri: profileImage
+                ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${
+                    (profileImage+'').split("profiles/")[1]|| ''
+                  }`
+        : undefined 
+        }}
               style={styles.senderAvatar}
               defaultSource={require("assets/images/client-user.png")}
             />
@@ -874,10 +881,16 @@ const ChatScreen: React.FC<ChatProps> = ({
             delayLongPress={300}
             activeOpacity={1}
             disabled={shouldHideMessage(item, currentUserId)}
-            onPress={() =>
-              !shouldHideMessage(item, currentUserId) &&
-              setVisibleImageIndex(index)
-            }
+            onPress={() => {
+              if (!shouldHideMessage(item, currentUserId) && item.messageType === 'image') {
+                // Get the index of this image in the imageMessages array
+                const filteredImageIndex = imageMessages.findIndex(
+                  (msg) => msg.id === item.id
+                );
+                setVisibleImageIndex(filteredImageIndex);
+              }
+            }}
+            
           >
         {isDeletedForEveryone ? (
           <View style={styles.deletedImagePlaceholder}>
@@ -975,7 +988,13 @@ return isVisibleToUser ? (
     >
       {item.messageType === 'received' && recipientPic && (
         <Image
-          source={{ uri: recipientPic }}
+        source={{ 
+          uri: profileImage 
+            ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${
+                (profileImage+'').split("profiles/")[1]|| ''
+              }`
+    : undefined 
+    }}
           style={styles.senderAvatar}
           defaultSource={require('assets/images/client-user.png')}
         />
@@ -1087,7 +1106,13 @@ return isVisibleToUser ? (
         
         <View style={styles.headerUserInfo}>
           <Image 
-            source={{ uri: recipientPic }} 
+                    source={{ 
+                      uri: profileImage 
+                        ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${
+                            (profileImage+'').split("profiles/")[1]|| ''
+                          }`
+                : undefined 
+                }}
             style={styles.recipientAvatar} 
           />
           <Text style={styles.recipientName}>{receiverName}</Text>

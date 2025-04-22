@@ -101,7 +101,7 @@ const ChatScreen: React.FC<ChatProps> = ({
   const [offerAmount, setOfferAmount] = useState('');
   const [offerDescription, setOfferDescription] = useState('');
   const router = useRouter();
-  const { chatId, receiverName,chatStatus,jobId,offerStatus,otherParticipantId} = useLocalSearchParams();
+  const { chatId, receiverName,chatStatus,jobId,offerStatus,otherParticipantId,profileImage} = useLocalSearchParams();
   const [currentOfferStatus, setOfferStatus] = useState(offerStatus);
   const [messageInput, setMessageInput] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -196,7 +196,7 @@ const ChatScreen: React.FC<ChatProps> = ({
       );
       
       setMessages(sortedMessages);
-      console.log(response);
+      // console.log(response);
       if(currentOfferStatus == 'pending') setOfferModalVisible(true);
       return sortedMessages;
     } catch (error) {
@@ -218,7 +218,7 @@ const ChatScreen: React.FC<ChatProps> = ({
   
         // Emit message through socket
         socket.emit('send_message', newMessage);
-  
+        console.log(messageInput);
         // Clear input
         setMessageInput("");
       } catch (error) {
@@ -729,7 +729,13 @@ const ChatScreen: React.FC<ChatProps> = ({
            {/* Avatar on left for received */}
            {!isCurrentUser && recipientPic && (
              <Image
-               source={{ uri: recipientPic }}
+             source={{ 
+              uri: profileImage 
+                ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${
+                    (profileImage+'').split("profiles/")[1]|| ''
+                  }`
+                : undefined 
+            }}
                style={styles.senderAvatar}
                defaultSource={require("assets/images/client-user.png")}
              />
@@ -745,10 +751,15 @@ const ChatScreen: React.FC<ChatProps> = ({
              delayLongPress={300}
              activeOpacity={1}
              disabled={shouldHideMessage(item, currentUserId)}
-             onPress={() =>
-               !shouldHideMessage(item, currentUserId) &&
-               setVisibleImageIndex(index)
-             }
+             onPress={() => {
+              if (!shouldHideMessage(item, currentUserId) && item.messageType === 'image') {
+                // Get the index of this image in the imageMessages array
+                const filteredImageIndex = imageMessages.findIndex(
+                  (msg) => msg.id === item.id
+                );
+                setVisibleImageIndex(filteredImageIndex);
+              }
+            }}
            >
           {isDeletedForEveryone ? (
             <View style={styles.deletedImagePlaceholder}>
@@ -844,7 +855,13 @@ return isVisibleToUser ? (
    >
      {item.messageType === 'received' && recipientPic && (
        <Image
-         source={{ uri: recipientPic }}
+       source={{ 
+          uri: profileImage 
+            ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${
+                (profileImage+'').split("profiles/")[1]|| ''
+              }`
+            : undefined 
+        }}
          style={styles.senderAvatar}
          defaultSource={require('assets/images/client-user.png')}
        />
@@ -880,6 +897,7 @@ return isVisibleToUser ? (
                          : styles.receivedMessageText
                      ]}
                    >
+                    
                      {item.messageContent}
                    </Text>
        
@@ -951,7 +969,13 @@ return isVisibleToUser ? (
         
         <View style={styles.headerUserInfo}>
           <Image 
-            source={{ uri: recipientPic }} 
+             source={{ 
+                    uri: profileImage 
+                      ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${
+                          (profileImage+'').split("profiles/")[1]|| ''
+                        }`
+              : undefined 
+              }}
             style={styles.recipientAvatar} 
           />
           <Text style={styles.recipientName}>{receiverName}</Text>
