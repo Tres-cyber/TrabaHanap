@@ -105,10 +105,10 @@ const ChatScreen: React.FC = () => {
     fetchChats();
   };
 
-  const handleChatPress = (chatId: string,participantName: string,chatStatus:string,jobId:string,offerStatus:string,otherParticipantId:string) => {
+  const handleChatPress = (chatId: string,participantName: string,chatStatus:string,jobId:string,offerStatus:string,otherParticipantId:string,profileImage:string) => {
     router.push({
       pathname: "../../../screen/job-seeker-screen/job-seeker-message-screen",
-      params: { chatId,receiverName: participantName,chatStatus: chatStatus,jobId:jobId ,offerStatus,otherParticipantId},
+      params: { chatId,receiverName: participantName,chatStatus: chatStatus,jobId:jobId ,offerStatus,otherParticipantId,profileImage},
       
     });
   };
@@ -254,15 +254,22 @@ const ChatScreen: React.FC = () => {
         setSelectedChat(item);
         setChatOptionsModalVisible(true);
       }}
-      onPress={() => handleChatPress(item.id, item.participantName, item.chatStatus,item.jobId,item.offerStatus,item.otherParticipantId)} 
+      onPress={() => handleChatPress(item.id, item.participantName, item.chatStatus,item.jobId,item.offerStatus,item.otherParticipantId,item.profileImage)} 
 
     >
+      
       {item.profileImage ? (
         <Image 
-          source={{ uri: item.profileImage}} 
-          style={styles.avatarPlaceholder} 
-          defaultSource={require('assets/images/client-user.png')}
-        />
+            source={{ 
+              uri: item.profileImage 
+                ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${
+                    item.profileImage.split("profiles/")[1] || ''
+                  }`
+                : undefined 
+            }}
+            style={styles.avatarPlaceholder}
+            defaultSource={require('assets/images/client-user.png')}
+          />
       ) : (
         <View style={styles.avatarPlaceholder}>
           <User size={24} color="#999" />

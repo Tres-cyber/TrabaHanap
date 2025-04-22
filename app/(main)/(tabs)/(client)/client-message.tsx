@@ -117,10 +117,10 @@ const ChatScreen: React.FC = () => {
     fetchChats();
   };
 
-  const handleChatPress = (chatId: string,participantName: string,chatStatus:string,jobId:string,offer:string,offerStatus:string,otherParticipantId:string) => {
+  const handleChatPress = (chatId: string,participantName: string,chatStatus:string,jobId:string,offer:string,offerStatus:string,otherParticipantId:string,profileImage:string) => {
     router.push({
       pathname: "../../../screen/client-screen/client-message-screen",
-      params: { chatId,receiverName: participantName,chatStatus,jobId,offer,offerStatus,otherParticipantId},
+      params: { chatId,receiverName: participantName,chatStatus,jobId,offer,offerStatus,otherParticipantId,profileImage},
       
     });
 
@@ -173,9 +173,9 @@ const ChatScreen: React.FC = () => {
         const newSocket = io(`http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000`, {
           auth: { token }
         });
-        newSocket.onAny((event, ...args) => {
-          console.log(`📡 Socket event: ${event}`, args);
-        });
+        // newSocket.onAny((event, ...args) => {
+        //   console.log(`📡 Socket event: ${event}`, args);
+        // });
   
         newSocket.on("new_chat", (data) => {
           setChats(prev => {
@@ -269,15 +269,21 @@ const ChatScreen: React.FC = () => {
         setChatOptionsModalVisible(true);
       }}
       
-      onPress={() => handleChatPress(item.id, item.participantName, item.chatStatus,item.jobId,item.offer,item.offerStatus,item.otherParticipantId)} 
+      onPress={() => handleChatPress(item.id, item.participantName, item.chatStatus,item.jobId,item.offer,item.offerStatus,item.otherParticipantId,item.profileImage)} 
 
     >
       {item.profileImage ? (
         <Image 
-          source={{ uri: item.profileImage}} 
-          style={styles.avatarPlaceholder} 
-          defaultSource={require('assets/images/client-user.png')}
-        />
+            source={{ 
+              uri: item.profileImage 
+                ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${
+                    item.profileImage.split("profiles/")[1] || ''
+                  }`
+                : undefined 
+            }}
+            style={styles.avatarPlaceholder}
+            defaultSource={require('assets/images/client-user.png')}
+          />
       ) : (
         <View style={styles.avatarPlaceholder}>
           <User size={24} color="#999" />
