@@ -19,7 +19,7 @@ import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { fetchJobListings, deleteJobListing } from "@/api/client-request";
-
+import decodeToken from "@/api/token-decoder";
 interface JobDetails {
   id: string;
   jobTitle: string;
@@ -124,12 +124,13 @@ export default function JobListingScreen() {
       handleCheckToken();
     }, 2000);
   }, []);
+
  useEffect(() => {
       const loadUserData = async () => {
         try {
           const { data } = await decodeToken();
           const profileImagePath = data.profileImage;
-  
+
           if (profileImagePath) {
             setUserProfileImage(
               `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${profileImagePath}`
@@ -141,6 +142,7 @@ export default function JobListingScreen() {
       };
       loadUserData();
     }, []);
+    
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -630,7 +632,5 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
 });
-function decodeToken(): { data: any; } | PromiseLike<{ data: any; }> {
-  throw new Error("Function not implemented.");
-}
+
 
