@@ -44,7 +44,11 @@ export default function JobListingScreen() {
   const router = useRouter();
   const [deleteJobId, setDeleteJobId] = useState<string | null>(null);
 
-  const handleProfilePress = () => {};
+  const handleProfilePress = () => {
+    router.push({
+      pathname: "../../../screen/profile/profile-screen" as any,
+    });
+  };
 
   const handleSearchPress = () => {};
 
