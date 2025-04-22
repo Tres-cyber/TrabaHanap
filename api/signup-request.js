@@ -31,7 +31,7 @@ export const handleFormData = async () => {
       formData,
       {
         headers: { "Content-Type": "multipart/form-data" },
-      },
+      }
     );
     console.log("Successful upload!", response.data);
   } catch (error) {
