@@ -182,7 +182,6 @@ const EditProfilePage: React.FC = () => {
       { key: "firstName", label: "First Name" },
       { key: "lastName", label: "Last Name" },
       { key: "emailAddress", label: "Email" },
-      { key: "phoneNumber", label: "Phone Number" },
       { key: "gender", label: "Gender" },
       { key: "birthday", label: "Birthday" },
       { key: "houseNumber", label: "House Number" },
@@ -426,7 +425,7 @@ const EditProfilePage: React.FC = () => {
 
           <View style={styles.fieldContainer}>
             <Text style={styles.fieldLabel}>
-              Phone Number <Text style={styles.requiredStar}>*</Text>
+              Phone Number
             </Text>
             <TextInput
               style={[
@@ -435,7 +434,7 @@ const EditProfilePage: React.FC = () => {
               ]}
               value={formData.phoneNumber}
               onChangeText={(value) => handleInputChange("phoneNumber", value)}
-              placeholder="Enter your phone number"
+              placeholder="Enter your phone number (optional)"
               keyboardType="phone-pad"
             />
             {errors.phoneNumber ? (
