@@ -27,6 +27,7 @@ export default function JobDetailsScreen() {
     description: params.description as string,
     rate: params.rate as string,
     location: params.location as string,
+    jobDuration: params.jobDuration as string,
     clientId:params.clientId as string,
     // images: params.images ? JSON.parse(params.images as string) : [],
     images: params.jobImages 
@@ -131,8 +132,12 @@ export default function JobDetailsScreen() {
 
           <View style={styles.detailsContainer}>
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Rate:</Text>
+              <Text style={styles.detailLabel}>Rate : </Text>
               <Text style={styles.detailValue}>{jobData.rate}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Duration : </Text>
+              <Text style={styles.detailValue}>{jobData.jobDuration}</Text>
             </View>
 
             <View style={styles.detailRow}>

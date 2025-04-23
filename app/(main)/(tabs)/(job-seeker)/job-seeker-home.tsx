@@ -26,6 +26,7 @@ interface JobRequest {
   category: string;
   budget: string;
   jobLocation: string;
+  jobDuration: string;
   datePosted: string;
   jobImage: string[] | null;
   client:Client;
@@ -153,6 +154,7 @@ export default function JobListingScreen() {
         location: job.jobLocation,
         clientId:job.client.id,
         jobImages: job.jobImage,
+        jobDuration: job.jobDuration,
       },
     });
   };
@@ -294,7 +296,11 @@ export default function JobListingScreen() {
                       <Text style={styles.categoryText}>{job.category}</Text>
                     </View>
                     <View style={styles.priceLocationContainer}>
-                      <Text style={styles.priceText}>₱ {job.budget}</Text>
+                    <Text style={styles.priceText}>
+                      {job.budget ? `₱ ${job.budget}` : ""}
+                      {job.jobDuration ? `Duration : ${job.jobDuration}`:""}
+                    </Text>
+
                       <View style={styles.locationContainer}>
                         <Ionicons
                           name="location-outline"
