@@ -193,7 +193,7 @@ const NotificationScreen = () => {
       
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#000" />
+          <Ionicons name="arrow-back-outline" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
         <View style={styles.placeholder} />
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 12,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 10 : 20,
   },
   backButton: {
     padding: 8,
