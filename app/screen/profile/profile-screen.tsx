@@ -331,7 +331,7 @@ const UtilityWorkerProfile: React.FC = () => {
   };
 
   const handleSettingsPress = () => {
-    router.push("./settings");
+    router.push("../settings");
   };
 
   const toggleEditSkills = () => {
