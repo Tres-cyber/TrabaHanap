@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -6,10 +6,12 @@ import {
   ScrollView, 
   TouchableOpacity, 
   Platform,
-  FlatList
+  FlatList,
+  ActivityIndicator
 } from 'react-native';
 import { AntDesign } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Feedback {
   id: string;
@@ -19,54 +21,78 @@ interface Feedback {
   anonymousName: string;
 }
 
-// Sample feedback data (this should be replaced with actual data from your backend)
-const allFeedbacks: Feedback[] = [
-  {
-    id: "1",
-    rating: 5,
-    comment: "Excellent work! Very professional and completed the job quickly.",
-    date: "2024-03-15",
-    anonymousName: "Anonymous Client"
-  },
-  {
-    id: "2",
-    rating: 4,
-    comment: "Good service, would recommend. Slightly delayed but worth the wait.",
-    date: "2024-03-10",
-    anonymousName: "Anonymous Client"
-  },
-  {
-    id: "3",
-    rating: 5,
-    comment: "Amazing attention to detail and very knowledgeable.",
-    date: "2024-03-05",
-    anonymousName: "Anonymous Client"
-  },
-  {
-    id: "4",
-    rating: 5,
-    comment: "Very reliable and professional. Will definitely hire again!",
-    date: "2024-03-01",
-    anonymousName: "Anonymous Client"
-  },
-  {
-    id: "5",
-    rating: 4,
-    comment: "Great work ethic and communication skills.",
-    date: "2024-02-25",
-    anonymousName: "Anonymous Client"
-  },
-  {
-    id: "6",
-    rating: 5,
-    comment: "Exceeded expectations in every way possible.",
-    date: "2024-02-20",
-    anonymousName: "Anonymous Client"
-  }
-];
-
 const ViewAllFeedbacks: React.FC = () => {
   const router = useRouter();
+  const { otherParticipantId } = useLocalSearchParams();
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const jobseekerId = Array.isArray(otherParticipantId)
+    ? otherParticipantId[0]
+    : otherParticipantId;
+
+  useEffect(() => {
+    if (jobseekerId) {
+      fetchFeedbacks();
+    } else {
+      setError("No jobseeker ID provided");
+      setLoading(false);
+    }
+  }, [jobseekerId]);
+
+  const fetchFeedbacks = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        router.replace("/sign_in");
+        return;
+      }
+
+      console.log('Fetching reviews for jobseeker ID:', jobseekerId);
+      
+      const response = await fetch(
+        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/user/reviews/${jobseekerId}`,
+        {
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+        }
+      );
+
+      console.log('Reviews response status:', response.status);
+
+      if (!response.ok) {
+        console.error('Failed to fetch reviews. Status:', response.status);
+        throw new Error(`Failed to fetch reviews: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Received reviews data:', data);
+
+      if (!Array.isArray(data)) {
+        console.error('Received invalid reviews data format:', data);
+        setFeedbacks([]);
+      } else {
+        setFeedbacks(data);
+      }
+    } catch (error) {
+      console.error("Error fetching reviews:", error);
+      setError("Failed to load reviews. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (isoString: string) => {
+    const date = new Date(isoString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
 
   const renderFeedbackStars = (rating: number) => {
     const stars = [];
@@ -90,9 +116,47 @@ const ViewAllFeedbacks: React.FC = () => {
         {renderFeedbackStars(item.rating)}
       </View>
       <Text style={styles.feedbackComment}>{item.comment}</Text>
-      <Text style={styles.feedbackDate}>{item.date}</Text>
+      <Text style={styles.feedbackDate}>{formatDate(item.date)}</Text>
     </View>
   );
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <AntDesign name="arrowleft" size={24} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>All Feedbacks</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#0B153C" />
+        </View>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <AntDesign name="arrowleft" size={24} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>All Feedbacks</Text>
+        </View>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -106,13 +170,19 @@ const ViewAllFeedbacks: React.FC = () => {
         <Text style={styles.headerTitle}>All Feedbacks</Text>
       </View>
 
-      <FlatList
-        data={allFeedbacks}
-        renderItem={renderFeedbackItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.feedbackList}
-        showsVerticalScrollIndicator={false}
-      />
+      {feedbacks.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No feedbacks yet</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={feedbacks}
+          renderItem={renderFeedbackItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.feedbackList}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </View>
   );
 };
@@ -138,6 +208,33 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    color: 'red',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
+    fontStyle: 'italic',
   },
   feedbackList: {
     padding: 16,
