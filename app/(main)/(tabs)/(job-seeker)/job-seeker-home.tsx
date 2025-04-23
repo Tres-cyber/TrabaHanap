@@ -211,7 +211,10 @@ export default function JobListingScreen() {
           />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.searchBar}>
+        <TouchableOpacity 
+          style={styles.searchBar}
+          onPress={() => router.push('/screen/search-screen')}
+        >
           <Ionicons name="search-outline" size={18} color="#666" />
           <Text style={styles.searchText}>Search jobs here</Text>
         </TouchableOpacity>
