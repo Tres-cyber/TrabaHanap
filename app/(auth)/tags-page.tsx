@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -10,7 +10,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { SignUpData } from "@/api/signup-request";
+import { SignUpData, getSignUpUserType } from "@/api/signup-request";
 
 const JOB_PREFERENCES = {
   "Repair and Maintenance": [
@@ -56,22 +56,26 @@ export default function JobPreferenceScreen() {
   const router = useRouter();
   const [selectedPreferences, setSelectedPreferences] = useState<string[]>([]);
 
+  useEffect(() => {
+    const userType = getSignUpUserType();
+    if (userType !== "job-seeker") {
+      console.log("User is not a job seeker, redirecting...");
+      router.replace("/(auth)/picture-page");
+    }
+  }, [router]);
+
   const handleTagPress = (tag: string) => {
     setSelectedPreferences((prev) =>
-      prev.includes(tag) ? prev.filter((item) => item !== tag) : [...prev, tag],
+      prev.includes(tag) ? prev.filter((item) => item !== tag) : [...prev, tag]
     );
   };
 
   const handleNext = () => {
     if (selectedPreferences.length > 0) {
       SignUpData({
-        jobTags: new Array(
-          selectedPreferences.map((element) => camelCase(element)),
-        ),
+        jobTags: selectedPreferences.map(camelCase),
       });
-      router.push({
-        pathname: "/(auth)/picture-page",
-      });
+      router.push("/(auth)/picture-page");
     }
   };
 
@@ -81,7 +85,7 @@ export default function JobPreferenceScreen() {
 
   const renderPreferenceSection = (
     sectionTitle: string,
-    preferences: string[],
+    preferences: string[]
   ) => (
     <View style={styles.sectionContainer} key={sectionTitle}>
       <Text style={styles.sectionTitle}>{sectionTitle}</Text>
@@ -127,7 +131,7 @@ export default function JobPreferenceScreen() {
         </Text>
 
         {Object.entries(JOB_PREFERENCES).map(([section, preferences]) =>
-          renderPreferenceSection(section, preferences),
+          renderPreferenceSection(section, preferences)
         )}
       </ScrollView>
 

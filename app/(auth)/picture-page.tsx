@@ -41,12 +41,15 @@ export default function ProfilePictureScreen() {
   };
 
   const handleNext = () => {
-    SignUpData({ profileImage: profileImage });
+    if (profileImage) {
+      SignUpData({ profileImage: profileImage });
+    }
     handleFormData();
     router.push("/(auth)/sign_in");
   };
 
   const handleSkip = () => {
+    handleFormData();
     router.push("/(auth)/sign_in");
   };
 

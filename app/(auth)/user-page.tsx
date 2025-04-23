@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
-import { SignUpData } from "api/signup-request";
+import { SignUpData, clearFormData } from "@/api/signup-request";
 import { Ionicons } from "@expo/vector-icons";
 
 export default function UserTypeScreen() {
@@ -19,6 +19,7 @@ export default function UserTypeScreen() {
   >(null);
 
   const handleSelectType = (type: "job-seeker" | "client") => {
+    clearFormData();
     setSelectedType(type);
   };
 
