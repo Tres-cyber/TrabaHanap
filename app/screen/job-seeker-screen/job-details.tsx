@@ -10,6 +10,7 @@ import {
   ScrollView,
   Dimensions,
   FlatList,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -191,6 +192,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
+    paddingTop: Platform.OS === 'ios' ? 50 : 40,
   },
   backButton: {
     marginRight: 16,
