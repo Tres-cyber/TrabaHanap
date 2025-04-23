@@ -498,9 +498,6 @@ const SocialFeedScreen = () => {
 
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Community</Text>
-        <TouchableOpacity onPress={navigateToSearch}>
-          <Ionicons name="search" size={24} color="#0b216f" />
-        </TouchableOpacity>
       </View>
 
       <TouchableOpacity
