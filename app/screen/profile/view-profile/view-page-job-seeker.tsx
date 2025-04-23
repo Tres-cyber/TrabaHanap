@@ -11,10 +11,11 @@ import {
   FlatList
 } from 'react-native';
 import { AntDesign, MaterialCommunityIcons, Ionicons, FontAwesome5, Entypo } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter,useLocalSearchParams } from 'expo-router';
 
 // Import the achievements data
 import achievementsData from '../achievements';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Feedback {
   id: string;
@@ -33,7 +34,6 @@ interface WorkerData {
   yearsExperience: number;
   skills: string[];
   achievements: Achievement[];
-  // Basic info
   email: string;
   phoneNumber: string;
   gender: string;
@@ -54,45 +54,118 @@ const UtilityWorkerProfile: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
   const [selectedFeedback, setSelectedFeedback] = useState<Feedback | null>(null);
-  
-  // Sample utility worker data
-  const worker: WorkerData = {
-    name: "Mike Johnson",
-    profileImage: "https://randomuser.me/api/portraits/men/45.jpg",
-    address: "286 Oakwood Street, Portland, OR 97205",
-    rating: 4.7,
-    completedJobs: 138,
-    yearsExperience: 8,
-    skills: ["Electrical", "Plumbing", "HVAC", "Carpentry", "Emergency Repairs"],
-    achievements: achievementsData,
-    email: "mike.johnson@example.com",
-    phoneNumber: "(503) 555-1234",
-    gender: "Male",
-    birthday: "April 15, 1985",
-    feedbacks: [
-      {
-        id: "1",
-        rating: 5,
-        comment: "Excellent work! Very professional and completed the job quickly.",
-        date: "2024-03-15",
-        anonymousName: "Anonymous Client"
-      },
-      {
-        id: "2",
-        rating: 4,
-        comment: "Good service, would recommend. Slightly delayed but worth the wait.",
-        date: "2024-03-10",
-        anonymousName: "Anonymous Client"
-      },
-      {
-        id: "3",
-        rating: 5,
-        comment: "Amazing attention to detail and very knowledgeable.",
-        date: "2024-03-05",
-        anonymousName: "Anonymous Client"
+  const { otherParticipantId } = useLocalSearchParams();
+  const [worker, setWorker] = useState<WorkerData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const jobseekerId = Array.isArray(otherParticipantId)
+    ? otherParticipantId[0]
+    : otherParticipantId;
+
+  useEffect(() => {
+    fetchData();
+  }, [jobseekerId]);
+
+  const fetchData = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        router.replace("/sign_in");
+        return;
       }
-    ]
+
+      console.log('Fetching profile for ID:', jobseekerId);
+      
+      // Fetch profile data
+      const profileResponse = await fetch(
+        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/user/profile/${jobseekerId}/details`,
+        {
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+        }
+      );
+
+      if (!profileResponse.ok) {
+        console.error('Profile response status:', profileResponse.status);
+        throw new Error('Failed to fetch profile data');
+      }
+
+      const profileData = await profileResponse.json();
+      console.log('Received profile data:', profileData);
+
+      // Fetch job tags
+      const tagsResponse = await fetch(
+        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/job-seeker/${jobseekerId}/tags`,
+        {
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+        }
+      );
+
+      if (!tagsResponse.ok) {
+        console.error('Tags response status:', tagsResponse.status);
+        throw new Error('Failed to fetch job tags');
+      }
+
+      const tagsData = await tagsResponse.json();
+      console.log('Received tags data:', tagsData);
+
+      // Fetch reviews
+      const reviewsResponse = await fetch(
+        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/user/reviews/${jobseekerId}`,
+        {
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+        }
+      );
+
+      if (!reviewsResponse.ok) {
+        console.error('Reviews response status:', reviewsResponse.status);
+        throw new Error('Failed to fetch reviews');
+      }
+
+      const reviewsData = await reviewsResponse.json();
+      console.log('Received reviews data:', reviewsData);
+
+      // Combine profile data with job tags and reviews
+      const combinedData = {
+        ...profileData,
+        skills: tagsData.jobTags || [],
+        profileImage: profileData.profileImage 
+          ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${profileData.profileImage}`
+          : '',
+        feedbacks: reviewsData || []
+      };
+      
+      setWorker(combinedData);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <Text>Loading...</Text>
+      </View>
+    );
+  }
+
+  if (!worker) {
+    return (
+      <View style={styles.container}>
+        <Text>Profile not found</Text>
+      </View>
+    );
+  }
 
   // Render stars for rating (will be used in info card)
   const renderRating = (rating: number) => {
@@ -137,19 +210,46 @@ const UtilityWorkerProfile: React.FC = () => {
   };
   
   const handleAboutInfoPress = () => {
-    router.push('./about-info');
+    router.push({
+      pathname: '../view-about-info',
+      params: { otherParticipantId }
+    });
   };
+  const formatDate = (isoString: string) => {
+    const date = new Date(isoString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+  
+  // Then in your JSX:
 
   // Achievement Card component for reusability
-  const AchievementCard = ({ achievement }: { achievement: Achievement }) => (
-    <View style={styles.achievementCard}>
-      <View style={[styles.badgeIcon, { backgroundColor: achievement.color }]}>
-        {getAchievementIcon(achievement.icon)}
+  const AchievementCard = ({ achievement }: { achievement?: Achievement }) => {
+    if (!achievement) {
+      return (
+        <View style={[styles.achievementCard, styles.emptyAchievementCard]}>
+          <View style={[styles.badgeIcon, { backgroundColor: '#CCCCCC' }]}>
+            <MaterialCommunityIcons name="medal-outline" size={24} color="#FFF" />
+          </View>
+          <Text style={styles.achievementTitle}>No achievements yet</Text>
+          <Text style={styles.achievementDescription}>Complete jobs to earn achievements</Text>
+        </View>
+      );
+    }
+  
+    return (
+      <View style={styles.achievementCard}>
+        <View style={[styles.badgeIcon, { backgroundColor: achievement.color }]}>
+          {getAchievementIcon(achievement.icon)}
+        </View>
+        <Text style={styles.achievementTitle}>{achievement.title}</Text>
+        <Text style={styles.achievementDescription}>{achievement.description}</Text>
       </View>
-      <Text style={styles.achievementTitle}>{achievement.title}</Text>
-      <Text style={styles.achievementDescription}>{achievement.description}</Text>
-    </View>
-  );
+    );
+  };
 
   const handleFeedbackPress = (feedback: Feedback) => {
     setSelectedFeedback(feedback);
@@ -188,6 +288,7 @@ const UtilityWorkerProfile: React.FC = () => {
       {/* Header card is always visible */}
       <View style={styles.header}>
         <Image 
+        
           source={{ uri: worker.profileImage }} 
           style={styles.profileImage} 
         />
@@ -281,7 +382,10 @@ const UtilityWorkerProfile: React.FC = () => {
           <Text style={styles.sectionTitle}>Recent Feedbacks</Text>
           <TouchableOpacity 
             style={styles.seeAllButton} 
-            onPress={() => router.push('./view-all-feedbacks')}
+            onPress={() => router.push({
+              pathname: './view-all-feedbacks',
+              params: { otherParticipantId }
+            })}
           >
             <Text style={styles.seeAllText}>See All</Text>
             <AntDesign name="right" size={16} color="#0B153C" />
@@ -301,7 +405,7 @@ const UtilityWorkerProfile: React.FC = () => {
             <Text style={styles.feedbackComment} numberOfLines={2}>
               {feedback.comment}
             </Text>
-            <Text style={styles.feedbackDate}>{feedback.date}</Text>
+              <Text style={styles.feedbackDate}>{formatDate(feedback.date)}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -707,6 +811,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     lineHeight: 24,
+  },
+  emptyAchievementCard: {
+    opacity: 0.7,
   },
 });
 

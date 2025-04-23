@@ -627,12 +627,15 @@ const ChatScreen: React.FC<ChatProps> = ({
 
                         
 
-    
+
   const getPendingMenuOptions = (): MenuOption[] => [
     { 
       icon: <User size={18} color="#777" />, 
       label: 'View Profile', 
-      onPress: () => router.push('/screen/profile/view-profile/view-page-job-seeker') 
+      onPress: () => router.push({
+        pathname: '/screen/profile/view-profile/view-page-job-seeker',
+        params: { otherParticipantId},
+      })      
     }
   ];
   
@@ -1108,19 +1111,31 @@ return isVisibleToUser ? (
           <ArrowLeft size={24} color="#000" />
         </TouchableOpacity>
         
-        <View style={styles.headerUserInfo}>
-          <Image 
-                    source={{ 
-                      uri: profileImage 
-                        ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${
-                            (profileImage+'').split("profiles/")[1]|| ''
-                          }`
-                : undefined 
-                }}
-            style={styles.recipientAvatar} 
-          />
-          <Text style={styles.recipientName}>{receiverName}</Text>
-        </View>
+
+
+<TouchableOpacity
+  onPress={() =>
+    router.push({
+      pathname: '/screen/profile/view-profile/view-page-job-seeker',
+      params: { otherParticipantId },
+    })
+  }
+>
+  <View style={styles.headerUserInfo}>
+    <Image 
+      source={{ 
+        uri: profileImage 
+          ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${
+              (profileImage + '').split('profiles/')[1] || ''
+            }`
+          : undefined 
+      }}
+      style={styles.recipientAvatar} 
+    />
+    <Text style={styles.recipientName}>{receiverName}</Text>
+  </View>
+</TouchableOpacity>
+
         
         <TouchableOpacity 
           onPress={toggleMenuModal}

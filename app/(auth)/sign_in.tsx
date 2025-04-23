@@ -67,7 +67,7 @@ export default function SignInScreen() {
           : "/(main)/(tabs)/(client)/client-home"
       );
     } catch (error) {
-      console.error("Login error:", error);
+      // console.error("Login error:", error);
       setMessage("Login failed. Please check your credentials.");
     }
   };
