@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const formData = new FormData();
+let formData = new FormData();
 
 export function SignUpData(params) {
   if ("profileImage" in params) {
@@ -37,4 +37,13 @@ export const handleFormData = async () => {
   } catch (error) {
     console.error("Error Message", error.request);
   }
+};
+
+export const getSignUpUserType = () => {
+  return formData.get("userType");
+};
+
+export const clearFormData = () => {
+  formData = new FormData();
+  console.log("Global FormData cleared.");
 };
