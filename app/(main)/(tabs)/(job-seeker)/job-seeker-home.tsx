@@ -282,7 +282,7 @@ export default function JobListingScreen() {
 
                   <Text
                     style={styles.jobDescription}
-                    numberOfLines={3}
+                    numberOfLines={1}
                     ellipsizeMode="tail"
                   >
                     {job.jobDescription}
@@ -296,11 +296,14 @@ export default function JobListingScreen() {
                       <Text style={styles.categoryText}>{job.category}</Text>
                     </View>
                     <View style={styles.priceLocationContainer}>
-                    <Text style={styles.priceText}>
-                      {job.budget ? `₱ ${job.budget}` : ""}
-                      {job.jobDuration ? `Duration : ${job.jobDuration}`:""}
-                    </Text>
-
+                      <View style={styles.budgetDurationContainer}>
+                        <Text style={styles.priceText}>
+                          {job.budget ? `₱ ${job.budget}` : ""}
+                        </Text>
+                        <Text style={styles.durationText}>
+                          {job.jobDuration ? `Duration: ${job.jobDuration}` : ""}
+                        </Text>
+                      </View>
                       <View style={styles.locationContainer}>
                         <Ionicons
                           name="location-outline"
@@ -468,10 +471,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   jobDescription: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#666",
     marginBottom: 4,
-    lineHeight: 20,
+    lineHeight: 16,
+    maxHeight: 16,
   },
   seeMoreText: {
     color: "#3498db",
@@ -497,14 +501,21 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   priceLocationContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
+    flexDirection: 'column',
     gap: 8,
+  },
+  budgetDurationContainer: {
+    flexDirection: 'column',
+    gap: 4,
   },
   priceText: {
     fontSize: 14,
     fontWeight: "500",
+    color: "#000",
+  },
+  durationText: {
+    fontSize: 13,
+    color: "#666",
   },
   locationContainer: {
     flexDirection: "row",
