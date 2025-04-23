@@ -45,58 +45,80 @@ export async function AddCommunityPost(params) {
 }
 
 export async function fetchCommunityPosts() {
-  const { data } = await axios.get(
-    `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/community/posts`
-  );
-
-  const extractIds = data.map((post) => ({
-    userId: post.clientId || post.jobSeekerId,
-  }));
-
-  const { data: usernames } = await axios.get(
-    `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/community/getUsername`,
-    {
-      params: {
-        ids: extractIds,
-      },
-    }
-  );
-
-  const postsWithComments = await Promise.all(
-    data.map(async (post) => {
-      try {
-        const { data: comments } = await axios.get(
-          `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/community/posts/${post.id}/getComments`
-        );
-        return {
-          ...post,
-          commentCount: comments.length,
-        };
-      } catch (error) {
-        console.error("Error fetching comments for post:", post.id, error);
-        return {
-          ...post,
-          commentCount: 0,
-        };
+  try {
+    const { data: postsData } = await axios.get(
+      `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/community/posts`,
+      {
+        timeout: 20000,
       }
-    })
-  );
+    );
 
-  const postsWithUsernames = postsWithComments.map((post) => {
-    const userId = post.clientId || post.jobSeekerId;
-    const userDetails = usernames[userId];
-    const fullName = userDetails
-      ? `${userDetails.firstName} ${userDetails.middleName[0]}. ${userDetails.lastName}`
-      : "Unknown User";
+    if (!postsData || postsData.length === 0) {
+      console.log("No posts found initially.");
+      return [];
+    }
 
-    return {
-      ...post,
-      username: fullName,
-      profileImage: userDetails?.profileImage || null,
-    };
-  });
+    const extractIds = postsData.map((post) => ({
+      userId: post.clientId || post.jobSeekerId,
+    }));
 
-  return postsWithUsernames;
+    const { data: usernames } = await axios.get(
+      `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/community/getUsername`,
+      {
+        params: { ids: extractIds },
+        timeout: 15000,
+      }
+    );
+
+    const postsWithComments = await Promise.all(
+      postsData.map(async (post) => {
+        try {
+          const { data: comments } = await axios.get(
+            `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/community/posts/${post.id}/getComments`,
+            { timeout: 10000 }
+          );
+          return {
+            ...post,
+            commentCount: comments.length,
+          };
+        } catch (error) {
+          console.error(
+            "Error fetching comments for post:",
+            post.id,
+            error.code === "ECONNABORTED" ? "Timeout" : error
+          );
+          return {
+            ...post,
+            commentCount: 0,
+          };
+        }
+      })
+    );
+
+    const postsWithUsernames = postsWithComments.map((post) => {
+      const userId = post.clientId || post.jobSeekerId;
+      const userDetails = usernames[userId];
+      const fullName = userDetails
+        ? `${userDetails.firstName} ${
+            userDetails.middleName ? userDetails.middleName[0] + "." : ""
+          } ${userDetails.lastName}`.trim()
+        : "Unknown User";
+
+      return {
+        ...post,
+        username: fullName,
+        profileImage: userDetails?.profileImage || null,
+      };
+    });
+    console.log("Successfully processed all community posts.");
+    return postsWithUsernames;
+  } catch (error) {
+    console.error(
+      "Error in fetchCommunityPosts pipeline:",
+      error.code === "ECONNABORTED" ? "Timeout" : error
+    );
+    throw error;
+  }
 }
 
 export async function likePost(postId) {

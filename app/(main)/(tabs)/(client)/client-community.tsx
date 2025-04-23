@@ -526,6 +526,12 @@ const SocialFeedScreen = () => {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#0077B5" />
         </View>
+      ) : fetchedPosts.length === 0 ? (
+        <View style={styles.noPostsContainer}>
+          <Text style={styles.noPostsText}>
+            There are no posts yet. Be the first to share!
+          </Text>
+        </View>
       ) : (
         <FlatList
           data={posts}
@@ -1126,6 +1132,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   noCommentsText: {
+    color: "#666",
+  },
+  noPostsContainer: {
+    padding: 20,
+    alignItems: "center",
+  },
+  noPostsText: {
     color: "#666",
   },
 });

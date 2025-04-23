@@ -93,6 +93,7 @@ const SocialFeedScreen = () => {
   const {
     data: fetchedPosts = [],
     isLoading,
+    isError,
     refetch,
   } = useQuery<Post[]>({
     queryKey: ["community-posts"],
@@ -514,29 +515,49 @@ const SocialFeedScreen = () => {
         </View>
       </TouchableOpacity>
 
-      {isLoading ? (
+      {isLoading && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#0077B5" />
         </View>
-      ) : (
-        <FlatList
-          data={posts}
-          renderItem={({ item, index }) => (
-            <View key={`post-${item.id || index}`}>{renderPost({ item })}</View>
-          )}
-          keyExtractor={(item, index) => `post-${item.id || index}`}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.feedContainer}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={["#0077B5"]}
-              tintColor="#0077B5"
-            />
-          }
-        />
       )}
+
+      {!isLoading && isError && (
+        <View style={[styles.noPostsContainer, styles.errorContainer]}>
+          <Text style={styles.errorText}>
+            Failed to load posts. Pull down to retry.
+          </Text>
+        </View>
+      )}
+
+      {!isLoading &&
+        !isError &&
+        (fetchedPosts.length === 0 ? (
+          <View style={styles.noPostsContainer}>
+            <Text style={styles.noPostsText}>
+              There are no posts yet. Be the first to share!
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={posts}
+            renderItem={({ item, index }) => (
+              <View key={`post-${item.id || index}`}>
+                {renderPost({ item })}
+              </View>
+            )}
+            keyExtractor={(item, index) => `post-${item.id || index}`}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.feedContainer}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={["#0077B5"]}
+                tintColor="#0077B5"
+              />
+            }
+          />
+        ))}
 
       <Modal
         animationType="slide"
@@ -1106,6 +1127,8 @@ const styles = StyleSheet.create({
   loadingContainer: {
     padding: 20,
     alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
   },
   errorContainer: {
     padding: 20,
@@ -1113,6 +1136,17 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: "red",
+    textAlign: "center",
+  },
+  noPostsContainer: {
+    padding: 20,
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+  },
+  noPostsText: {
+    color: "#666",
+    textAlign: "center",
   },
   noCommentsContainer: {
     padding: 20,
