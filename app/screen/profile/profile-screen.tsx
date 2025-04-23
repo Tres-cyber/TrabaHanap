@@ -342,6 +342,10 @@ const UtilityWorkerProfile: React.FC = () => {
     router.push("./about-info");
   };
 
+  const handleGoBack = () => {
+    router.back();
+  };
+
   // --- Loading and Error States ---
   if (isLoading) {
     return (
@@ -368,6 +372,14 @@ const UtilityWorkerProfile: React.FC = () => {
 
   return (
     <ScrollView style={styles.container}>
+      {/* Back Button */}
+      <TouchableOpacity 
+        style={styles.backButton} 
+        onPress={handleGoBack}
+      >
+        <Ionicons name="arrow-back-outline" size={24} color="#333" />
+      </TouchableOpacity>
+
       <View style={styles.actionsHeader}>
         <TouchableOpacity
           style={styles.actionButton}
@@ -605,7 +617,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f8f9fa",
     padding: 16,
-    paddingTop: Platform.OS === "ios" ? 50 : 40,
+    paddingTop: Platform.OS === "ios" ? 60 : 40,
+  },
+  backButton: {
+    marginBottom: 16,
+    padding: 4,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
   },
   actionsHeader: {
     flexDirection: "row",
