@@ -54,7 +54,9 @@ export default function JobListingScreen() {
 
   const handleSearchPress = () => {};
 
-  const handleNotificationPress = () => {};
+  const handleNotificationPress = () => {
+    router.push('/screen/notification-screen');
+  };
 
   const handleAddJobPress = () => {
     router.push({
