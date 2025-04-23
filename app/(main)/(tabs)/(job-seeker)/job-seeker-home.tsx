@@ -184,6 +184,9 @@ export default function JobListingScreen() {
     router.push("../../../screen/profile/profile-screen");
   };
   
+  const handleNotificationPress = () => {
+    router.push('/screen/notification-screen');
+  };
 
   const displayedJobs = 
   activeTab === "bestMatch" ? matchingJobs :
@@ -211,7 +214,10 @@ export default function JobListingScreen() {
           <Text style={styles.searchText}>Search jobs here</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.notificationButton}>
+        <TouchableOpacity 
+          style={styles.notificationButton}
+          onPress={handleNotificationPress}
+        >
           <Ionicons name="notifications-outline" size={24} color="#000" />
         </TouchableOpacity>
       </View>
