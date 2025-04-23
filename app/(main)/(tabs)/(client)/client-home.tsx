@@ -52,7 +52,9 @@ export default function JobListingScreen() {
     });
   };
 
-  const handleSearchPress = () => {};
+  const handleSearchPress = () => {
+    router.push('/screen/search-screen');
+  };
 
   const handleNotificationPress = () => {
     router.push('/screen/notification-screen');
