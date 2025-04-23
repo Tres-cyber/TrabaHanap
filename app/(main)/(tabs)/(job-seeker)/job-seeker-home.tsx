@@ -127,7 +127,7 @@ export default function JobListingScreen() {
         try {
           const { data } = await decodeToken();
           const profileImagePath = data.profileImage;
-          const userName = `${data.firstName} ${data.middleName[0]}. ${data.lastName}`;
+
   
           if (profileImagePath) {
             setUserProfileImage(

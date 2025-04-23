@@ -11,13 +11,15 @@ import {
   ActivityIndicator,
   Modal,
   Platform,
+  TextInput,
+  RefreshControl,
 } from "react-native";
 import { Ionicons, Feather, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { fetchJobListings, deleteJobListing } from "@/api/client-request";
-
+import decodeToken from "@/api/token-decoder";
 interface JobDetails {
   id: string;
   jobTitle: string;
@@ -103,12 +105,44 @@ export default function JobListingScreen() {
     }
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [rating, setRating] = useState<number>(0);
+  const [review, setReview] = useState<string>("");
+  const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   useEffect(() => {
     setTimeout(() => {
       handleCheckToken();
     }, 2000);
   }, []);
 
+ useEffect(() => {
+      const loadUserData = async () => {
+        try {
+          const { data } = await decodeToken();
+          const profileImagePath = data.profileImage;
+
+          if (profileImagePath) {
+            setUserProfileImage(
+              `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${profileImagePath}`
+            );
+          }
+        } catch (error) {
+          console.error("Error loading user data:", error);
+        }
+      };
+      loadUserData();
+    }, []);
+    
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -118,7 +152,11 @@ export default function JobListingScreen() {
           style={styles.profileButton}
         >
           <Image
-            source={require("assets/images/client-user.png")}
+                                 source={
+                      userProfileImage
+                        ? { uri: userProfileImage }
+                        : require("assets/images/default-user.png")
+                    }
             style={styles.profileImage}
             defaultSource={require("assets/images/client-user.png")}
           />
@@ -144,9 +182,23 @@ export default function JobListingScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scrollView}>
-        {!isFetching ? (
-          data.map((job: JobDetails) => (
+      <ScrollView
+        style={styles.scrollView}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={["#9b59b6"]} 
+            tintColor="#9b59b6" 
+          />
+        }
+      >
+      {isFetching ? (
+    <ActivityIndicator size="large" />
+  ) : data && data.filter((job: JobDetails) => job.jobStatus !== "verified").length > 0 ? (
+    data
+      .filter((job: JobDetails) => job.jobStatus !== "verified")
+      .map((job: JobDetails) => (
             <View key={job.id} style={styles.jobCard}>
               <View style={styles.jobHeader}>
                 <Text style={styles.jobTitle}>{job.jobTitle}</Text>
@@ -184,17 +236,36 @@ export default function JobListingScreen() {
                   </Text>
                 </View>
 
-                <Text
-                  style={[
-                    styles.statusText,
-                    {
-                      color: job.jobStatus === "Open" ? "#f39c12" : "#2ecc71",
-                    },
-                  ]}
-                >
-                  {job.jobStatus.charAt(0).toUpperCase() +
-                    job.jobStatus.slice(1)}
-                </Text>
+                {job.jobStatus.toLowerCase() === "completed" ? (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSelectedJobId(job.id);
+                        setShowConfirmModal(true);
+                      }}
+                      style={{
+                        backgroundColor: "#f39c12",
+                        paddingVertical: 6,
+                        paddingHorizontal: 10,
+                        borderRadius: 8,
+                      }}
+                    >
+                      <Text style={{ color: "#fff", fontWeight: "500", fontSize: 13}}>
+                        Completed
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <Text
+                      style={[
+                        styles.statusText,
+                        {
+                          color: job.jobStatus === "Open" ? "#f39c12" : "#2ecc71",
+                        },
+                      ]}
+                    >
+                      {job.jobStatus.charAt(0).toUpperCase() + job.jobStatus.slice(1)}
+                    </Text>
+                  )}
+
 
                 <Text style={styles.dateText}>
                   {new Date(job.datePosted).toLocaleDateString("en-US", {
@@ -206,11 +277,13 @@ export default function JobListingScreen() {
               </View>
             </View>
           ))
+
         ) : (
-          <Text>
-            {" "}
-            <ActivityIndicator size="large" />
-          </Text>
+          <View style={styles.emptyStateContainer}>
+            <Text style={styles.emptyStateText}>
+              Click the + button to create a job request
+            </Text>
+          </View>
         )}
       </ScrollView>
 
@@ -247,6 +320,109 @@ export default function JobListingScreen() {
           </View>
         </View>
       </Modal>
+      <Modal
+  visible={showConfirmModal}
+  transparent
+  animationType="slide"
+  onRequestClose={() => setShowConfirmModal(false)}
+>
+  <View style={styles.successModalContainer}>
+    <View style={styles.successModalContent}>
+      <Text style={styles.successTitle}>Confirm Job Completion</Text>
+      <Text style={styles.successMessage}>
+        Please rate and review the jobseeker.
+      </Text>
+
+      {/* Rating Stars (placeholder - you can use icons later) */}
+      <View style={{ flexDirection: "row", marginBottom: 12 }}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <TouchableOpacity
+            key={star}
+            onPress={() => setRating(star)}
+            style={{ marginHorizontal: 4 }}
+          >
+            <Text style={{ fontSize: 24 }}>
+              {star <= rating ? "⭐" : "☆"}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Review Input */}
+      <TextInput
+        placeholder="Write a review..."
+        style={{
+          width: "100%",
+          height: 80,
+          borderColor: "#ccc",
+          borderWidth: 1,
+          borderRadius: 8,
+          paddingHorizontal: 10,
+          paddingVertical: 8,
+          textAlignVertical: "top",
+          marginBottom: 16,
+        }}
+        multiline
+        value={review}
+        onChangeText={setReview}
+      />
+
+      <View style={styles.modalButtonsContainer}>
+        <TouchableOpacity
+          style={styles.stayButton}
+          onPress={() => setShowConfirmModal(false)}
+        >
+          <Text style={styles.stayButtonText}>Cancel</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+  style={styles.discardButton}
+  onPress={async () => {
+    if (selectedJobId) {
+      try {
+        const token = await AsyncStorage.getItem("token"); 
+
+        const response = await fetch(`http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/jobrequest/verify/${selectedJobId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            rating,
+            review,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to submit review.");
+        }
+
+        const result = await response.json();
+        console.log("Verification successful:", result);
+
+        // Reset form state
+        setShowConfirmModal(false);
+        setSelectedJobId(null);
+        setRating(0);
+        setReview("");
+        refetch(); // Refresh data
+
+      } catch (error) {
+        console.error("Error submitting review:", error);
+        // You can show a toast or alert here if you like
+      }
+    }
+  }}
+>
+  <Text style={styles.discardButtonText}>Submit</Text>
+</TouchableOpacity>
+
+      </View>
+    </View>
+  </View>
+</Modal>
+
     </SafeAreaView>
   );
 }
@@ -443,4 +619,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
   },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 20,
+  },
 });
+
+
