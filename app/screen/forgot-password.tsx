@@ -24,16 +24,16 @@ export default function ForgotPasswordScreen() {
   };
 
   const isValidEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const gmailRegex = /@gmail\.com$/i;
+    // RFC 5322 compliant email regex
+    const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
     
-    if (!emailRegex.test(email)) {
-      setEmailError('Please enter a valid email address');
+    if (!email.trim()) {
+      setEmailError('Email is required');
       return false;
     }
     
-    if (!gmailRegex.test(email)) {
-      setEmailError('Please enter a valid Gmail address');
+    if (!emailRegex.test(email)) {
+      setEmailError('Please enter a valid email address');
       return false;
     }
     

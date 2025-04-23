@@ -481,6 +481,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
+    color: "#0b216f",
   },
   searchContainer: {
     padding: 10,
