@@ -93,7 +93,7 @@ const PrivacyPolicy = () => {
           <Text style={styles.text}>
             If you have any questions about this Privacy Policy, please contact us at:{'\n\n'}
             Email: privacy@trabahanap.com{'\n'}
-            Address: [Your Business Address]
+            Address: trabahanap@gmail.com
           </Text>
         </View>
       </ScrollView>
