@@ -6,6 +6,8 @@ import {
   TextInput,
   TouchableOpacity,
   SafeAreaView,
+  Modal,
+  Animated,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,6 +18,9 @@ export default function EmailVerificationScreen() {
   const [error, setError] = useState<string>("");
   const [timeLeft, setTimeLeft] = useState<number>(120); // 2 minutes in seconds
   const [canResend, setCanResend] = useState<boolean>(false);
+  const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
+  const [showErrorModal, setShowErrorModal] = useState<boolean>(false);
+  const [modalAnimation] = useState(new Animated.Value(0));
 
   useEffect(() => {
     if (timeLeft > 0) {
@@ -34,6 +39,31 @@ export default function EmailVerificationScreen() {
     return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
   };
 
+  const showModal = (type: 'success' | 'error') => {
+    Animated.sequence([
+      Animated.timing(modalAnimation, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(2000),
+      Animated.timing(modalAnimation, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      if (type === 'success') {
+        setShowSuccessModal(false);
+        router.push({
+          pathname: "/(auth)/password-page",
+        });
+      } else {
+        setShowErrorModal(false);
+      }
+    });
+  };
+
   const handleSubmit = (): void => {
     if (!verificationCode.trim()) {
       setError("Please enter the verification code");
@@ -47,9 +77,14 @@ export default function EmailVerificationScreen() {
 
     setError("");
     // TODO: Implement verification logic
-    router.push({
-      pathname: "/(auth)/password-page",
-    });
+    // For demo purposes, we'll show success if code is "123456"
+    if (verificationCode === "123456") {
+      setShowSuccessModal(true);
+      showModal('success');
+    } else {
+      setShowErrorModal(true);
+      showModal('error');
+    }
   };
 
   const handleResendCode = (): void => {
@@ -62,6 +97,52 @@ export default function EmailVerificationScreen() {
 
   const handleBack = (): void => {
     router.back();
+  };
+
+  const renderModal = (type: 'success' | 'error') => {
+    const isSuccess = type === 'success';
+    return (
+      <Modal
+        transparent
+        visible={isSuccess ? showSuccessModal : showErrorModal}
+        animationType="none"
+      >
+        <View style={styles.modalOverlay}>
+          <Animated.View
+            style={[
+              styles.modalContent,
+              {
+                transform: [
+                  {
+                    translateY: modalAnimation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [100, 0],
+                    }),
+                  },
+                ],
+                opacity: modalAnimation,
+              },
+            ]}
+          >
+            <View style={[styles.modalIcon, isSuccess ? styles.successIcon : styles.errorIcon]}>
+              <Ionicons
+                name={isSuccess ? "checkmark" : "close"}
+                size={32}
+                color="white"
+              />
+            </View>
+            <Text style={styles.modalTitle}>
+              {isSuccess ? "Verification Successful" : "Invalid Code"}
+            </Text>
+            <Text style={styles.modalMessage}>
+              {isSuccess
+                ? "Your email has been verified successfully!"
+                : "The verification code you entered is incorrect. Please try again."}
+            </Text>
+          </Animated.View>
+        </View>
+      </Modal>
+    );
   };
 
   return (
@@ -114,6 +195,9 @@ export default function EmailVerificationScreen() {
           <Text style={styles.submitButtonText}>Verify</Text>
         </TouchableOpacity>
       </View>
+
+      {renderModal('success')}
+      {renderModal('error')}
     </SafeAreaView>
   );
 }
@@ -205,5 +289,51 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "500",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "white",
+    borderRadius: 12,
+    padding: 24,
+    width: "80%",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  successIcon: {
+    backgroundColor: "#4CAF50",
+  },
+  errorIcon: {
+    backgroundColor: "#F44336",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
   },
 }); 
