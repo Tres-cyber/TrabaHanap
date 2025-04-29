@@ -6,10 +6,15 @@ import {
   TextInput,
   TouchableOpacity,
   SafeAreaView,
+  Platform,
+  Modal,
+  FlatList,
+  Pressable,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SignUpData } from "@/api/signup-request";
+import { barangays } from "../constants/barangays";
 
 interface FormData {
   barangay: string;
@@ -31,6 +36,7 @@ export default function AddressEntryScreen() {
     houseNumber: "",
   });
   const [errors, setErrors] = useState<FormErrors>({});
+  const [modalVisible, setModalVisible] = useState(false);
 
   const handleInputChange = (field: keyof FormData, value: string): void => {
     setFormData((prev) => ({
@@ -81,6 +87,11 @@ export default function AddressEntryScreen() {
     router.back();
   };
 
+  const handleBarangaySelect = (barangay: string) => {
+    handleInputChange("barangay", barangay);
+    setModalVisible(false);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -98,11 +109,14 @@ export default function AddressEntryScreen() {
         <View style={styles.formContainer}>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Barangay</Text>
-            <TextInput
+            <TouchableOpacity
               style={[styles.input, errors.barangay ? styles.inputError : null]}
-              value={formData.barangay}
-              onChangeText={(text) => handleInputChange("barangay", text)}
-            />
+              onPress={() => setModalVisible(true)}
+            >
+              <Text style={formData.barangay ? styles.selectedText : styles.placeholderText}>
+                {formData.barangay || "Select a barangay"}
+              </Text>
+            </TouchableOpacity>
             {errors.barangay ? (
               <Text style={styles.errorText}>{errors.barangay}</Text>
             ) : null}
@@ -140,6 +154,36 @@ export default function AddressEntryScreen() {
           <Text style={styles.nextButtonText}>Next</Text>
         </TouchableOpacity>
       </View>
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Barangay</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#000" />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={barangays}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.barangayItem}
+                  onPress={() => handleBarangaySelect(item)}
+                >
+                  <Text style={styles.barangayText}>{item}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -221,5 +265,43 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "500",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "white",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: "80%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  barangayItem: {
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  barangayText: {
+    fontSize: 16,
+  },
+  selectedText: {
+    fontSize: 16,
+    color: "#000",
+  },
+  placeholderText: {
+    fontSize: 16,
+    color: "#999",
   },
 });
