@@ -38,6 +38,7 @@ export default function EmailEntryScreen() {
     SignUpData({ emailAddress: email });
     router.push({
       pathname: "/(auth)/email-verification",
+      params: { email: email },
     });
   };
 
