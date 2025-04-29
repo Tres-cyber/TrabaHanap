@@ -9,11 +9,13 @@ import {
   Modal,
   Animated,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { storeOTPRequest, verifyOTPRequest } from "../../api/signup-request";
 
 export default function EmailVerificationScreen() {
   const router = useRouter();
+  const { email } = useLocalSearchParams<{ email?: string }>();
   const [verificationCode, setVerificationCode] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [timeLeft, setTimeLeft] = useState<number>(120); // 2 minutes in seconds
@@ -21,6 +23,30 @@ export default function EmailVerificationScreen() {
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
   const [showErrorModal, setShowErrorModal] = useState<boolean>(false);
   const [modalAnimation] = useState(new Animated.Value(0));
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isResending, setIsResending] = useState<boolean>(false);
+
+  // Send OTP when the component mounts if email is available
+  useEffect(() => {
+    const sendInitialOTP = async () => {
+      if (email) {
+        try {
+          console.log("Sending initial OTP for:", email);
+          await storeOTPRequest(email);
+          // Optionally, show a success message (e.g., toast)
+          console.log("Initial OTP request sent successfully.");
+        } catch (error) {
+          setError(
+            "Failed to send initial verification code. Please try again later."
+          );
+          console.error("Error sending initial OTP:", error);
+          // Optionally, show an error message to the user
+        }
+      }
+    };
+
+    sendInitialOTP();
+  }, [email]); // Run when email value is available/changes
 
   useEffect(() => {
     if (timeLeft > 0) {
@@ -39,7 +65,8 @@ export default function EmailVerificationScreen() {
     return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
   };
 
-  const showModal = (type: 'success' | 'error') => {
+  // Re-add showModal function for success/error feedback
+  const showModal = (type: "success" | "error") => {
     Animated.sequence([
       Animated.timing(modalAnimation, {
         toValue: 1,
@@ -53,10 +80,12 @@ export default function EmailVerificationScreen() {
         useNativeDriver: true,
       }),
     ]).start(() => {
-      if (type === 'success') {
+      if (type === "success") {
         setShowSuccessModal(false);
+        // Navigate to password page on success, DO NOT pass OTP
         router.push({
           pathname: "/(auth)/password-page",
+          params: { email: email }, // Only pass email
         });
       } else {
         setShowErrorModal(false);
@@ -64,34 +93,65 @@ export default function EmailVerificationScreen() {
     });
   };
 
-  const handleSubmit = (): void => {
+  const handleSubmit = async (): Promise<void> => {
+    // Make async again
     if (!verificationCode.trim()) {
       setError("Please enter the verification code");
       return;
     }
 
+    // Add length check back
     if (verificationCode.length !== 6) {
       setError("Please enter a valid 6-digit code");
       return;
     }
 
-    setError("");
-    // TODO: Implement verification logic
-    // For demo purposes, we'll show success if code is "123456"
-    if (verificationCode === "123456") {
-      setShowSuccessModal(true);
-      showModal('success');
-    } else {
-      setShowErrorModal(true);
-      showModal('error');
+    // Add email check back
+    if (!email) {
+      setError("Email address not found. Please go back.");
+      return;
     }
+
+    setError("");
+    setIsSubmitting(true);
+
+    try {
+      // Call the new verification endpoint
+      const isVerified = await verifyOTPRequest(email, verificationCode);
+      if (isVerified) {
+        setShowSuccessModal(true);
+        showModal("success"); // Show success modal, which navigates
+      } else {
+        // Use a generic error or potentially the one from the server
+        setError("Invalid verification code. Please try again.");
+        setShowErrorModal(true);
+        showModal("error");
+      }
+    } catch (apiError) {
+      setError("An error occurred during verification. Please try again.");
+      setShowErrorModal(true);
+      showModal("error");
+      console.error("Verification API error:", apiError);
+    } finally {
+      setIsSubmitting(false);
+    }
+
+    // Removed direct navigation from here
+    // router.push({ ... });
   };
 
-  const handleResendCode = (): void => {
-    if (canResend) {
-      setTimeLeft(120);
-      setCanResend(false);
-      // TODO: Implement resend logic
+  const handleResendCode = async (): Promise<void> => {
+    if (canResend && !isResending && email) {
+      setIsResending(true);
+      try {
+        await storeOTPRequest(email);
+        setTimeLeft(120);
+        setCanResend(false);
+      } catch (apiError) {
+        console.error("Resend OTP API error:", apiError);
+      } finally {
+        setIsResending(false);
+      }
     }
   };
 
@@ -99,8 +159,9 @@ export default function EmailVerificationScreen() {
     router.back();
   };
 
-  const renderModal = (type: 'success' | 'error') => {
-    const isSuccess = type === 'success';
+  // Re-add renderModal function
+  const renderModal = (type: "success" | "error") => {
+    const isSuccess = type === "success";
     return (
       <Modal
         transparent
@@ -124,7 +185,12 @@ export default function EmailVerificationScreen() {
               },
             ]}
           >
-            <View style={[styles.modalIcon, isSuccess ? styles.successIcon : styles.errorIcon]}>
+            <View
+              style={[
+                styles.modalIcon,
+                isSuccess ? styles.successIcon : styles.errorIcon,
+              ]}
+            >
               <Ionicons
                 name={isSuccess ? "checkmark" : "close"}
                 size={32}
@@ -136,7 +202,7 @@ export default function EmailVerificationScreen() {
             </Text>
             <Text style={styles.modalMessage}>
               {isSuccess
-                ? "Your email has been verified successfully!"
+                ? "Your email has been verified successfully!" // Updated success message
                 : "The verification code you entered is incorrect. Please try again."}
             </Text>
           </Animated.View>
@@ -179,25 +245,38 @@ export default function EmailVerificationScreen() {
             style={[
               styles.resendButton,
               !canResend && styles.resendButtonDisabled,
+              isResending && styles.resendButtonDisabled,
             ]}
             onPress={handleResendCode}
-            disabled={!canResend}
+            disabled={!canResend || isResending}
           >
             <Text style={styles.resendButtonText}>
-              {canResend
+              {isResending
+                ? "Sending..."
+                : canResend
                 ? "Resend Code"
                 : `Resend Code in ${formatTime(timeLeft)}`}
             </Text>
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-          <Text style={styles.submitButtonText}>Verify</Text>
+        <TouchableOpacity
+          style={[
+            styles.submitButton,
+            isSubmitting && styles.submitButtonDisabled,
+          ]}
+          onPress={handleSubmit}
+          disabled={isSubmitting}
+        >
+          <Text style={styles.submitButtonText}>
+            {isSubmitting ? "Verifying..." : "Verify"}
+          </Text>
         </TouchableOpacity>
       </View>
 
-      {renderModal('success')}
-      {renderModal('error')}
+      {/* Re-add modal rendering */}
+      {renderModal("success")}
+      {renderModal("error")}
     </SafeAreaView>
   );
 }
@@ -285,6 +364,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
   },
+  submitButtonDisabled: {
+    opacity: 0.7,
+  },
   submitButtonText: {
     color: "white",
     fontSize: 16,
@@ -336,4 +418,4 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
   },
-}); 
+});
