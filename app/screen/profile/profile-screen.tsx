@@ -403,6 +403,11 @@ const UtilityWorkerProfile: React.FC = () => {
           <Text style={styles.name}>
             {worker.firstName} {worker.middleName} {worker.lastName}{" "}
             {worker.suffixName}
+            {worker.isVerified && (
+              <View style={styles.verifiedBadge}>
+                <Ionicons name="checkmark-circle" size={20} color="#0B153C" />
+              </View>
+            )}
           </Text>
           <View style={styles.addressContainer}>
             <Ionicons name="location-outline" size={16} color="#666" />
@@ -946,6 +951,11 @@ const styles = StyleSheet.create({
   errorText: {
     color: "red",
     fontSize: 16,
+  },
+  verifiedBadge: {
+    marginLeft: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 
