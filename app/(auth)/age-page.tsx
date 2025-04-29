@@ -44,7 +44,12 @@ export default function BirthdayEntryScreen() {
       setBirthdate(currentDate);
       const calculatedAge = calculateAge(currentDate);
       setAge(calculatedAge);
-      setError("");
+      
+      if (calculatedAge < 18) {
+        setError("You must be at least 18 years old");
+      } else {
+        setError("");
+      }
     }
   };
 
