@@ -45,12 +45,12 @@ export default function ProfilePictureScreen() {
       SignUpData({ profileImage: profileImage });
     }
     handleFormData();
-    router.push("/(auth)/sign_in");
+    router.push("/(auth)/id-verification");
   };
 
   const handleSkip = () => {
     handleFormData();
-    router.push("/(auth)/sign_in");
+    router.push("/(auth)/id-verification");
   };
 
   return (
