@@ -42,6 +42,7 @@ const SettingsScreen = () => {
   };
 
   const handleLogout = () => {
+    console.log('logout')
     Alert.alert(
       'Logout',
       'Are you sure you want to logout?',

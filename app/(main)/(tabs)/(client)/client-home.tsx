@@ -29,6 +29,7 @@ interface JobDetails {
   jobStatus: string;
   budget: string;
   datePosted: string;
+  jobSeekerId: string;
 }
 
 function reverseCamelCase(str: string) {
@@ -120,7 +121,7 @@ export default function JobListingScreen() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [rating, setRating] = useState<number>(0);
-  const [review, setReview] = useState<string>("");
+  const [feedback, setReview] = useState<string>("");
   const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   useEffect(() => {
@@ -198,11 +199,11 @@ export default function JobListingScreen() {
         }
       >
       {isFetching ? (
-    <ActivityIndicator size="large" />
-  ) : data && data.filter((job: JobDetails) => job.jobStatus !== "verified").length > 0 ? (
-    data
-      .filter((job: JobDetails) => job.jobStatus !== "verified")
-      .map((job: JobDetails) => (
+        <ActivityIndicator size="large" />
+      ) : data && data.filter((job: JobDetails) => job.jobStatus !== "completed" && job.jobStatus !== "reviewed").length > 0 ? (
+        data
+          .filter((job: JobDetails) => job.jobStatus !== "completed" && job.jobStatus !== "reviewed")
+          .map((job: JobDetails) => (
             <View key={job.id} style={styles.jobCard}>
               <View style={styles.jobHeader}>
                 <Text style={styles.jobTitle}>{job.jobTitle}</Text>
@@ -220,6 +221,17 @@ export default function JobListingScreen() {
                   >
                     <Feather name="trash-2" size={18} color="#ff4444" />
                   </TouchableOpacity>
+                  {job.jobStatus.toLowerCase() === "pending" && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSelectedJobId(job.id);
+                        setShowConfirmModal(true);
+                      }}
+                      style={styles.actionButton}
+                    >
+                       <Feather name="check-circle" size={22} color="#2ecc71" />
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
 
@@ -240,36 +252,16 @@ export default function JobListingScreen() {
                   </Text>
                 </View>
 
-                {job.jobStatus.toLowerCase() === "completed" ? (
-                    <TouchableOpacity
-                      onPress={() => {
-                        setSelectedJobId(job.id);
-                        setShowConfirmModal(true);
-                      }}
-                      style={{
-                        backgroundColor: "#f39c12",
-                        paddingVertical: 6,
-                        paddingHorizontal: 10,
-                        borderRadius: 8,
-                      }}
-                    >
-                      <Text style={{ color: "#fff", fontWeight: "500", fontSize: 13}}>
-                        Completed
-                      </Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <Text
-                      style={[
-                        styles.statusText,
-                        {
-                          color: job.jobStatus === "Open" ? "#f39c12" : "#2ecc71",
-                        },
-                      ]}
-                    >
-                      {job.jobStatus.charAt(0).toUpperCase() + job.jobStatus.slice(1)}
-                    </Text>
-                  )}
-
+                <Text
+                  style={[
+                    styles.statusText,
+                    {
+                      color: job.jobStatus === "Open" ? "#f39c12" : "#2ecc71",
+                    },
+                  ]}
+                >
+                  {job.jobStatus.charAt(0).toUpperCase() + job.jobStatus.slice(1)}
+                </Text>
 
                 <Text style={styles.dateText}>
                   {new Date(job.datePosted).toLocaleDateString("en-US", {
@@ -367,7 +359,7 @@ export default function JobListingScreen() {
           marginBottom: 16,
         }}
         multiline
-        value={review}
+        value={feedback}
         onChangeText={setReview}
       />
 
@@ -385,16 +377,25 @@ export default function JobListingScreen() {
     if (selectedJobId) {
       try {
         const token = await AsyncStorage.getItem("token"); 
+        const { data: userData } = await decodeToken();
+        const userType = userData.userType;
+        const reviewerId = userData.id;
 
+        // Find the job object for the selectedJobId
+        const job = data.find((job: JobDetails) => job.id === selectedJobId);
+        const reviewedId = job?.jobSeekerId;
         const response = await fetch(`http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/jobrequest/verify/${selectedJobId}`, {
-          method: "PATCH",
+          method: "POST",
           headers: {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${token}`,
           },
           body: JSON.stringify({
             rating,
-            review,
+            feedback,
+            reviewerId,
+            reviewedId,
+            userType,
           }),
         });
 
