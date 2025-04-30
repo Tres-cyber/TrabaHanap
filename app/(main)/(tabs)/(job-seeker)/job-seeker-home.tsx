@@ -11,6 +11,8 @@ import {
   ActivityIndicator,
   Platform,
   RefreshControl,
+  Modal,
+  TextInput,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -30,11 +32,14 @@ interface JobRequest {
   datePosted: string;
   jobImage: string[] | null;
   client:Client;
+  jobStatus:string;
+  applicantCount:number;
 }
 interface Client{
   id:string;
   firstName:string;
   lastName:string;
+  profileImage:string;
 }
 interface JobSeeker {
   jobTags: string[];
@@ -51,6 +56,10 @@ export default function JobListingScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [rating, setRating] = useState<number>(0);
+  const [feedback, setFeedback] = useState<string>("");
   const fetchData = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
@@ -98,30 +107,6 @@ export default function JobListingScreen() {
       setRefreshing(false);
     }, []),
   );
-  const handleMarkAsFinished = async (jobId: string) => {
-    try {
-      const token = await AsyncStorage.getItem("token");
-      if (!token) return;
-  
-      setLoading(true);
-      const response = await fetch(
-        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/jobs/${jobId}/complete`,
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-  
-      if (response.ok) {
-        // Refresh the jobs list
-        await fetchData();
-      }
-    } catch (error) {
-      console.error("Error marking job as finished:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
     useEffect(() => {
       const loadUserData = async () => {
@@ -280,7 +265,19 @@ export default function JobListingScreen() {
                       day: "numeric",
                     })}
                   </Text>
-                  <Text style={styles.posterName}>{job.client.firstName + " "+ job.client.lastName}</Text>
+                  <View style={styles.posterRow}>
+                    <Image
+                      source={
+                        job.client.profileImage
+                          ? { uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${job.client.profileImage}` }
+                          : require("assets/images/default-user.png")
+                      }
+                      style={styles.posterProfileImage}
+                    />
+                    <Text style={styles.posterName}>
+                      {job.client.firstName + " " + job.client.lastName}
+                    </Text>
+                  </View>
                   <Text style={styles.jobTitle}>{job.jobTitle}</Text>
 
                   <Text
@@ -317,6 +314,12 @@ export default function JobListingScreen() {
                           {job.jobLocation}
                         </Text>
                       </View>
+                      <View style={styles.applicantCountContainer}>
+                        <Ionicons name="people-outline" size={14} color="#666" style={{marginRight: 4}} />
+                        <Text style={styles.applicantCountText}>
+                          {job.applicantCount} applicant{job.applicantCount === 1 ? "" : "s"}
+                        </Text>
+                      </View>
                     </View>
                   </View>
                 </View>
@@ -333,10 +336,13 @@ export default function JobListingScreen() {
                   />
                   <View style={styles.imageOverlay} />
                 </View>
-                {activeTab === "pendingJobs" && (
-                  <TouchableOpacity 
+                {activeTab === "pendingJobs" && job.jobStatus === "completed" && (
+                  <TouchableOpacity
                     style={styles.finishButton}
-                    onPress={() => handleMarkAsFinished(job.id)}
+                    onPress={() => {
+                      setSelectedJobId(job.id);
+                      setShowReviewModal(true);
+                    }}
                   >
                     <Text style={styles.finishButtonText}>Mark as Finished</Text>
                   </TouchableOpacity>
@@ -350,6 +356,106 @@ export default function JobListingScreen() {
           
         </ScrollView>
       )}
+
+      <Modal
+        visible={showReviewModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowReviewModal(false)}
+      >
+        <View style={styles.successModalContainer}>
+          <View style={styles.successModalContent}>
+            <Text style={styles.successTitle}>Confirm Job Completion</Text>
+            <Text style={styles.successMessage}>
+              Please rate and review the client.
+            </Text>
+            <View style={{ flexDirection: "row", marginBottom: 12 }}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <TouchableOpacity
+                  key={star}
+                  onPress={() => setRating(star)}
+                  style={{ marginHorizontal: 4 }}
+                >
+                  <Text style={{ fontSize: 24 }}>
+                    {star <= rating ? "⭐" : "☆"}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TextInput
+              placeholder="Write a review..."
+              style={{
+                width: "100%",
+                height: 80,
+                borderColor: "#ccc",
+                borderWidth: 1,
+                borderRadius: 8,
+                paddingHorizontal: 10,
+                paddingVertical: 8,
+                textAlignVertical: "top",
+                marginBottom: 16,
+              }}
+              multiline
+              value={feedback}
+              onChangeText={setFeedback}
+            />
+            <View style={styles.modalButtonsContainer}>
+              <TouchableOpacity
+                style={styles.stayButton}
+                onPress={() => setShowReviewModal(false)}
+              >
+                <Text style={styles.stayButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.discardButton}
+                onPress={async () => {
+                  if (selectedJobId) {
+                    try {
+                      const token = await AsyncStorage.getItem("token");
+                      const { data: userData } = await decodeToken();
+                      const reviewerId = userData.id;
+                      const userType = userData.userType;
+                      // Find the job object for the selectedJobId
+                      const job = myJobs.find((job) => job.id === selectedJobId);
+                      const reviewedId = job?.client.id;
+                      const response = await fetch(
+                        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/jobrequest/verify/${selectedJobId}`,
+                        {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${token}`,
+                          },
+                          body: JSON.stringify({
+                            rating,
+                            feedback,
+                            reviewerId,
+                            reviewedId,
+                            userType,
+                          }),
+                        }
+                      );
+                      if (!response.ok) {
+                        throw new Error("Failed to submit review.");
+                      }
+                      // Reset form state
+                      setShowReviewModal(false);
+                      setSelectedJobId(null);
+                      setRating(0);
+                      setFeedback("");
+                      fetchData(); // Refresh jobs
+                    } catch (error) {
+                      console.error("Error submitting review:", error);
+                    }
+                  }
+                }}
+              >
+                <Text style={styles.discardButtonText}>Submit</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -458,6 +564,18 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     
   },
+  posterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  posterProfileImage: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginRight: 8,
+    backgroundColor: "#eee",
+  },
   posterName: {
     fontSize: 14,
     marginBottom: 4,
@@ -548,6 +666,80 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 12,
   },
-    
-  
+  successModalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+    padding: 20,
+  },
+  successModalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 24,
+    width: "90%",
+    maxWidth: 340,
+    alignItems: "center",
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  successTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#000",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  successMessage: {
+    fontSize: 16,
+    color: "#666",
+    marginBottom: 24,
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  modalButtonsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+  },
+  stayButton: {
+    backgroundColor: "#EEEEEE",
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    flex: 1,
+    marginRight: 8,
+    alignItems: "center",
+  },
+  stayButtonText: {
+    color: "#000",
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  discardButton: {
+    backgroundColor: "#FF3B30",
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flex: 1.5,
+    marginLeft: 8,
+    alignItems: "center",
+  },
+  discardButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  applicantCountContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+  },
+  applicantCountText: {
+    fontSize: 12,
+    color: "#666",
+  },
 });
