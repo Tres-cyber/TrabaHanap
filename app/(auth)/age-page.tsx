@@ -141,8 +141,18 @@ export default function BirthdayEntryScreen() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-          <Text style={styles.nextButtonText}>Next</Text>
+        <TouchableOpacity 
+          style={[
+            styles.nextButton,
+            age !== null && age < 18 && styles.nextButtonDisabled
+          ]} 
+          onPress={handleNext}
+          disabled={age !== null && age < 18}
+        >
+          <Text style={[
+            styles.nextButtonText,
+            age !== null && age < 18 && styles.nextButtonTextDisabled
+          ]}>Next</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -230,9 +240,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
   },
+  nextButtonDisabled: {
+    backgroundColor: "#cccccc",
+  },
   nextButtonText: {
     color: "white",
     fontSize: 16,
     fontWeight: "500",
+  },
+  nextButtonTextDisabled: {
+    color: "#666666",
   },
 });
