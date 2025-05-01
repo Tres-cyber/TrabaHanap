@@ -64,7 +64,7 @@ export default function JobDetailsScreen() {
 
         body: JSON.stringify({
           jobId: params.id, 
-          clientId: params.clientId,
+          clientId: params.otherParticipant,
         }),
       });
   
