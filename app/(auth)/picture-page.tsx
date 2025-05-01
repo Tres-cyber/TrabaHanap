@@ -28,10 +28,19 @@ export default function ProfilePictureScreen() {
       mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 1,
+      quality: 0.5,
     });
 
     if (!result.canceled) {
+      // Check if the image file size is greater than 1MB (1,048,576 bytes)
+      const fileSize = result.assets[0].fileSize;
+      const maxSize = 1 * 1024 * 1024; // 1MB
+
+      if (fileSize && fileSize > maxSize) {
+        alert("Image size exceeds 1MB limit. Please select a smaller image.");
+        return;
+      }
+
       setProfileImage(result.assets[0].uri);
     }
   };
@@ -44,12 +53,11 @@ export default function ProfilePictureScreen() {
     if (profileImage) {
       SignUpData({ profileImage: profileImage });
     }
-    handleFormData();
+
     router.push("/(auth)/id-verification");
   };
 
   const handleSkip = () => {
-    handleFormData();
     router.push("/(auth)/id-verification");
   };
 
