@@ -8,7 +8,8 @@ import {
   TouchableOpacity, 
   Platform,
   Modal,
-  FlatList
+  FlatList,
+  ActivityIndicator
 } from 'react-native';
 import { AntDesign, MaterialCommunityIcons, Ionicons, FontAwesome5, Entypo } from '@expo/vector-icons';
 import { useRouter,useLocalSearchParams } from 'expo-router';
@@ -153,8 +154,8 @@ const UtilityWorkerProfile: React.FC = () => {
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <Text>Loading...</Text>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8f9fa' }}>
+        <ActivityIndicator size="large" color="#0B153C" />
       </View>
     );
   }
@@ -166,6 +167,14 @@ const UtilityWorkerProfile: React.FC = () => {
       </View>
     );
   }
+
+  const getAverageRating = (feedbacks: Feedback[]): number => {
+    if (!feedbacks || feedbacks.length === 0) return 0;
+    const total = feedbacks.reduce((sum, f) => sum + f.rating, 0);
+    return total / feedbacks.length;
+  };
+
+  const averageRating = getAverageRating(worker.feedbacks);
 
   // Render stars for rating (will be used in info card)
   const renderRating = (rating: number) => {
@@ -325,7 +334,7 @@ const UtilityWorkerProfile: React.FC = () => {
           <View style={styles.divider} />
           <View style={styles.infoItem}>
             <AntDesign name="star" size={20} color="#0B153C" />
-            <Text style={styles.infoValue}>{worker.rating.toFixed(1)}</Text>
+            <Text style={styles.infoValue}>{averageRating.toFixed(1)}</Text>
             <Text style={styles.infoLabel}>Rating</Text>
           </View>
         </View>

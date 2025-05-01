@@ -1,4 +1,6 @@
+
 import React, { useState, useCallback } from "react";
+
 import {
   StyleSheet,
   View,
@@ -10,6 +12,7 @@ import {
   Image,
   SafeAreaView,
   ActivityIndicator,
+
   FlatList,
 } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
@@ -30,10 +33,12 @@ interface JobSeeker {
 interface SearchResponse {
   data: JobSeeker[];
   pagination: { [key: string]: any };
+
 }
 
 const SearchScreen = () => {
   const router = useRouter();
+
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
   const [searchResults, setSearchResults] = useState<JobSeeker[]>([]);
@@ -100,9 +105,11 @@ const SearchScreen = () => {
     });
   };
 
+
   const handleGoBack = () => {
     router.back();
   };
+
 
   const filters = [
     { id: "all", label: "All" },
@@ -140,6 +147,107 @@ const SearchScreen = () => {
       </View>
     </TouchableOpacity>
   );
+
+
+  const fetchJobs = async (query: string, filter: string | null) => {
+    try {
+      setIsLoading(true);
+      const token = await AsyncStorage.getItem('token');
+      
+      if (!token) {
+        router.push('/sign_in');
+        return;
+      }
+
+      // Log the filter being used
+      console.log('Using filter:', filter);
+
+      const response = await fetch(
+        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/jobs/search?searchQuery=${query}&filter=${filter || 'all'}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch jobs');
+      }
+
+      const data: SearchResponse = await response.json();
+      
+      // Log the results to debug
+      console.log('Search results:', data.jobs.length);
+      console.log('Filter used:', filter);
+      
+      setSearchResults(data.jobs);
+    } catch (error) {
+      console.error('Error fetching jobs:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchTopCategories = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      
+      if (!token) {
+        router.push('/sign_in');
+        return;
+      }
+
+      const response = await fetch(
+        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/jobs/top-categories`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch categories');
+      }
+
+      const data = await response.json();
+      
+      // Keep the original case from the database
+      setFilters([
+        { id: 'all', label: 'All' },
+        ...data.categories.map((item: { category: string; count: any; }) => ({
+          id: item.category, // Keep original case
+          label: item.category,
+          count: item.count
+        }))
+      ]);
+
+      // Log the categories to debug
+      console.log('Fetched categories:', data.categories);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchTopCategories();
+  }, []);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (searchQuery || selectedFilter) {
+        fetchJobs(searchQuery, selectedFilter);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery, selectedFilter]);
+
+  const handleFilterSelect = (filterId: string) => {
+    console.log('Selected filter:', filterId); // Debug log
+    setSelectedFilter(filterId);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -188,6 +296,7 @@ const SearchScreen = () => {
           >
             <Text
               style={[
+
                 styles.filterText,
                 selectedFilter === filter.id && styles.filterTextSelected,
               ]}
@@ -244,6 +353,7 @@ const SearchScreen = () => {
           </View>
         </ScrollView>
       )}
+
     </SafeAreaView>
   );
 };
@@ -343,6 +453,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#333",
   },
+
   categoriesGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -367,16 +478,50 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 8,
     shadowColor: "#000",
+
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowRadius: 4,
+    elevation: 3,
   },
+
   categoryLabel: {
     fontSize: 12,
     color: "#333",
     textAlign: "center",
     fontWeight: "500",
+
+  },
+  timePosted: {
+    fontSize: 12,
+    color: '#999',
+  },
+  noResultsContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  noResultsText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#666',
+    marginTop: 16,
+  },
+  noResultsSubtext: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  filterCount: {
+    fontSize: 12,
+    color: '#666',
+  },
+  filterCountSelected: {
+    color: '#fff',
+  },
+  filterContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });
 

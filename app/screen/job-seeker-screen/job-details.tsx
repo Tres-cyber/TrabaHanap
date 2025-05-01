@@ -28,13 +28,15 @@ export default function JobDetailsScreen() {
     rate: params.rate as string,
     location: params.location as string,
     jobDuration: params.jobDuration as string,
-    clientId:params.clientId as string,
-    // images: params.images ? JSON.parse(params.images as string) : [],
+    clientId: params.otherParticipant as string,
+    clientFirstName: params.clientFirstName as string,
+    clientLastName: params.clientLastName as string,
+    clientProfileImage: params.clientProfileImage as string,
     images: params.jobImages 
-    ? (params.jobImages as string).split(',').map((imgPath) => ({
-        uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/${imgPath.split('job_request_files/')[1]}`,
-      }))
-    : [],
+      ? (params.jobImages as string).split(',').map((imgPath) => ({
+          uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/${imgPath.split('job_request_files/')[1]}`,
+        }))
+      : [],
   };
 
   const [activeSlide, setActiveSlide] = useState<number>(0);
@@ -62,7 +64,7 @@ export default function JobDetailsScreen() {
 
         body: JSON.stringify({
           jobId: params.id, 
-          clientId: params.clientId,
+          clientId: params.otherParticipant,
         }),
       });
   
@@ -120,65 +122,100 @@ export default function JobDetailsScreen() {
 
       <ScrollView style={styles.scrollView}>
         <View style={styles.contentContainer}>
-          <Text style={styles.jobTitle}>{jobData.title}</Text>
-          <Text style={styles.postedDate}>
-          {new Date(jobData.postedDate).toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
-          </Text>
-          <Text style={styles.jobDescription}>{jobData.description}</Text>
+          <View style={styles.jobInfoCard}>
+            <TouchableOpacity 
+              style={styles.clientInfoContainer}
+              onPress={() => router.push({
+                pathname: "../../../screen/profile/view-profile/view-page-client",
+                params: { otherParticipantId: jobData.clientId },
+              })}
+            >
+              <Image
+                source={
+                  jobData.clientProfileImage
+                    ? { uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${jobData.clientProfileImage}` }
+                    : require("assets/images/default-user.png")
+                }
+                style={styles.clientImage}
+              />
+              <View style={styles.clientTextContainer}>
+                <Text style={styles.clientName}>
+                  {`${jobData.clientFirstName} ${jobData.clientLastName}`}
+                </Text>
+                <Text style={styles.postedDate}>
+                  Posted {new Date(jobData.postedDate).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </Text>
+              </View>
+            </TouchableOpacity>
 
-          <View style={styles.detailsContainer}>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Rate : </Text>
-              <Text style={styles.detailValue}>{jobData.rate}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Duration : </Text>
-              <Text style={styles.detailValue}>{jobData.jobDuration}</Text>
+            <View style={styles.jobContentContainer}>
+              <Text style={styles.jobTitle}>{jobData.title}</Text>
+              <Text style={styles.jobDescription}>{jobData.description}</Text>
             </View>
 
-            <View style={styles.detailRow}>
-              <Ionicons name="location" size={16} color="#000" />
-              <Text style={styles.locationText}>{jobData.location}</Text>
+            <View style={styles.detailsContainer}>
+              <View style={styles.detailRow}>
+                <View style={styles.detailItem}>
+                  <Ionicons name="cash-outline" size={24} color="#0D2040" />
+                  <View style={styles.detailTextContainer}>
+                    <Text style={styles.detailLabel}>Rate</Text>
+                    <Text style={styles.detailValue}>₱ {jobData.rate}</Text>
+                  </View>
+                </View>
+                <View style={styles.detailItem}>
+                  <Ionicons name="time-outline" size={24} color="#0D2040" />
+                  <View style={styles.detailTextContainer}>
+                    <Text style={styles.detailLabel}>Duration</Text>
+                    <Text style={styles.detailValue}>{jobData.jobDuration}</Text>
+                  </View>
+                </View>
+              </View>
+              <View style={styles.locationContainer}>
+                <Ionicons name="location-outline" size={24} color="#0D2040" />
+                <Text style={styles.locationText}>{jobData.location}</Text>
+              </View>
             </View>
           </View>
 
-          <View style={styles.imageSliderContainer}>
-            <FlatList
-              ref={flatListRef}
-              data={jobData.images}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              renderItem={renderImageItem}
-              keyExtractor={(_, index) => index.toString()}
-              onScroll={handleScroll}
-              snapToInterval={width}
-              snapToAlignment="center"
-            />
-
-            <View style={styles.paginationContainer}>
-              {jobData.images.map((_: any, index: number) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.paginationDot,
-                    activeSlide === index && styles.paginationDotActive,
-                  ]}
-                  onPress={() => handleDotPress(index)}
-                />
-              ))}
+          {jobData.images.length > 0 && (
+            <View style={styles.imageSliderContainer}>
+              <Text style={styles.sectionTitle}>Job Images</Text>
+              <FlatList
+                ref={flatListRef}
+                data={jobData.images}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                renderItem={renderImageItem}
+                keyExtractor={(_, index) => index.toString()}
+                onScroll={handleScroll}
+                snapToInterval={width}
+                snapToAlignment="center"
+              />
+              <View style={styles.paginationContainer}>
+                {jobData.images.map((_, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.paginationDot,
+                      activeSlide === index && styles.paginationDotActive,
+                    ]}
+                    onPress={() => handleDotPress(index)}
+                  />
+                ))}
+              </View>
             </View>
-          </View>
+          )}
         </View>
       </ScrollView>
 
       <View style={styles.footer}>
         <TouchableOpacity style={styles.applyButton} onPress={handleApplyNow}>
-          <Text style={styles.applyButtonText}>Apply now</Text>
+          <Text style={styles.applyButtonText}>Apply Now</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -188,15 +225,16 @@ export default function JobDetailsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f8f9fa',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 16,
+    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#e9ecef',
     paddingTop: Platform.OS === 'ios' ? 50 : 40,
   },
   backButton: {
@@ -205,50 +243,120 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: '#0D2040',
   },
   scrollView: {
     flex: 1,
   },
   contentContainer: {
     padding: 16,
+    gap: 16,
+  },
+  clientInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+  },
+  clientImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 12,
+  },
+  clientTextContainer: {
+    flex: 1,
+  },
+  clientName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0D2040',
+    marginBottom: 4,
+  },
+  jobInfoCard: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   jobTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 4,
+    color: '#0D2040',
+    marginBottom: 12,
   },
   postedDate: {
     fontSize: 14,
-    color: '#666',
-    marginBottom: 16,
+    color: '#6c757d',
   },
   jobDescription: {
     fontSize: 16,
     lineHeight: 24,
+    color: '#495057',
+  },
+  jobContentContainer: {
+    paddingTop: 8,
     marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+    paddingBottom: 16,
   },
   detailsContainer: {
-    marginBottom: 20,
+    paddingTop: 8,
   },
   detailRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  detailItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    flex: 1,
+  },
+  detailTextContainer: {
+    marginLeft: 12,
   },
   detailLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginRight: 8,
+    fontSize: 14,
+    color: '#6c757d',
+    marginBottom: 4,
   },
   detailValue: {
     fontSize: 16,
+    fontWeight: '600',
+    color: '#0D2040',
+  },
+  locationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   locationText: {
     fontSize: 16,
-    marginLeft: 8,
+    color: '#495057',
+    marginLeft: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#0D2040',
+    marginBottom: 12,
   },
   imageSliderContainer: {
-    marginVertical: 16,
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   imageItem: {
     width: width,
@@ -257,10 +365,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   carouselImage: {
-    width: width - 32, 
+    width: width - 64,
     height: 200,
-    borderRadius: 8,
-    backgroundColor: '#e0e0e0', 
+    borderRadius: 12,
+    backgroundColor: '#e9ecef',
   },
   paginationContainer: {
     flexDirection: 'row',
@@ -272,20 +380,23 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#ccc',
+    backgroundColor: '#ced4da',
     marginHorizontal: 4,
   },
   paginationDotActive: {
-    backgroundColor: '#000',
+    backgroundColor: '#0D2040',
+    width: 12,
+    height: 12,
   },
   footer: {
     padding: 16,
+    backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: '#e9ecef',
   },
   applyButton: {
     backgroundColor: '#0D2040',
-    borderRadius: 8,
+    borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
   },
