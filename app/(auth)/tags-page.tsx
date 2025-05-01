@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ScrollView,
+  TextInput,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
@@ -55,6 +56,7 @@ function camelCase(str: String) {
 export default function JobPreferenceScreen() {
   const router = useRouter();
   const [selectedPreferences, setSelectedPreferences] = useState<string[]>([]);
+  const [otherProfession, setOtherProfession] = useState("");
 
   useEffect(() => {
     const userType = getSignUpUserType();
@@ -71,9 +73,13 @@ export default function JobPreferenceScreen() {
   };
 
   const handleNext = () => {
-    if (selectedPreferences.length > 0) {
+    if (selectedPreferences.length > 0 || otherProfession.trim()) {
+      const allTags = [...selectedPreferences];
+      if (otherProfession.trim()) {
+        allTags.push(otherProfession.trim());
+      }
       SignUpData({
-        jobTags: selectedPreferences.map(camelCase),
+        jobTags: allTags.map(camelCase),
       });
       router.push("/(auth)/picture-page");
     }
@@ -133,16 +139,28 @@ export default function JobPreferenceScreen() {
         {Object.entries(JOB_PREFERENCES).map(([section, preferences]) =>
           renderPreferenceSection(section, preferences)
         )}
+
+        {/* Others Section */}
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>Others</Text>
+          <TextInput
+            style={styles.otherInput}
+            value={otherProfession}
+            onChangeText={setOtherProfession}
+            placeholder="Enter your profession if not listed above"
+            placeholderTextColor="#999"
+          />
+        </View>
       </ScrollView>
 
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={[
             styles.nextButton,
-            selectedPreferences.length === 0 && styles.disabledButton,
+            selectedPreferences.length === 0 && !otherProfession.trim() && styles.disabledButton,
           ]}
           onPress={handleNext}
-          disabled={selectedPreferences.length === 0}
+          disabled={selectedPreferences.length === 0 && !otherProfession.trim()}
         >
           <Text style={styles.nextButtonText}>Next</Text>
         </TouchableOpacity>
@@ -238,5 +256,14 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "500",
+  },
+  otherInput: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+    backgroundColor: "#f8f8f8",
   },
 });
