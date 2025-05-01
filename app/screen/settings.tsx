@@ -8,15 +8,18 @@ import {
   ScrollView,
   Platform,
   Alert,
+  Modal,
 } from 'react-native';
 import { Ionicons, MaterialIcons, AntDesign, Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SettingsScreen = () => {
   const router = useRouter();
   const [tagalogLanguage, setTagalogLanguage] = useState(false);
   const [notifications, setNotifications] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
 
   const handleGoBack = () => {
     router.back();
@@ -42,26 +45,14 @@ const SettingsScreen = () => {
   };
 
   const handleLogout = () => {
-    console.log('logout')
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: () => {
-            // Add logout logic here
-            router.replace('/(auth)/sign_in');
-          },
-        },
-      ],
-      { cancelable: true }
-    );
+    setLogoutModalVisible(true);
+  };
+
+  const handleConfirmLogout = async () => {
+    // Add token destruction logic here
+    // For example:
+    await AsyncStorage.removeItem('token');
+    router.replace('/(auth)/sign_in');
   };
 
   return (
@@ -152,6 +143,40 @@ const SettingsScreen = () => {
           </View>
         </TouchableOpacity>
       </View>
+
+      {/* Add this Modal component */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={logoutModalVisible}
+        onRequestClose={() => setLogoutModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.warningIconContainer}>
+              <MaterialIcons name="logout" size={60} color="#FF3B30" />
+            </View>
+            <Text style={styles.modalTitle}>Logout</Text>
+            <Text style={styles.modalText}>
+              Are you sure you want to logout?
+            </Text>
+            <View style={styles.modalButtonsContainer}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setLogoutModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>No</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={handleConfirmLogout}
+              >
+                <Text style={styles.confirmButtonText}>Yes</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -217,6 +242,72 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginLeft: 12,
     color: '#333',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '85%',
+    maxWidth: 340,
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalText: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  modalButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#EEEEEE',
+    marginRight: 8,
+  },
+  confirmButton: {
+    backgroundColor: '#FF3B30',
+    marginLeft: 8,
+  },
+  cancelButtonText: {
+    color: '#333',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  confirmButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  warningIconContainer: {
+    marginBottom: 16,
   },
 });
 

@@ -137,9 +137,12 @@ export default function JobListingScreen() {
         description: job.jobDescription,
         rate: job.budget,
         location: job.jobLocation,
-        clientId:job.client.id,
+        otherParticipant: job.client.id,
         jobImages: job.jobImage,
         jobDuration: job.jobDuration,
+        clientFirstName: job.client.firstName,
+        clientLastName: job.client.lastName,
+        clientProfileImage: job.client.profileImage,
       },
     });
   };
@@ -256,46 +259,64 @@ export default function JobListingScreen() {
           
           {displayedJobs.length > 0 ? (
             displayedJobs.map((job) => (
-              <View key={job.id} style={styles.jobCard}>
+              <TouchableOpacity
+                key={job.id}
+                style={styles.jobCard}
+                onPress={() => handleSeeMorePress(job)}
+                activeOpacity={0.7}
+              >
                 <View style={styles.jobContent}>
-                  <Text style={styles.postedDate}>
-                    {new Date(job.datePosted).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </Text>
-                  <View style={styles.posterRow}>
-                    <Image
-                      source={
-                        job.client.profileImage
-                          ? { uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${job.client.profileImage}` }
-                          : require("assets/images/default-user.png")
-                      }
-                      style={styles.posterProfileImage}
-                    />
-                    <Text style={styles.posterName}>
-                      {job.client.firstName + " " + job.client.lastName}
+                  <View style={styles.jobHeader}>
+                    <Text style={styles.postedDate}>
+                      {new Date(job.datePosted).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.posterRow}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        router.push({
+                          pathname: "../../../screen/profile/view-profile/view-page-client",
+                          params: { otherParticipantId: job.client.id },
+                        });
+                      }}
+                    >
+                      <Image
+                        source={
+                          job.client.profileImage
+                            ? { uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${job.client.profileImage}` }
+                            : require("assets/images/default-user.png")
+                        }
+                        style={styles.posterProfileImage}
+                      />
+                      <Text style={styles.posterName}>
+                        {job.client.firstName + " " + job.client.lastName}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.jobMainContent}>
+                    <Text style={styles.jobTitle}>{job.jobTitle}</Text>
+                    <Text
+                      style={styles.jobDescription}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {job.jobDescription.length > 32 
+                        ? job.jobDescription.substring(0, 32) + '...'
+                        : job.jobDescription}
                     </Text>
                   </View>
-                  <Text style={styles.jobTitle}>{job.jobTitle}</Text>
-
-                  <Text
-                    style={styles.jobDescription}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                  >
-                    {job.jobDescription}
-                  </Text>
-                  <TouchableOpacity onPress={() => handleSeeMorePress(job)}>
-                    <Text style={styles.seeMoreText}>See More</Text>
-                  </TouchableOpacity>
 
                   <View style={styles.jobFooter}>
                     <View style={styles.categoryBadge}>
                       <Text style={styles.categoryText}>{job.category}</Text>
                     </View>
-                    <View style={styles.priceLocationContainer}>
+                    
+                    <View style={styles.detailsContainer}>
                       <View style={styles.budgetDurationContainer}>
                         <Text style={styles.priceText}>
                           {job.budget ? `₱ ${job.budget}` : ""}
@@ -304,28 +325,29 @@ export default function JobListingScreen() {
                           {job.jobDuration ? `Duration: ${job.jobDuration}` : ""}
                         </Text>
                       </View>
-                      <View style={styles.locationContainer}>
-                        <Ionicons
-                          name="location-outline"
-                          size={14}
-                          color="#666"
-                        />
-                        <Text style={styles.locationText}>
-                          {job.jobLocation}
-                        </Text>
-                      </View>
-                      <View style={styles.applicantCountContainer}>
-                        <Ionicons name="people-outline" size={14} color="#666" style={{marginRight: 4}} />
-                        <Text style={styles.applicantCountText}>
-                          {job.applicantCount} applicant{job.applicantCount === 1 ? "" : "s"}
-                        </Text>
+
+                      <View style={styles.locationApplicantContainer}>
+                        <View style={styles.locationContainer}>
+                          <Ionicons name="location-outline" size={14} color="#666" />
+                          <Text style={styles.locationText} numberOfLines={1}>
+                            {job.jobLocation.length > 12
+                              ? job.jobLocation.substring(0, 12) + '...'
+                              : job.jobLocation}
+                          </Text>
+                        </View>
+                        <View style={styles.applicantCountContainer}>
+                          <Ionicons name="people-outline" size={14} color="#666" />
+                          <Text style={styles.applicantCountText}>
+                            {job.applicantCount} applicant{job.applicantCount === 1 ? "" : "s"}
+                          </Text>
+                        </View>
                       </View>
                     </View>
                   </View>
                 </View>
+
                 <View style={styles.jobImageContainer}>
-  
-                <Image
+                  <Image
                     source={{ 
                       uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/${
                         job.jobImage?.[0]?.split("job_request_files/")?.[1] ?? ''
@@ -339,7 +361,8 @@ export default function JobListingScreen() {
                 {activeTab === "pendingJobs" && job.jobStatus === "completed" && (
                   <TouchableOpacity
                     style={styles.finishButton}
-                    onPress={() => {
+                    onPress={(e) => {
+                      e.stopPropagation();
                       setSelectedJobId(job.id);
                       setShowReviewModal(true);
                     }}
@@ -348,7 +371,7 @@ export default function JobListingScreen() {
                   </TouchableOpacity>
                 )}
                
-              </View>
+              </TouchableOpacity>
             ))
           ) : (
             <Text style = {styles.noJobs}>No jobs found.</Text>
@@ -535,16 +558,120 @@ const styles = StyleSheet.create({
   },
   jobCard: {
     flexDirection: "row",
-    backgroundColor: "#f1f1f1",
+    backgroundColor: "#f8f9fa",
     borderRadius: 12,
     marginBottom: 16,
     overflow: "hidden",
-    height: 250,
+    height: 280,
+    borderWidth: 1,
+    borderColor: "#e9ecef",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   jobContent: {
     flex: 3,
     padding: 16,
     justifyContent: "space-between",
+  },
+  jobHeader: {
+    marginBottom: 12,
+  },
+  jobMainContent: {
+    flex: 1,
+    marginBottom: 12,
+  },
+  posterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  posterProfileImage: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginRight: 8,
+    backgroundColor: "#eee",
+  },
+  posterName: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#333",
+  },
+  jobTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#000",
+    marginBottom: 8,
+  },
+  jobDescription: {
+    fontSize: 14,
+    color: "#666",
+    lineHeight: 20,
+    marginBottom: 8,
+    height: 20,
+  },
+  jobFooter: {
+    gap: 12,
+  },
+  detailsContainer: {
+    gap: 12,
+  },
+  budgetDurationContainer: {
+    gap: 4,
+  },
+  locationApplicantContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  priceText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#000",
+  },
+  durationText: {
+    fontSize: 14,
+    color: "#666",
+  },
+  locationContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  locationText: {
+    fontSize: 13,
+    color: "#666",
+    marginLeft: 4,
+    flex: 1,
+    height: 18,
+  },
+  applicantCountContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: 16,
+  },
+  applicantCountText: {
+    fontSize: 13,
+    color: "#666",
+    marginLeft: 4,
+  },
+  categoryBadge: {
+    backgroundColor: "#14213d",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    alignSelf: "flex-start",
+  },
+  categoryText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "500",
   },
   jobImageContainer: {
     flex: 1,
@@ -564,89 +691,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     
   },
-  posterRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  posterProfileImage: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    marginRight: 8,
-    backgroundColor: "#eee",
-  },
-  posterName: {
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  jobTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#000",
-  },
-  jobSubTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#000",
-    marginBottom: 8,
-  },
-  jobDescription: {
-    fontSize: 13,
-    color: "#666",
-    marginBottom: 4,
-    lineHeight: 16,
-    maxHeight: 16,
-  },
-  seeMoreText: {
-    color: "#3498db",
-    fontSize: 14,
-    marginBottom: 16,
-  },
-  jobFooter: {
-    flexDirection: "column",
-    alignItems: "flex-start",
-    gap: 8,
-  },
-  categoryBadge: {
-    backgroundColor: "#14213d",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginBottom: 8,
-    alignSelf: "flex-start",
-  },
-  categoryText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  priceLocationContainer: {
-    flexDirection: 'column',
-    gap: 8,
-  },
-  budgetDurationContainer: {
-    flexDirection: 'column',
-    gap: 4,
-  },
-  priceText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#000",
-  },
-  durationText: {
-    fontSize: 13,
-    color: "#666",
-  },
-  locationContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  locationText: {
-    fontSize: 12,
-    color: "#666",
-    marginLeft: 2,
-  },  
   noJobs:{
     textAlign:"center",
     marginTop:20,
@@ -659,7 +703,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#2ecc71',
     padding: 8,
     borderRadius: 8,
-    zIndex: 2, // Ensure it appears above the image
+    zIndex: 2,
   },
   finishButtonText: {
     color: 'white',
@@ -732,14 +776,5 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "500",
-  },
-  applicantCountContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 4,
-  },
-  applicantCountText: {
-    fontSize: 12,
-    color: "#666",
   },
 });

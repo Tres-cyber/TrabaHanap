@@ -948,9 +948,14 @@ return isVisibleToUser ? (
 
   
   const renderEmptyChat = () => (
-    <View style={styles.emptyContainer}>
-      <Text style={styles.emptyText}>No messages yet</Text>
-      <Text style={styles.emptySubtext}>Send a message to start the conversation</Text>
+    <View style={[styles.emptyContainer, { marginTop: 20 }]}>
+      <Text style={styles.emptyTitle}>Start Your Conversation</Text>
+      <Text style={styles.emptyText}>
+        Introduce yourself and discuss the job details with {receiverName}.
+      </Text>
+      <Text style={styles.emptySubtext}>
+        Be professional and clear about your skills and experience related to this job.
+      </Text>
     </View>
   );
 
@@ -968,17 +973,25 @@ return isVisibleToUser ? (
         </TouchableOpacity>
         
         <View style={styles.headerUserInfo}>
-          <Image 
-             source={{ 
-                    uri: profileImage 
-                      ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${
-                          (profileImage+'').split("profiles/")[1]|| ''
-                        }`
-              : undefined 
+          <TouchableOpacity 
+            onPress={() => router.push({
+              pathname: "../../../screen/profile/view-profile/view-page-client",
+              params: { otherParticipantId }
+            })}
+            style={styles.profileTouchable}
+          >
+            <Image 
+              source={{ 
+                uri: profileImage 
+                  ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${
+                      (profileImage+'').split("profiles/")[1]|| ''
+                    }`
+                : undefined 
               }}
-            style={styles.recipientAvatar} 
-          />
-          <Text style={styles.recipientName}>{receiverName}</Text>
+              style={styles.recipientAvatar} 
+            />
+            <Text style={styles.recipientName}>{receiverName}</Text>
+          </TouchableOpacity>
         </View>
         
         <TouchableOpacity 
@@ -998,7 +1011,7 @@ return isVisibleToUser ? (
         </View>
       )}
       
-      {(currentOfferStatus === 'none'|| currentOfferStatus ==='rejected') && (
+      {(currentOfferStatus === 'none'|| currentOfferStatus ==='rejected') && currentChatStatus === 'approved' && (
       <TouchableOpacity 
         style={styles.makeOfferButton}
         onPress={openOfferModal}
@@ -1152,8 +1165,11 @@ return isVisibleToUser ? (
         data={messages}
         renderItem={renderMessageItem}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.messageList}
-        ListEmptyComponent={currentChatStatus === 'approved' ? renderEmptyChat : null}
+        contentContainerStyle={[
+          styles.messageList,
+          messages.length === 0 && { flex: 1 }
+        ]}
+        ListEmptyComponent={renderEmptyChat}
         inverted={messages.length > 0}
         />
       
@@ -1398,18 +1414,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 40,
-    marginTop: 100,
+    backgroundColor: '#f2f2f7',
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#0b216f',
+    marginBottom: 16,
+    textAlign: 'center',
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#8e8e93',
-    marginBottom: 8,
+    fontSize: 16,
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 12,
+    lineHeight: 24,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#8e8e93',
+    color: '#666',
     textAlign: 'center',
+    lineHeight: 20,
   },
   
   offerModalContainer: {
@@ -1656,7 +1681,11 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
     marginTop: -15,
     marginRight: 5,
-  }
+  },
+  profileTouchable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
 });
 
 export default ChatScreen;

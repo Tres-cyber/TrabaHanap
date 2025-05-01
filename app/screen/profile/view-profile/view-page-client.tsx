@@ -8,7 +8,8 @@ import {
   TouchableOpacity, 
   Platform,
   Modal,
-  FlatList
+  FlatList,
+  ActivityIndicator
 } from 'react-native';
 import { AntDesign, MaterialCommunityIcons, Ionicons, FontAwesome5, Entypo } from '@expo/vector-icons';
 import { useRouter,useLocalSearchParams } from 'expo-router';
@@ -78,7 +79,7 @@ const UtilityWorkerProfile: React.FC = () => {
       
       // Fetch profile data
       const profileResponse = await fetch(
-        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/user/profile/${jobseekerId}/details`,
+        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/clients/${jobseekerId}/profile`,
         {
           headers: { 
             Authorization: `Bearer ${token}`,
@@ -95,24 +96,7 @@ const UtilityWorkerProfile: React.FC = () => {
       const profileData = await profileResponse.json();
       console.log('Received profile data:', profileData);
 
-      // Fetch job tags
-      const tagsResponse = await fetch(
-        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/job-seeker/${jobseekerId}/tags`,
-        {
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-        }
-      );
 
-      if (!tagsResponse.ok) {
-        console.error('Tags response status:', tagsResponse.status);
-        throw new Error('Failed to fetch job tags');
-      }
-
-      const tagsData = await tagsResponse.json();
-      console.log('Received tags data:', tagsData);
 
       // Fetch reviews
       const reviewsResponse = await fetch(
@@ -136,7 +120,6 @@ const UtilityWorkerProfile: React.FC = () => {
       // Combine profile data with job tags and reviews
       const combinedData = {
         ...profileData,
-        skills: tagsData.jobTags || [],
         profileImage: profileData.profileImage 
           ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${profileData.profileImage}`
           : '',
@@ -153,8 +136,8 @@ const UtilityWorkerProfile: React.FC = () => {
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <Text>Loading...</Text>
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#0B153C" />
       </View>
     );
   }
@@ -211,7 +194,7 @@ const UtilityWorkerProfile: React.FC = () => {
   
   const handleAboutInfoPress = () => {
     router.push({
-      pathname: '../view-about-info',
+      pathname: '../view-about-info-client',
       params: { otherParticipantId }
     });
   };
@@ -275,6 +258,12 @@ const UtilityWorkerProfile: React.FC = () => {
     router.back();
   };
 
+  const getAverageRating = () => {
+    if (!worker || !worker.feedbacks || worker.feedbacks.length === 0) return 0;
+    const total = worker.feedbacks.reduce((sum, feedback) => sum + feedback.rating, 0);
+    return total / worker.feedbacks.length;
+  };
+
   return (
     <ScrollView style={styles.container}>
       {/* Back button */}
@@ -313,70 +302,24 @@ const UtilityWorkerProfile: React.FC = () => {
         <View style={styles.infoRow}>
           <View style={styles.infoItem}>
             <FontAwesome5 name="toolbox" size={20} color="#0B153C" />
-            <Text style={styles.infoValue}>{worker.completedJobs}</Text>
+            <Text style={styles.infoValue}>{worker.completedJobs ?? 0}</Text>
             <Text style={styles.infoLabel}>Jobs Done</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.infoItem}>
             <MaterialCommunityIcons name="certificate" size={20} color="#0B153C" />
-            <Text style={styles.infoValue}>{worker.yearsExperience}</Text>
+            <Text style={styles.infoValue}>{worker.yearsExperience ?? 0}</Text>
             <Text style={styles.infoLabel}>Years Exp.</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.infoItem}>
             <AntDesign name="star" size={20} color="#0B153C" />
-            <Text style={styles.infoValue}>{worker.rating.toFixed(1)}</Text>
+            <Text style={styles.infoValue}>{getAverageRating().toFixed(1)}</Text>
             <Text style={styles.infoLabel}>Rating</Text>
           </View>
         </View>
       </View>
       
-      <View style={styles.section}>
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Skills & Services</Text>
-        </View>
-        <View style={styles.skillsContainer}>
-          {worker.skills.map((skill, index) => (
-            <View 
-              key={index} 
-              style={styles.skillTag}
-            >
-              <Text style={styles.skillText}>{skill}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-      
-      <View style={styles.section}>
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Achievements</Text>
-          <TouchableOpacity 
-            style={styles.seeAllButton} 
-            onPress={() => setModalVisible(true)}
-          >
-            <Text style={styles.seeAllText}>See All</Text>
-            <AntDesign name="right" size={16} color="#0B153C" />
-          </TouchableOpacity>
-        </View>
-        
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          style={styles.horizontalScrollView}
-          contentContainerStyle={styles.horizontalScrollContent}
-        >
-          {worker.achievements.map((achievement) => (
-            <View key={achievement.id} style={styles.horizontalAchievementCard}>
-              <View style={[styles.badgeIcon, { backgroundColor: achievement.color }]}>
-                {getAchievementIcon(achievement.icon)}
-              </View>
-              <Text style={styles.achievementTitle}>{achievement.title}</Text>
-              <Text style={styles.achievementDescription}>{achievement.description}</Text>
-            </View>
-          ))}
-        </ScrollView>
-      </View>
-
       <View style={styles.section}>
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>Recent Feedbacks</Text>
@@ -399,7 +342,8 @@ const UtilityWorkerProfile: React.FC = () => {
             onPress={() => handleFeedbackPress(feedback)}
           >
             <View style={styles.feedbackHeader}>
-              <Text style={styles.feedbackAnonymousName}>{feedback.anonymousName}</Text>
+              {/* <Text style={styles.feedbackAnonymousName}>{'Anonymous Job Seeker'}</Text> */}
+              <Text style={styles.feedbackAnonymousName}>{feedback.anonymousName || 'Anonymous Job Seeker'}</Text>
               {renderFeedbackStars(feedback.rating)}
             </View>
             <Text style={styles.feedbackComment} numberOfLines={2}>
@@ -409,37 +353,6 @@ const UtilityWorkerProfile: React.FC = () => {
           </TouchableOpacity>
         ))}
       </View>
-
-      {/* Modal for "See All" achievements */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>All Achievements</Text>
-              <TouchableOpacity 
-                style={styles.closeButton} 
-                onPress={() => setModalVisible(false)}
-              >
-                <AntDesign name="close" size={24} color="#333" />
-              </TouchableOpacity>
-            </View>
-            
-            <FlatList
-              data={worker.achievements}
-              renderItem={({ item }) => <AchievementCard achievement={item} />}
-              keyExtractor={(item) => item.id}
-              numColumns={2}
-              columnWrapperStyle={styles.achievementRow}
-              contentContainerStyle={styles.modalAchievementsContainer}
-            />
-          </View>
-        </View>
-      </Modal>
 
       {/* Feedback Detail Modal */}
       <Modal
