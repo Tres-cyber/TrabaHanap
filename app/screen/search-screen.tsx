@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useCallback } from "react";
+
 import {
   StyleSheet,
   View,
@@ -10,60 +12,142 @@ import {
   Image,
   SafeAreaView,
   ActivityIndicator,
-} from 'react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
-interface Job {
+  FlatList,
+} from "react-native";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { searchJobSeekers } from "../../api/search-request";
+import { debounce } from "lodash";
+
+interface JobSeeker {
   id: string;
-  jobTitle: string;
-  jobDescription: string;
-  category: string;
-  jobLocation: string;
-  budget: string;
-  jobDuration: string;
-  jobImage?: string;
-  datePosted: string;
-  client: {
-    id: string;
-    name: string;
-    profileImage?: string;
-  };
+  firstName: string;
+  middleName: string;
+  lastName: string;
+  profileImage?: string;
+  category?: string;
+  rating?: number;
 }
 
 interface SearchResponse {
-  jobs: Job[];
-  categories: string[];
-  total: number;
-}
+  data: JobSeeker[];
+  pagination: { [key: string]: any };
 
-interface Filter {
-  id: string;
-  label: string;
-  count?: number;
 }
 
 const SearchScreen = () => {
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
-  const [searchResults, setSearchResults] = useState<Job[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [filters, setFilters] = useState<Filter[]>([
-    { id: 'all', label: 'All' }
-  ]);
+
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [selectedFilter, setSelectedFilter] = useState<string>("all");
+  const [searchResults, setSearchResults] = useState<JobSeeker[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const debouncedSearch = useCallback(
+    debounce(async (query: string, filter: string) => {
+      if (query.trim().length === 0 && filter === "all") {
+        setSearchResults([]);
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const options: { category?: string } = {};
+        if (filter !== "all") {
+          options.category = filter;
+        }
+
+        const results = (await searchJobSeekers(
+          query,
+          options
+        )) as SearchResponse;
+        setSearchResults(results.data);
+      } catch (error) {
+        console.error("Search error:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }, 500),
+    []
+  );
+
+  // Handle search input changes
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text);
+
+    if (text.trim().length > 0) {
+      setIsLoading(true);
+      // Always search "all" categories when typing in the search bar
+      debouncedSearch(text, "all");
+    } else {
+      setSearchResults([]);
+      // Optional: Reset loading state if needed when clearing input
+      // setIsLoading(false);
+    }
+  };
+
+  // Handle filter selection
+  // const handleFilterSelect = (filterId: string) => {
+  //   setSelectedFilter(filterId);
+  //   if (searchQuery.trim().length > 0) {
+  //     setIsLoading(true);
+  //     debouncedSearch(searchQuery, filterId);
+  //   }
+  // };
+
+  // Navigate to job seeker profile
+  const handleJobSeekerSelect = (jobSeekerId: string) => {
+    // Navigate to the specific job seeker view page
+    router.push({
+      pathname: "/screen/profile/view-profile/view-page-job-seeker" as any,
+      params: { otherParticipantId: jobSeekerId }, // Pass ID as otherParticipantId
+    });
+  };
+
 
   const handleGoBack = () => {
     router.back();
   };
 
-  const recentSearches = [
-    'Plumber needed',
-    'House cleaning',
-    'Electrician for wiring',
-    'Paint job',
+
+  const filters = [
+    { id: "all", label: "All" },
+    { id: "plumbing", label: "Plumbing" },
+    { id: "electricalRepairs", label: "Electrical" },
+    { id: "carpentry", label: "Carpentry" },
+    { id: "homeCleaningServices", label: "Cleaning" },
+    { id: "paintingServices", label: "Painting" },
   ];
+
+  const renderSearchResult = ({ item }: { item: JobSeeker }) => (
+    <TouchableOpacity
+      style={styles.searchResultItem}
+      onPress={() => handleJobSeekerSelect(item.id)}
+    >
+      <Image
+        source={
+          item.profileImage
+            ? {
+                uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${item.profileImage}`,
+              }
+            : require("../../assets/images/default-user.png")
+        }
+        style={styles.resultImage}
+      />
+      <View style={styles.resultInfo}>
+        <Text style={styles.resultName}>
+          {item.firstName} {item.middleName} {item.lastName}
+        </Text>
+        <Text style={styles.resultCategory}>{item.category || "General"}</Text>
+        <View style={styles.ratingContainer}>
+          <Ionicons name="star" size={16} color="#FFD700" />
+          <Text style={styles.ratingText}>{item.rating || "No ratings"}</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
 
   const fetchJobs = async (query: string, filter: string | null) => {
     try {
@@ -168,194 +252,108 @@ const SearchScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton} 
-          onPress={handleGoBack}
-        >
+        <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
           <Ionicons name="arrow-back-outline" size={24} color="#333" />
         </TouchableOpacity>
-        
+
         <View style={styles.searchContainer}>
           <Ionicons name="search-outline" size={20} color="#666" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search jobs here"
+            placeholder="Search job seekers by name, skill..."
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={handleSearchChange}
             autoFocus={true}
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <TouchableOpacity
+              onPress={() => {
+                setSearchQuery("");
+                setSearchResults([]);
+              }}
+            >
               <Ionicons name="close-circle" size={20} color="#666" />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      <ScrollView style={styles.content}>
-        {/* Filters */}
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          style={styles.filtersContainer}
-        >
-          {filters.map((filter) => (
-            <TouchableOpacity
-              key={filter.id}
+      {/* Filters - REMOVED */}
+      {/* <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filtersContainer}
+        contentContainerStyle={styles.filtersContentContainer}
+      >
+        {filters.map((filter) => (
+          <TouchableOpacity
+            key={filter.id}
+            style={[
+              styles.filterChip,
+              selectedFilter === filter.id && styles.filterChipSelected,
+            ]}
+            onPress={() => handleFilterSelect(filter.id)}
+          >
+            <Text
               style={[
-                styles.filterChip,
-                selectedFilter === filter.id && styles.filterChipSelected,
+
+                styles.filterText,
+                selectedFilter === filter.id && styles.filterTextSelected,
               ]}
-              onPress={() => handleFilterSelect(filter.id)}
             >
-              <View style={styles.filterContent}>
-                <Text style={[
-                  styles.filterText,
-                  selectedFilter === filter.id && styles.filterTextSelected,
-                ]}>
-                  {filter.label}
-                </Text>
-                {filter.count !== undefined && filter.id !== 'all' && (
-                  <Text style={[
-                    styles.filterCount,
-                    selectedFilter === filter.id && styles.filterCountSelected,
-                  ]}>
-                    {' '}({filter.count})
-                  </Text>
-                )}
-              </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+              {filter.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView> */}
 
-        {/* Recent Searches */}
-        {/* <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Searches</Text>
-            <TouchableOpacity>
-              <Text style={styles.clearText}>Clear All</Text>
-            </TouchableOpacity>
-          </View>
-          {recentSearches.map((search, index) => (
-            <TouchableOpacity 
-              key={index}
-              style={styles.recentSearchItem}
-            >
-              <View style={styles.recentSearchLeft}>
-                <MaterialIcons name="history" size={20} color="#666" />
-                <Text style={styles.recentSearchText}>{search}</Text>
-              </View>
-              <TouchableOpacity>
-                <Ionicons name="close" size={20} color="#666" />
-              </TouchableOpacity>
-            </TouchableOpacity>
-          ))}
-        </View> */}
-
-        {/* Search Results */}
-        {(searchQuery || selectedFilter) && (
-          <View style={styles.searchResults}>
-            {isLoading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#0B153C" />
-                <Text style={styles.loadingText}>Searching for jobs...</Text>
-              </View>
-            ) : searchResults.length > 0 ? (
-              searchResults.map((job) => (
+      {/* Conditional Rendering Logic */}
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#0B153C" />
+        </View>
+      ) : searchResults.length > 0 ? (
+        <FlatList
+          data={searchResults}
+          renderItem={renderSearchResult}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.searchResultsList}
+        />
+      ) : searchQuery.length > 0 || selectedFilter !== "all" ? (
+        // Show "No results" if a search/filter was attempted but yielded nothing
+        <View style={styles.emptyResultsContainer}>
+          <Text style={styles.emptyResultsText}>No job seekers found</Text>
+        </View>
+      ) : (
+        // Show initial content (Popular Categories) only when no search/filter is active and no results
+        <ScrollView style={styles.content}>
+          {/* Popular Categories */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Popular Categories</Text>
+            <View style={styles.categoriesGrid}>
+              {filters.slice(1).map((category) => (
                 <TouchableOpacity
-                  key={job.id}
-                  style={styles.jobCard}
-                  onPress={() => router.push({
-                    pathname: "../../../screen/job-seeker-screen/job-details",
-                    params: {
-                      id: job.id,
-                      title: job.jobTitle,
-                      postedDate: job.datePosted,
-                      description: job.jobDescription,
-                      rate: job.budget,
-                      location: job.jobLocation,
-                      otherParticipant: job.client.id,
-                      jobImages: job.jobImage,
-                      jobDuration: job.jobDuration,
-                      clientFirstName: job.client.name.split(' ')[0],
-                      clientLastName: job.client.name.split(' ')[1],
-                      clientProfileImage: job.client.profileImage,
-                      clientId: job.client.id,
-                    }
-                  })}
+                  key={category.id}
+                  style={styles.categoryCard}
+                  onPress={() => {
+                    setSelectedFilter(category.id); // Set the filter state
+                    setSearchQuery(""); // Clear the main search query
+                    setIsLoading(true);
+                    // Directly trigger search with empty query but selected filter
+                    debouncedSearch("", category.id);
+                  }}
                 >
-                  <View style={styles.jobHeader}>
-                    <View style={styles.clientInfo}>
-                      <Image
-                        source={{
-                          uri: job.client.profileImage
-                            ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${
-                                job.client.profileImage.split("profiles/")[1]
-                              }`
-                            : 'https://via.placeholder.com/40'
-                        }}
-                        style={styles.clientImage}
-                        defaultSource={require('assets/images/client-user.png')}
-                      />
-                      <View>
-                        <Text style={styles.jobTitle}>{job.jobTitle}</Text>
-                        <Text style={styles.clientName}>{job.client.name}</Text>
-                      </View>
-                    </View>
-                    {job.jobImage && (
-                      <Image
-                        source={{ 
-                          uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/${
-                            job.jobImage?.[0]?.split("job_request_files/")?.[1] ?? ''
-                          }`
-                        }}
-                        style={styles.jobThumbnail}
-                      />
-                    )}
+                  <View style={styles.categoryIcon}>
+                    <MaterialIcons name="work" size={24} color="#0B153C" />
                   </View>
-
-                  <Text style={styles.jobDescription} numberOfLines={2}>
-                    {job.jobDescription}
-                  </Text>
-
-                  <View style={styles.jobDetails}>
-                    <View style={styles.jobDetail}>
-                      <Ionicons name="cash-outline" size={16} color="#666" />
-                      <Text style={styles.detailText}>₱{job.budget}</Text>
-                    </View>
-                    <View style={styles.jobDetail}>
-                      <Ionicons name="location-outline" size={16} color="#666" />
-                      <Text style={styles.detailText}>{job.jobLocation}</Text>
-                    </View>
-                    <View style={styles.jobDetail}>
-                      <Ionicons name="time-outline" size={16} color="#666" />
-                      <Text style={styles.detailText}>{job.jobDuration}</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.jobFooter}>
-                    <View style={styles.categoryChip}>
-                      <MaterialIcons name="category" size={14} color="#0B153C" />
-                      <Text style={styles.categoryText}>{job.category}</Text>
-                    </View>
-                    <Text style={styles.timePosted}>
-                      Posted {new Date(job.datePosted).toLocaleDateString()}
-                    </Text>
-                  </View>
+                  <Text style={styles.categoryLabel}>{category.label}</Text>
                 </TouchableOpacity>
-              ))
-            ) : (
-              <View style={styles.noResultsContainer}>
-                <Ionicons name="search-outline" size={48} color="#ccc" />
-                <Text style={styles.noResultsText}>No jobs found</Text>
-                <Text style={styles.noResultsSubtext}>
-                  Try adjusting your search or filters
-                </Text>
-              </View>
-            )}
+              ))}
+            </View>
           </View>
-        )}
-      </ScrollView>
+        </ScrollView>
+      )}
+
     </SafeAreaView>
   );
 };
@@ -363,25 +361,25 @@ const SearchScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 16,
-    paddingTop: Platform.OS === 'ios' ? 20 : 40,
-    backgroundColor: '#fff',
+    paddingTop: Platform.OS === "ios" ? 20 : 40,
+    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: "#f0f0f0",
   },
   backButton: {
     marginRight: 12,
   },
   searchContainer: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f1f1f1',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f1f1f1",
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -390,169 +388,109 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     marginLeft: 8,
-    color: '#333',
+    color: "#333",
   },
   content: {
     flex: 1,
   },
-  filtersContainer: {
+  searchResultsList: {
     padding: 16,
+  },
+  searchResultItem: {
+    flexDirection: "row",
+    padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: "#f0f0f0",
+    alignItems: "center",
   },
-  filterChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f1f1f1',
-    marginRight: 8,
+  resultImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#f0f0f0",
   },
-  filterChipSelected: {
-    backgroundColor: '#0B153C',
+  resultInfo: {
+    marginLeft: 16,
+    flex: 1,
   },
-  filterText: {
-    color: '#666',
+  resultName: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  resultCategory: {
     fontSize: 14,
-    fontWeight: '500',
+    color: "#666",
+    marginTop: 2,
   },
-  filterTextSelected: {
-    color: '#fff',
+  ratingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+  },
+  ratingText: {
+    fontSize: 14,
+    color: "#666",
+    marginLeft: 4,
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: "center",
+  },
+  emptyResultsContainer: {
+    padding: 30,
+    alignItems: "center",
+  },
+  emptyResultsText: {
+    fontSize: 16,
+    color: "#666",
   },
   section: {
     padding: 16,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
   },
-  clearText: {
-    color: '#0B153C',
-    fontSize: 14,
+
+  categoriesGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 12,
+    gap: 12,
   },
-  recentSearchItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  recentSearchLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  recentSearchText: {
-    marginLeft: 12,
-    fontSize: 16,
-    color: '#333',
-  },
-  searchResults: {
-    padding: 16,
-  },
-  loadingContainer: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    color: '#666',
-    fontSize: 16,
-  },
-  jobCard: {
-    backgroundColor: '#fff',
+  categoryCard: {
+    width: "30%",
+    aspectRatio: 1,
+    backgroundColor: "#f8f9fa",
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
-    shadowColor: '#000',
+    padding: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  categoryIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+    shadowColor: "#000",
+
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
-  jobHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  clientInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  clientImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 12,
-  },
-  jobThumbnail: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    marginLeft: 12,
-  },
-  jobTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
-  },
-  clientName: {
-    fontSize: 14,
-    color: '#666',
-  },
-  jobDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 12,
-    lineHeight: 20,
-  },
-  jobDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-    backgroundColor: '#f8f9fa',
-    padding: 10,
-    borderRadius: 8,
-  },
-  jobDetail: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  detailText: {
-    marginLeft: 4,
-    fontSize: 14,
-    color: '#666',
-  },
-  jobFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  categoryChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E8ECF4',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  categoryText: {
-    marginLeft: 4,
+
+  categoryLabel: {
     fontSize: 12,
-    color: '#0B153C',
-    fontWeight: '500',
+    color: "#333",
+    textAlign: "center",
+    fontWeight: "500",
+
   },
   timePosted: {
     fontSize: 12,
@@ -587,4 +525,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SearchScreen; 
+export default SearchScreen;
