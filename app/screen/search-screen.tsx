@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -9,27 +9,54 @@ import {
   Platform,
   Image,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+interface Job {
+  id: string;
+  jobTitle: string;
+  jobDescription: string;
+  category: string;
+  jobLocation: string;
+  budget: string;
+  jobDuration: string;
+  jobImage?: string;
+  datePosted: string;
+  client: {
+    id: string;
+    name: string;
+    profileImage?: string;
+  };
+}
+
+interface SearchResponse {
+  jobs: Job[];
+  categories: string[];
+  total: number;
+}
+
+interface Filter {
+  id: string;
+  label: string;
+  count?: number;
+}
 
 const SearchScreen = () => {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
+  const [searchResults, setSearchResults] = useState<Job[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [filters, setFilters] = useState<Filter[]>([
+    { id: 'all', label: 'All' }
+  ]);
 
   const handleGoBack = () => {
     router.back();
   };
-
-  const filters = [
-    { id: 'all', label: 'All' },
-    { id: 'plumbing', label: 'Plumbing' },
-    { id: 'electrical', label: 'Electrical' },
-    { id: 'carpentry', label: 'Carpentry' },
-    { id: 'cleaning', label: 'Cleaning' },
-    { id: 'painting', label: 'Painting' },
-  ];
 
   const recentSearches = [
     'Plumber needed',
@@ -37,6 +64,106 @@ const SearchScreen = () => {
     'Electrician for wiring',
     'Paint job',
   ];
+
+  const fetchJobs = async (query: string, filter: string | null) => {
+    try {
+      setIsLoading(true);
+      const token = await AsyncStorage.getItem('token');
+      
+      if (!token) {
+        router.push('/sign_in');
+        return;
+      }
+
+      // Log the filter being used
+      console.log('Using filter:', filter);
+
+      const response = await fetch(
+        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/jobs/search?searchQuery=${query}&filter=${filter || 'all'}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch jobs');
+      }
+
+      const data: SearchResponse = await response.json();
+      
+      // Log the results to debug
+      console.log('Search results:', data.jobs.length);
+      console.log('Filter used:', filter);
+      
+      setSearchResults(data.jobs);
+    } catch (error) {
+      console.error('Error fetching jobs:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchTopCategories = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      
+      if (!token) {
+        router.push('/sign_in');
+        return;
+      }
+
+      const response = await fetch(
+        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/jobs/top-categories`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch categories');
+      }
+
+      const data = await response.json();
+      
+      // Keep the original case from the database
+      setFilters([
+        { id: 'all', label: 'All' },
+        ...data.categories.map((item: { category: string; count: any; }) => ({
+          id: item.category, // Keep original case
+          label: item.category,
+          count: item.count
+        }))
+      ]);
+
+      // Log the categories to debug
+      console.log('Fetched categories:', data.categories);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchTopCategories();
+  }, []);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (searchQuery || selectedFilter) {
+        fetchJobs(searchQuery, selectedFilter);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery, selectedFilter]);
+
+  const handleFilterSelect = (filterId: string) => {
+    console.log('Selected filter:', filterId); // Debug log
+    setSelectedFilter(filterId);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -79,20 +206,30 @@ const SearchScreen = () => {
                 styles.filterChip,
                 selectedFilter === filter.id && styles.filterChipSelected,
               ]}
-              onPress={() => setSelectedFilter(filter.id)}
+              onPress={() => handleFilterSelect(filter.id)}
             >
-              <Text style={[
-                styles.filterText,
-                selectedFilter === filter.id && styles.filterTextSelected,
-              ]}>
-                {filter.label}
-              </Text>
+              <View style={styles.filterContent}>
+                <Text style={[
+                  styles.filterText,
+                  selectedFilter === filter.id && styles.filterTextSelected,
+                ]}>
+                  {filter.label}
+                </Text>
+                {filter.count !== undefined && filter.id !== 'all' && (
+                  <Text style={[
+                    styles.filterCount,
+                    selectedFilter === filter.id && styles.filterCountSelected,
+                  ]}>
+                    {' '}({filter.count})
+                  </Text>
+                )}
+              </View>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
         {/* Recent Searches */}
-        <View style={styles.section}>
+        {/* <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Searches</Text>
             <TouchableOpacity>
@@ -113,25 +250,111 @@ const SearchScreen = () => {
               </TouchableOpacity>
             </TouchableOpacity>
           ))}
-        </View>
+        </View> */}
 
-        {/* Popular Categories */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Popular Categories</Text>
-          <View style={styles.categoriesGrid}>
-            {filters.slice(1).map((category) => (
-              <TouchableOpacity 
-                key={category.id}
-                style={styles.categoryCard}
-              >
-                <View style={styles.categoryIcon}>
-                  <MaterialIcons name="work" size={24} color="#0B153C" />
-                </View>
-                <Text style={styles.categoryLabel}>{category.label}</Text>
-              </TouchableOpacity>
-            ))}
+        {/* Search Results */}
+        {(searchQuery || selectedFilter) && (
+          <View style={styles.searchResults}>
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#0B153C" />
+                <Text style={styles.loadingText}>Searching for jobs...</Text>
+              </View>
+            ) : searchResults.length > 0 ? (
+              searchResults.map((job) => (
+                <TouchableOpacity
+                  key={job.id}
+                  style={styles.jobCard}
+                  onPress={() => router.push({
+                    pathname: "../../../screen/job-seeker-screen/job-details",
+                    params: {
+                      id: job.id,
+                      title: job.jobTitle,
+                      postedDate: job.datePosted,
+                      description: job.jobDescription,
+                      rate: job.budget,
+                      location: job.jobLocation,
+                      otherParticipant: job.client.id,
+                      jobImages: job.jobImage,
+                      jobDuration: job.jobDuration,
+                      clientFirstName: job.client.name.split(' ')[0],
+                      clientLastName: job.client.name.split(' ')[1],
+                      clientProfileImage: job.client.profileImage,
+                      clientId: job.client.id,
+                    }
+                  })}
+                >
+                  <View style={styles.jobHeader}>
+                    <View style={styles.clientInfo}>
+                      <Image
+                        source={{
+                          uri: job.client.profileImage
+                            ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${
+                                job.client.profileImage.split("profiles/")[1]
+                              }`
+                            : 'https://via.placeholder.com/40'
+                        }}
+                        style={styles.clientImage}
+                        defaultSource={require('assets/images/client-user.png')}
+                      />
+                      <View>
+                        <Text style={styles.jobTitle}>{job.jobTitle}</Text>
+                        <Text style={styles.clientName}>{job.client.name}</Text>
+                      </View>
+                    </View>
+                    {job.jobImage && (
+                      <Image
+                        source={{ 
+                          uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/${
+                            job.jobImage?.[0]?.split("job_request_files/")?.[1] ?? ''
+                          }`
+                        }}
+                        style={styles.jobThumbnail}
+                      />
+                    )}
+                  </View>
+
+                  <Text style={styles.jobDescription} numberOfLines={2}>
+                    {job.jobDescription}
+                  </Text>
+
+                  <View style={styles.jobDetails}>
+                    <View style={styles.jobDetail}>
+                      <Ionicons name="cash-outline" size={16} color="#666" />
+                      <Text style={styles.detailText}>₱{job.budget}</Text>
+                    </View>
+                    <View style={styles.jobDetail}>
+                      <Ionicons name="location-outline" size={16} color="#666" />
+                      <Text style={styles.detailText}>{job.jobLocation}</Text>
+                    </View>
+                    <View style={styles.jobDetail}>
+                      <Ionicons name="time-outline" size={16} color="#666" />
+                      <Text style={styles.detailText}>{job.jobDuration}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.jobFooter}>
+                    <View style={styles.categoryChip}>
+                      <MaterialIcons name="category" size={14} color="#0B153C" />
+                      <Text style={styles.categoryText}>{job.category}</Text>
+                    </View>
+                    <Text style={styles.timePosted}>
+                      Posted {new Date(job.datePosted).toLocaleDateString()}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <View style={styles.noResultsContainer}>
+                <Ionicons name="search-outline" size={48} color="#ccc" />
+                <Text style={styles.noResultsText}>No jobs found</Text>
+                <Text style={styles.noResultsSubtext}>
+                  Try adjusting your search or filters
+                </Text>
+              </View>
+            )}
           </View>
-        </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -230,40 +453,137 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
-  categoriesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 12,
-    gap: 12,
+  searchResults: {
+    padding: 16,
   },
-  categoryCard: {
-    width: '30%',
-    aspectRatio: 1,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    padding: 12,
-    justifyContent: 'center',
+  loadingContainer: {
+    padding: 20,
     alignItems: 'center',
   },
-  categoryIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  loadingText: {
+    marginTop: 10,
+    color: '#666',
+    fontSize: 16,
+  },
+  jobCard: {
     backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  categoryLabel: {
-    fontSize: 12,
+  jobHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  clientInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  clientImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  jobThumbnail: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginLeft: 12,
+  },
+  jobTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
     color: '#333',
-    textAlign: 'center',
+    marginBottom: 4,
+  },
+  clientName: {
+    fontSize: 14,
+    color: '#666',
+  },
+  jobDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  jobDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    backgroundColor: '#f8f9fa',
+    padding: 10,
+    borderRadius: 8,
+  },
+  jobDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  detailText: {
+    marginLeft: 4,
+    fontSize: 14,
+    color: '#666',
+  },
+  jobFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8ECF4',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  categoryText: {
+    marginLeft: 4,
+    fontSize: 12,
+    color: '#0B153C',
     fontWeight: '500',
+  },
+  timePosted: {
+    fontSize: 12,
+    color: '#999',
+  },
+  noResultsContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  noResultsText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#666',
+    marginTop: 16,
+  },
+  noResultsSubtext: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  filterCount: {
+    fontSize: 12,
+    color: '#666',
+  },
+  filterCountSelected: {
+    color: '#fff',
+  },
+  filterContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });
 

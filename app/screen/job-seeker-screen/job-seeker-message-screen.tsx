@@ -968,17 +968,25 @@ return isVisibleToUser ? (
         </TouchableOpacity>
         
         <View style={styles.headerUserInfo}>
-          <Image 
-             source={{ 
-                    uri: profileImage 
-                      ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${
-                          (profileImage+'').split("profiles/")[1]|| ''
-                        }`
-              : undefined 
+          <TouchableOpacity 
+            onPress={() => router.push({
+              pathname: "../../../screen/profile/view-profile/view-page-client",
+              params: { otherParticipantId }
+            })}
+            style={styles.profileTouchable}
+          >
+            <Image 
+              source={{ 
+                uri: profileImage 
+                  ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${
+                      (profileImage+'').split("profiles/")[1]|| ''
+                    }`
+                : undefined 
               }}
-            style={styles.recipientAvatar} 
-          />
-          <Text style={styles.recipientName}>{receiverName}</Text>
+              style={styles.recipientAvatar} 
+            />
+            <Text style={styles.recipientName}>{receiverName}</Text>
+          </TouchableOpacity>
         </View>
         
         <TouchableOpacity 
@@ -1656,7 +1664,11 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
     marginTop: -15,
     marginRight: 5,
-  }
+  },
+  profileTouchable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
 });
 
 export default ChatScreen;
