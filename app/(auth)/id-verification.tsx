@@ -1,17 +1,29 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, Image, ScrollView, SafeAreaView, FlatList, Platform } from 'react-native';
-import { ThemedView } from '../../components/ThemedView';
-import { ThemedText } from '../../components/ThemedText';
-import * as ImagePicker from 'expo-image-picker';
-import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Modal,
+  StyleSheet,
+  Image,
+  ScrollView,
+  SafeAreaView,
+  FlatList,
+  Platform,
+} from "react-native";
+import { ThemedView } from "../../components/ThemedView";
+import { ThemedText } from "../../components/ThemedText";
+import * as ImagePicker from "expo-image-picker";
+import { StatusBar } from "expo-status-bar";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { SignUpData, handleFormData } from "../../api/signup-request";
 
 const ID_TYPES = [
-  { id: 'national_id', label: 'National ID (PhilSys)' },
-  { id: 'postal_id', label: 'Postal ID' },
-  { id: 'passport', label: 'Passport' },
-  { id: 'drivers_license', label: "Driver's License" },
+  { id: "national_id", label: "National ID (PhilSys)" },
+  { id: "postal_id", label: "Postal ID" },
+  { id: "passport", label: "Passport" },
+  { id: "drivers_license", label: "Driver's License" },
 ];
 
 export default function IDVerification() {
@@ -27,19 +39,35 @@ export default function IDVerification() {
   };
 
   const handleSubmit = () => {
+    SignUpData({
+      idType: selectedID,
+      frontImage: frontImage,
+      backImage: backImage,
+    });
+
+    handleFormData();
+
     setSuccessModalVisible(true);
   };
 
-  const pickImage = async (type: 'front' | 'back') => {
+  const pickImage = async (type: "front" | "back") => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
-      quality: 1,
+      quality: 0.5,
     });
 
     if (!result.canceled) {
-      if (type === 'front') {
+      const fileSize = result.assets[0].fileSize;
+      const maxSize = 1 * 1024 * 1024; // 1MB
+
+      if (fileSize && fileSize > maxSize) {
+        alert("Image size exceeds 1MB limit. Please select a smaller image.");
+        return;
+      }
+
+      if (type === "front") {
         setFrontImage(result.assets[0].uri);
       } else {
         setBackImage(result.assets[0].uri);
@@ -58,15 +86,17 @@ export default function IDVerification() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={styles.title}>ID Verification</Text>
         <Text style={styles.subtitle}>Upload your valid government ID</Text>
-        
+
         {/* ID Type Selection */}
         <View style={styles.inputContainer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.idTypeButton}
             onPress={() => setModalVisible(true)}
           >
             <Text style={styles.idTypeButtonText}>
-              {selectedID ? ID_TYPES.find(id => id.id === selectedID)?.label : 'Select ID Type'}
+              {selectedID
+                ? ID_TYPES.find((id) => id.id === selectedID)?.label
+                : "Select ID Type"}
             </Text>
           </TouchableOpacity>
           <View style={styles.inputLine} />
@@ -76,12 +106,15 @@ export default function IDVerification() {
         {/* Front Image Upload */}
         <View style={styles.inputContainer}>
           <Text style={styles.sectionTitle}>Front Image</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.imageUploadButton}
-            onPress={() => pickImage('front')}
+            onPress={() => pickImage("front")}
           >
             {frontImage ? (
-              <Image source={{ uri: frontImage }} style={styles.uploadedImage} />
+              <Image
+                source={{ uri: frontImage }}
+                style={styles.uploadedImage}
+              />
             ) : (
               <Text style={styles.uploadText}>Upload Front Image</Text>
             )}
@@ -91,9 +124,9 @@ export default function IDVerification() {
         {/* Back Image Upload */}
         <View style={styles.inputContainer}>
           <Text style={styles.sectionTitle}>Back Image</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.imageUploadButton}
-            onPress={() => pickImage('back')}
+            onPress={() => pickImage("back")}
           >
             {backImage ? (
               <Image source={{ uri: backImage }} style={styles.uploadedImage} />
@@ -104,10 +137,11 @@ export default function IDVerification() {
         </View>
 
         {/* Submit Button */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[
             styles.submitButton,
-            (!selectedID || !frontImage || !backImage) && styles.submitButtonDisabled
+            (!selectedID || !frontImage || !backImage) &&
+              styles.submitButtonDisabled,
           ]}
           disabled={!selectedID || !frontImage || !backImage}
           onPress={handleSubmit}
@@ -164,11 +198,11 @@ export default function IDVerification() {
             </View>
             <Text style={styles.successTitle}>Submitted Successfully</Text>
             <Text style={styles.successMessage}>Wait for the verification</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.successButton}
               onPress={() => {
                 setSuccessModalVisible(false);
-                router.back();
+                router.push("/sign_in");
               }}
             >
               <Text style={styles.successButtonText}>OK</Text>
@@ -183,20 +217,20 @@ export default function IDVerification() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   scrollContent: {
     padding: 40,
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
     marginBottom: 10,
   },
   subtitle: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 40,
   },
   inputContainer: {
@@ -207,92 +241,92 @@ const styles = StyleSheet.create({
   },
   idTypeButtonText: {
     fontSize: 16,
-    color: '#000',
+    color: "#000",
   },
   inputLine: {
     height: 1,
-    backgroundColor: '#000',
-    width: '100%',
+    backgroundColor: "#000",
+    width: "100%",
     marginBottom: 5,
   },
   inputLabel: {
     fontSize: 14,
     marginTop: 10,
-    fontWeight: 'bold',
-    color: '#000',
+    fontWeight: "bold",
+    color: "#000",
   },
   sectionTitle: {
     fontSize: 14,
     marginBottom: 10,
-    fontWeight: 'bold',
-    color: '#000',
+    fontWeight: "bold",
+    color: "#000",
   },
   imageUploadButton: {
     height: 200,
     borderWidth: 1,
-    borderColor: '#000',
+    borderColor: "#000",
     borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f5f5f5",
   },
   uploadedImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
     borderRadius: 6,
   },
   uploadText: {
     fontSize: 16,
-    color: '#666',
+    color: "#666",
   },
   submitButton: {
-    backgroundColor: '#0A1747',
+    backgroundColor: "#0A1747",
     paddingVertical: 15,
     borderRadius: 6,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 20,
   },
   submitButtonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: "#ccc",
   },
   submitButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
-    maxHeight: '80%',
+    paddingBottom: Platform.OS === "ios" ? 40 : 20,
+    maxHeight: "80%",
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: "#eee",
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
+    fontWeight: "bold",
+    color: "#000",
   },
   idTypeItem: {
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: "#eee",
   },
   idTypeText: {
     fontSize: 16,
-    color: '#000',
+    color: "#000",
   },
   header: {
     paddingHorizontal: 20,
@@ -303,22 +337,22 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#000033',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: "#000033",
+    justifyContent: "center",
+    alignItems: "center",
   },
   successModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   successModalContent: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 20,
     padding: 30,
-    alignItems: 'center',
-    width: '80%',
+    alignItems: "center",
+    width: "80%",
     maxWidth: 400,
   },
   successIconContainer: {
@@ -326,28 +360,28 @@ const styles = StyleSheet.create({
   },
   successTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#000',
+    fontWeight: "bold",
+    color: "#000",
     marginBottom: 10,
-    textAlign: 'center',
+    textAlign: "center",
   },
   successMessage: {
     fontSize: 16,
-    color: '#666',
+    color: "#666",
     marginBottom: 30,
-    textAlign: 'center',
+    textAlign: "center",
   },
   successButton: {
-    backgroundColor: '#0A1747',
+    backgroundColor: "#0A1747",
     paddingVertical: 12,
     paddingHorizontal: 40,
     borderRadius: 6,
-    width: '100%',
+    width: "100%",
   },
   successButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
   },
-}); 
+});
