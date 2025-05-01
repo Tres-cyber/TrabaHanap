@@ -54,11 +54,11 @@ export default function JobListingScreen() {
   };
 
   const handleSearchPress = () => {
-    router.push('/screen/search-screen');
+    router.push("/screen/search-screen");
   };
 
   const handleNotificationPress = () => {
-    router.push('/screen/notification-screen');
+    router.push("/screen/notification-screen");
   };
 
   const handleAddJobPress = () => {
@@ -130,38 +130,38 @@ export default function JobListingScreen() {
     }, 2000);
   }, []);
 
- useEffect(() => {
-      const loadUserData = async () => {
-        try {
-          const { data } = await decodeToken();
-          const profileImagePath = data.profileImage;
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        const { data } = await decodeToken();
+        const profileImagePath = data.profileImage;
 
-          if (profileImagePath) {
-            setUserProfileImage(
-              `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${profileImagePath}`
-            );
-          }
-        } catch (error) {
-          console.error("Error loading user data:", error);
+        if (profileImagePath) {
+          setUserProfileImage(
+            `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${profileImagePath}`
+          );
         }
-      };
-      loadUserData();
-    }, []);
-    
+      } catch (error) {
+        console.error("Error loading user data:", error);
+      }
+    };
+    loadUserData();
+  }, []);
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      <View style={[styles.header, Platform.OS === 'ios' && styles.iosHeader]}>
+      <View style={[styles.header, Platform.OS === "ios" && styles.iosHeader]}>
         <TouchableOpacity
           onPress={handleProfilePress}
           style={styles.profileButton}
         >
           <Image
-                                 source={
-                      userProfileImage
-                        ? { uri: userProfileImage }
-                        : require("assets/images/default-user.png")
-                    }
+            source={
+              userProfileImage
+                ? { uri: userProfileImage }
+                : require("assets/images/default-user.png")
+            }
             style={styles.profileImage}
             defaultSource={require("assets/images/client-user.png")}
           />
@@ -193,87 +193,98 @@ export default function JobListingScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            colors={["#9b59b6"]} 
-            tintColor="#9b59b6" 
+            colors={["#9b59b6"]}
+            tintColor="#9b59b6"
           />
         }
       >
-      {isFetching ? (
-        <ActivityIndicator size="large" />
-      ) : data && data.filter((job: JobDetails) => job.jobStatus !== "completed" && job.jobStatus !== "reviewed").length > 0 ? (
-        data
-          .filter((job: JobDetails) => job.jobStatus !== "completed" && job.jobStatus !== "reviewed")
-          .map((job: JobDetails) => (
-            <View key={job.id} style={styles.jobCard}>
-              <View style={styles.jobHeader}>
-                <Text style={styles.jobTitle}>{job.jobTitle}</Text>
+        {isFetching ? (
+          <ActivityIndicator size="large" />
+        ) : data &&
+          data.filter(
+            (job: JobDetails) =>
+              job.jobStatus !== "completed" && job.jobStatus !== "reviewed"
+          ).length > 0 ? (
+          data
+            .filter(
+              (job: JobDetails) =>
+                job.jobStatus !== "completed" && job.jobStatus !== "reviewed"
+            )
+            .map((job: JobDetails) => (
+              <View key={job.id} style={styles.jobCard}>
+                <View style={styles.jobHeader}>
+                  <Text style={styles.jobTitle}>{job.jobTitle}</Text>
 
-                <View style={styles.actionsContainer}>
-                  <TouchableOpacity
-                    onPress={() => handleEditJobPress(job.id)}
-                    style={styles.actionButton}
-                  >
-                    <Feather name="edit" size={18} color="#000" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => handleDeleteJobPress(job.id)}
-                    style={styles.actionButton}
-                  >
-                    <Feather name="trash-2" size={18} color="#ff4444" />
-                  </TouchableOpacity>
-                  {job.jobStatus.toLowerCase() === "pending" && (
+                  <View style={styles.actionsContainer}>
                     <TouchableOpacity
-                      onPress={() => {
-                        setSelectedJobId(job.id);
-                        setShowConfirmModal(true);
-                      }}
+                      onPress={() => handleEditJobPress(job.id)}
                       style={styles.actionButton}
                     >
-                       <Feather name="check-circle" size={22} color="#2ecc71" />
+                      <Feather name="edit" size={18} color="#000" />
                     </TouchableOpacity>
-                  )}
+                    <TouchableOpacity
+                      onPress={() => handleDeleteJobPress(job.id)}
+                      style={styles.actionButton}
+                    >
+                      <Feather name="trash-2" size={18} color="#ff4444" />
+                    </TouchableOpacity>
+                    {job.jobStatus.toLowerCase() === "pending" && (
+                      <TouchableOpacity
+                        onPress={() => {
+                          setSelectedJobId(job.id);
+                          setShowConfirmModal(true);
+                        }}
+                        style={styles.actionButton}
+                      >
+                        <Feather
+                          name="check-circle"
+                          size={22}
+                          color="#2ecc71"
+                        />
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
-              </View>
 
-              <Text style={styles.jobDescription}>{job.jobDescription}</Text>
+                <Text style={styles.jobDescription}>{job.jobDescription}</Text>
 
-              <View style={styles.jobFooter}>
-                <View
-                  style={[
-                    styles.categoryBadge,
-                    {
-                      backgroundColor:
-                        job.category === "plumbing" ? "#9b59b6" : "#3498db",
-                    },
-                  ]}
-                >
-                  <Text style={styles.categoryText}>
-                    {reverseCamelCase(job.category)}
+                <View style={styles.jobFooter}>
+                  <View
+                    style={[
+                      styles.categoryBadge,
+                      {
+                        backgroundColor:
+                          job.category === "plumbing" ? "#9b59b6" : "#3498db",
+                      },
+                    ]}
+                  >
+                    <Text style={styles.categoryText}>
+                      {reverseCamelCase(job.category)}
+                    </Text>
+                  </View>
+
+                  <Text
+                    style={[
+                      styles.statusText,
+                      {
+                        color: job.jobStatus === "Open" ? "#f39c12" : "#2ecc71",
+                      },
+                    ]}
+                  >
+                    {job.jobStatus.charAt(0).toUpperCase() +
+                      job.jobStatus.slice(1)}
+                  </Text>
+
+                  <Text style={styles.dateText}>
+                    {new Date(job.datePosted).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
                   </Text>
                 </View>
-
-                <Text
-                  style={[
-                    styles.statusText,
-                    {
-                      color: job.jobStatus === "Open" ? "#f39c12" : "#2ecc71",
-                    },
-                  ]}
-                >
-                  {job.jobStatus.charAt(0).toUpperCase() + job.jobStatus.slice(1)}
-                </Text>
-
-                <Text style={styles.dateText}>
-                  {new Date(job.datePosted).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                </Text>
               </View>
-            </View>
-          ))
-
+            ))
         ) : (
           <View style={styles.emptyStateContainer}>
             <Text style={styles.emptyStateText}>
@@ -317,121 +328,122 @@ export default function JobListingScreen() {
         </View>
       </Modal>
       <Modal
-  visible={showConfirmModal}
-  transparent
-  animationType="slide"
-  onRequestClose={() => setShowConfirmModal(false)}
->
-  <View style={styles.successModalContainer}>
-    <View style={styles.successModalContent}>
-      <Text style={styles.successTitle}>Confirm Job Completion</Text>
-      <Text style={styles.successMessage}>
-        Please rate and review the jobseeker.
-      </Text>
-
-      {/* Rating Stars (placeholder - you can use icons later) */}
-      <View style={{ flexDirection: "row", marginBottom: 12 }}>
-        {[1, 2, 3, 4, 5].map((star) => (
-          <TouchableOpacity
-            key={star}
-            onPress={() => setRating(star)}
-            style={{ marginHorizontal: 4 }}
-          >
-            <Text style={{ fontSize: 24 }}>
-              {star <= rating ? "⭐" : "☆"}
+        visible={showConfirmModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowConfirmModal(false)}
+      >
+        <View style={styles.successModalContainer}>
+          <View style={styles.successModalContent}>
+            <Text style={styles.successTitle}>Confirm Job Completion</Text>
+            <Text style={styles.successMessage}>
+              Please rate and review the jobseeker.
             </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
 
-      {/* Review Input */}
-      <TextInput
-        placeholder="Write a review..."
-        style={{
-          width: "100%",
-          height: 80,
-          borderColor: "#ccc",
-          borderWidth: 1,
-          borderRadius: 8,
-          paddingHorizontal: 10,
-          paddingVertical: 8,
-          textAlignVertical: "top",
-          marginBottom: 16,
-        }}
-        multiline
-        value={feedback}
-        onChangeText={setReview}
-      />
+            {/* Rating Stars (placeholder - you can use icons later) */}
+            <View style={{ flexDirection: "row", marginBottom: 12 }}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <TouchableOpacity
+                  key={star}
+                  onPress={() => setRating(star)}
+                  style={{ marginHorizontal: 4 }}
+                >
+                  <Text style={{ fontSize: 24 }}>
+                    {star <= rating ? "⭐" : "☆"}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
-      <View style={styles.modalButtonsContainer}>
-        <TouchableOpacity
-          style={styles.stayButton}
-          onPress={() => setShowConfirmModal(false)}
-        >
-          <Text style={styles.stayButtonText}>Cancel</Text>
-        </TouchableOpacity>
+            {/* Review Input */}
+            <TextInput
+              placeholder="Write a review..."
+              style={{
+                width: "100%",
+                height: 80,
+                borderColor: "#ccc",
+                borderWidth: 1,
+                borderRadius: 8,
+                paddingHorizontal: 10,
+                paddingVertical: 8,
+                textAlignVertical: "top",
+                marginBottom: 16,
+              }}
+              multiline
+              value={feedback}
+              onChangeText={setReview}
+            />
 
-        <TouchableOpacity
-  style={styles.discardButton}
-  onPress={async () => {
-    if (selectedJobId) {
-      try {
-        const token = await AsyncStorage.getItem("token"); 
-        const { data: userData } = await decodeToken();
-        const userType = userData.userType;
-        const reviewerId = userData.id;
+            <View style={styles.modalButtonsContainer}>
+              <TouchableOpacity
+                style={styles.stayButton}
+                onPress={() => setShowConfirmModal(false)}
+              >
+                <Text style={styles.stayButtonText}>Cancel</Text>
+              </TouchableOpacity>
 
-        // Find the job object for the selectedJobId
-        const job = data.find((job: JobDetails) => job.id === selectedJobId);
-        const reviewedId = job?.jobSeekerId;
-        const response = await fetch(`http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/jobrequest/verify/${selectedJobId}`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            rating,
-            feedback,
-            reviewerId,
-            reviewedId,
-            userType,
-          }),
-        });
+              <TouchableOpacity
+                style={styles.discardButton}
+                onPress={async () => {
+                  if (selectedJobId) {
+                    try {
+                      const token = await AsyncStorage.getItem("token");
+                      const { data: userData } = await decodeToken();
+                      const userType = userData.userType;
+                      const reviewerId = userData.id;
 
-        if (!response.ok) {
-          throw new Error("Failed to submit review.");
-        }
+                      // Find the job object for the selectedJobId
+                      const job = data.find(
+                        (job: JobDetails) => job.id === selectedJobId
+                      );
+                      const reviewedId = job?.jobSeekerId;
+                      const response = await fetch(
+                        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/jobrequest/verify/${selectedJobId}`,
+                        {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${token}`,
+                          },
+                          body: JSON.stringify({
+                            rating,
+                            feedback,
+                            reviewerId,
+                            reviewedId,
+                            userType,
+                          }),
+                        }
+                      );
 
-        const result = await response.json();
-        console.log("Verification successful:", result);
+                      if (!response.ok) {
+                        throw new Error("Failed to submit review.");
+                      }
 
-        // Reset form state
-        setShowConfirmModal(false);
-        setSelectedJobId(null);
-        setRating(0);
-        setReview("");
-        refetch(); // Refresh data
+                      const result = await response.json();
+                      console.log("Verification successful:", result);
 
-      } catch (error) {
-        console.error("Error submitting review:", error);
-        // You can show a toast or alert here if you like
-      }
-    }
-  }}
->
-  <Text style={styles.discardButtonText}>Submit</Text>
-</TouchableOpacity>
-
-      </View>
-    </View>
-  </View>
-</Modal>
-
+                      // Reset form state
+                      setShowConfirmModal(false);
+                      setSelectedJobId(null);
+                      setRating(0);
+                      setReview("");
+                      refetch(); // Refresh data
+                    } catch (error) {
+                      console.error("Error submitting review:", error);
+                      // You can show a toast or alert here if you like
+                    }
+                  }
+                }}
+              >
+                <Text style={styles.discardButtonText}>Submit</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: {
@@ -443,10 +455,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingTop: Platform.OS === 'android' ? 50 : 10
+    paddingTop: Platform.OS === "android" ? 50 : 10,
   },
   iosHeader: {
-    paddingTop: Platform.OS === 'ios' ? 10 : 10,
+    paddingTop: Platform.OS === "ios" ? 10 : 10,
   },
   profileButton: {
     marginRight: 12,
@@ -626,16 +638,14 @@ const styles = StyleSheet.create({
   },
   emptyStateContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingVertical: 40,
   },
   emptyStateText: {
     fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
+    color: "#666",
+    textAlign: "center",
     marginTop: 20,
   },
 });
-
-
