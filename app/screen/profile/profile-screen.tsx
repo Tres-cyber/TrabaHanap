@@ -440,14 +440,14 @@ const UtilityWorkerProfile: React.FC = () => {
               <View style={styles.divider} />
               <View style={styles.infoItem}>
                 <MaterialCommunityIcons
-                  name="certificate"
+                  name="calendar-clock"
                   size={20}
                   color="#0B153C"
                 />
                 <Text style={styles.infoValue}>
-                  {worker.yearsExperience || 0}
+                  {worker.createdAt ? new Date(worker.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'N/A'}
                 </Text>
-                <Text style={styles.infoLabel}>Years Exp.</Text>
+                <Text style={styles.infoLabel}>Joined</Text>
               </View>
               <View style={styles.divider} />
               <View style={styles.infoItem}>
