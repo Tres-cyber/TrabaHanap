@@ -451,6 +451,18 @@ const UtilityWorkerProfile: React.FC = () => {
               </View>
               <View style={styles.divider} />
               <View style={styles.infoItem}>
+                <MaterialCommunityIcons
+                  name="cash"
+                  size={20}
+                  color="#0B153C"
+                />
+                <Text style={styles.infoValue}>
+                  ₱{worker.profileRate?.toFixed(2) || "0.00"}
+                </Text>
+                <Text style={styles.infoLabel}>Rate</Text>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.infoItem}>
                 <AntDesign name="star" size={20} color="#0B153C" />
                 <Text style={styles.infoValue}>
                   {worker.rating?.toFixed(1) || "0.0"}
