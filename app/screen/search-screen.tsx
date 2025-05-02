@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 
 import {
   StyleSheet,
@@ -19,6 +19,7 @@ import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { searchJobSeekers } from "../../api/search-request";
 import { debounce } from "lodash";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface JobSeeker {
   id: string;
@@ -149,45 +150,6 @@ const SearchScreen = () => {
   );
 
 
-  const fetchJobs = async (query: string, filter: string | null) => {
-    try {
-      setIsLoading(true);
-      const token = await AsyncStorage.getItem('token');
-      
-      if (!token) {
-        router.push('/sign_in');
-        return;
-      }
-
-      // Log the filter being used
-      console.log('Using filter:', filter);
-
-      const response = await fetch(
-        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/jobs/search?searchQuery=${query}&filter=${filter || 'all'}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch jobs');
-      }
-
-      const data: SearchResponse = await response.json();
-      
-      // Log the results to debug
-      console.log('Search results:', data.jobs.length);
-      console.log('Filter used:', filter);
-      
-      setSearchResults(data.jobs);
-    } catch (error) {
-      console.error('Error fetching jobs:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const fetchTopCategories = async () => {
     try {
@@ -213,15 +175,7 @@ const SearchScreen = () => {
 
       const data = await response.json();
       
-      // Keep the original case from the database
-      setFilters([
-        { id: 'all', label: 'All' },
-        ...data.categories.map((item: { category: string; count: any; }) => ({
-          id: item.category, // Keep original case
-          label: item.category,
-          count: item.count
-        }))
-      ]);
+
 
       // Log the categories to debug
       console.log('Fetched categories:', data.categories);
@@ -234,15 +188,6 @@ const SearchScreen = () => {
     fetchTopCategories();
   }, []);
 
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      if (searchQuery || selectedFilter) {
-        fetchJobs(searchQuery, selectedFilter);
-      }
-    }, 300);
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery, selectedFilter]);
 
   const handleFilterSelect = (filterId: string) => {
     console.log('Selected filter:', filterId); // Debug log
