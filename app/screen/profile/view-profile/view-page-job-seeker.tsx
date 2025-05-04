@@ -40,6 +40,9 @@ interface WorkerData {
   gender: string;
   birthday: string;
   feedbacks: Feedback[];
+  jobsDone: number;
+  dateJoined?: string;
+  rate?: number;
 }
 
 interface Achievement {
@@ -141,7 +144,10 @@ const UtilityWorkerProfile: React.FC = () => {
         profileImage: profileData.profileImage 
           ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${profileData.profileImage}`
           : '',
-        feedbacks: reviewsData || []
+        feedbacks: reviewsData || [],
+        jobsDone: profileData.jobsDone,
+        dateJoined: profileData.joinedAt,
+        rate: profileData.rate,
       };
       
       setWorker(combinedData);
@@ -195,7 +201,7 @@ const UtilityWorkerProfile: React.FC = () => {
     return (
       <View style={styles.ratingContainer}>
         <View style={styles.stars}>{stars}</View>
-        <Text style={styles.ratingText}>{rating.toFixed(1)} ({worker.completedJobs} jobs)</Text>
+        <Text style={styles.ratingText}>{rating.toFixed(1)} ({worker.jobsDone} jobs)</Text>
       </View>
     );
   };
@@ -226,11 +232,10 @@ const UtilityWorkerProfile: React.FC = () => {
   };
   const formatDate = (isoString: string) => {
     const date = new Date(isoString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = String(date.getFullYear()).slice(-2);
+    return `${month}/${day}/${year}`;
   };
   
   // Then in your JSX:
@@ -322,14 +327,24 @@ const UtilityWorkerProfile: React.FC = () => {
         <View style={styles.infoRow}>
           <View style={styles.infoItem}>
             <FontAwesome5 name="toolbox" size={20} color="#0B153C" />
-            <Text style={styles.infoValue}>{worker.completedJobs}</Text>
+            <Text style={styles.infoValue}>{worker.jobsDone}</Text>
             <Text style={styles.infoLabel}>Jobs Done</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.infoItem}>
-            <MaterialCommunityIcons name="certificate" size={20} color="#0B153C" />
-            <Text style={styles.infoValue}>{worker.yearsExperience}</Text>
-            <Text style={styles.infoLabel}>Years Exp.</Text>
+            <AntDesign name="calendar" size={20} color="#0B153C" />
+            <Text style={styles.dateJoinedText}>
+              {worker.dateJoined ? formatDate(worker.dateJoined) : 'N/A'}
+            </Text>
+            <Text style={styles.infoLabel}>Date Joined</Text>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.infoItem}>
+            <FontAwesome5 name="money-bill-wave" size={20} color="#0B153C" />
+            <Text style={styles.infoValue}>
+              {worker.rate ? `₱${worker.rate}` : 'N/A'}
+            </Text>
+            <Text style={styles.infoLabel}>Rate</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.infoItem}>
@@ -602,6 +617,12 @@ const styles = StyleSheet.create({
   },
   infoValue: {
     fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 6,
+  },
+  dateJoinedText: {
+    fontSize: 13.5,
     fontWeight: 'bold',
     color: '#333',
     marginTop: 6,
