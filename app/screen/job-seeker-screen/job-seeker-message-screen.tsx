@@ -188,7 +188,6 @@ const ChatScreen: React.FC<ChatProps> = ({
         ...msg,
         isDelivered: true, // Assume delivered if we're fetching from server
         isSeen: msg.readBy?.some(rs => rs.readAt !== null) || false
-        
       }));
       // Sort messages in descending order (most recent first)
       const sortedMessages = messagesWithStatus.sort((a: Message, b: Message) => 
@@ -196,8 +195,6 @@ const ChatScreen: React.FC<ChatProps> = ({
       );
       
       setMessages(sortedMessages);
-      // console.log(response);
-      if(currentOfferStatus == 'pending') setOfferModalVisible(true);
       return sortedMessages;
     } catch (error) {
       console.error("Error fetching initial messages:", error);

@@ -78,10 +78,16 @@ export default function JobDetailsScreen() {
   
       // Redirect user to the Chat Screen with the chatId
       router.push({
-        pathname:"../../../(main)/(tabs)/(job-seeker)/job-seeker-message",
-        params: { chatId: data.chatId,
-          chatTitle: data.chatTitle || jobData.title,
-         },
+        pathname: "../../../screen/job-seeker-screen/job-seeker-message-screen",
+        params: {
+          chatId: data.chatId,
+          receiverName: data.participantName || `${jobData.clientFirstName} ${jobData.clientLastName}`,
+          chatStatus: data.chatStatus || "pending",
+          jobId: params.id,
+          offerStatus: data.offerStatus || "pending",
+          otherParticipantId: params.otherParticipant,
+          profileImage: jobData.clientProfileImage,
+        },
       });
   
     } catch (error) {

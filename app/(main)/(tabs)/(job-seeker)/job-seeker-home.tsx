@@ -175,7 +175,7 @@ export default function JobListingScreen() {
   };
   
   const handleNotificationPress = () => {
-    router.push('/screen/notification-screen');
+    router.push('/screen/notification-screen-jobseeker');
   };
 
   const displayedJobs = 

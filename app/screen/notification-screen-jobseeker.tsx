@@ -12,10 +12,18 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-type NotificationType = 'application' | 'job_match' | 'chat_request' | 'offer' | 'offer_made' | 'review';
+type NotificationType =
+  | 'application'
+  | 'job_match'
+  | 'chat_rejected'
+  | 'chat_approved'
+  | 'offer_accepted'
+  | 'offer_rejected'
+  | 'review_jobseeker'
+  | 'other';
 
 interface Notification {
   id: string;
@@ -35,17 +43,18 @@ const NotificationScreen = () => {
   const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userType, setUserType] = useState<'client' | 'jobseeker' | null>(null);
+  const [userType, setUserType] = useState<'client' | 'job-seeker' | null>(null);
+  const [isNavigating, setIsNavigating] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   useEffect(() => {
     const fetchNotifications = async () => {
       setLoading(true);
       try {
         const token = await AsyncStorage.getItem('token');
+        const storedUserType = await AsyncStorage.getItem('userType');
         const userId = await AsyncStorage.getItem('currentUserId');
         setUserId(userId);
-        const storedUserType = await AsyncStorage.getItem('userType');
-        setUserType(storedUserType as 'client' | 'jobseeker');
+        setUserType(storedUserType as 'client' | 'job-seeker');
 
         const response = await fetch(`http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/notifications`, {
           headers: {
@@ -53,34 +62,42 @@ const NotificationScreen = () => {
           },
         });
         const data = await response.json();
-        
+        console.log("Raw fetched data:", data);
+
         // Map backend fields to frontend expected fields
         const mappedNotifications = (data.notifications || []).map((n: any) => ({
           id: n.id,
-          type: n.notificationType === 'chat-request' ? 'chat_request'
-            : n.notificationType === 'offer' ? 'offer'
-            : n.notificationType === 'offer_made' ? 'offer_made'
-            : n.notificationType === 'review-client' ? 'review'
-            : 'other', // fallback for unknown types
+          type:
+            n.notificationType === 'job-match' ? 'job_match'
+            : n.notificationType === 'chat-rejected' ? 'chat_rejected'
+            : n.notificationType === 'chat-approved' ? 'chat_approved'
+            : n.notificationType === 'offer_accepted' ? 'offer_accepted'
+            : n.notificationType === 'offer_rejected' ? 'offer_rejected'
+            : n.notificationType === 'review-jobseeker' ? 'review_jobseeker'
+            : 'other',
           title: n.notificationTitle,
           message: n.notificationMessage,
           timestamp: n.createdAt,
           read: n.isRead,
           jobId: n.relatedIds?.[0],
-          applicantId: n.relatedIds?.[1],
         }));
+        console.log("Mapped notifications:", mappedNotifications);
 
-        setNotifications(
-          mappedNotifications.filter(
-            (n: Notification) =>
-              n.type === 'chat_request' ||
-              n.type === 'offer' ||
-              n.type === 'offer_made' ||
-              n.type === 'review'
-          )
+        const filtered = mappedNotifications.filter(
+          (n: any) =>
+            n.type === 'job_match' ||
+            n.type === 'chat_rejected' ||
+            n.type === 'chat_approved' ||
+            n.type === 'offer_accepted' ||
+            n.type === 'offer_rejected' ||
+            n.type === 'review_jobseeker'
         );
+        console.log("Filtered notifications:", filtered);
+
+        setNotifications(filtered);
       } catch (error) {
         setNotifications([]);
+        console.log("Error fetching notifications:", error);
       } finally {
         setLoading(false);
       }
@@ -90,65 +107,90 @@ const NotificationScreen = () => {
   }, []);
 
   const handleNotificationPress = async (notification: Notification) => {
-    if (
-      userType === 'client' &&
-      (notification.type === 'application' ||
-        notification.type === 'chat_request' ||
-        notification.type === 'offer_made')
-    ) {
-      // Route to client-message-screen for application, chat-request, and offer_made
-      router.push({
-        pathname: '/(main)/(tabs)/(client)/client-message',
-        params: {
-          jobId: notification.jobId,
-          applicantId: notification.applicantId,
-        },
-      });
-    } else if (
-      userType === 'jobseeker' &&
-      (notification.type === 'job_match' || notification.type === 'offer_made')
-    ) {
-      // Navigate to job details for both job matches and offers
-      router.push({
-        pathname: '/screen/job-seeker-screen/job-details',
-        params: {
-          id: notification.jobId,
-        },
-      });
-    } else if (notification.type === 'review') {
-      // Route to client profile view page with otherParticipantId
-      router.push({
-        pathname: '/screen/profile/view-profile/view-page-client',
-        params: {
-          otherParticipantId: userId,
-        },
-      });
+    if (isNavigating) return;
+    setIsNavigating(true);
+
+    try {
+      if (
+        notification.type === 'chat_rejected' ||
+        notification.type === 'chat_approved' ||
+        notification.type === 'offer_accepted' ||
+        notification.type === 'offer_rejected'
+      ) {
+        router.push({
+          pathname: '/(main)/(tabs)/(job-seeker)/job-seeker-message',
+          params: {
+            jobId: notification.jobId,
+          },
+        });
+      } else if (userType === 'job-seeker' && notification.type === 'job_match') {
+        try {
+          const token = await AsyncStorage.getItem('token');
+          const response = await fetch(
+            `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/job-requests/${notification.jobId}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          const job = await response.json();
+
+          router.push({
+            pathname: '/screen/job-seeker-screen/job-details',
+            params: {
+              id: job.id,
+              title: job.jobTitle,
+              postedDate: job.datePosted,
+              description: job.jobDescription,
+              rate: job.budget,
+              location: job.jobLocation,
+              otherParticipant: job.client.id,
+              jobImages: job.jobImage,
+              jobDuration: job.jobDuration,
+              clientFirstName: job.client.firstName,
+              clientLastName: job.client.lastName,
+              clientProfileImage: job.client.profileImage,
+            },
+          });
+        } catch (error) {
+          // handle error
+        }
+      } else if (notification.type === 'review_jobseeker') {
+        router.push({
+          pathname: '/screen/profile/view-profile/view-page-job-seeker',
+          params: {
+            otherParticipantId: userId,
+          },
+        });
+      }
+    } finally {
+      setTimeout(() => setIsNavigating(false), 1000);
     }
   };
 
   const renderNotificationItem = ({ item }: { item: Notification }) => {
-    const getIcon = () => {
-      if (item.type === 'chat_request') {
-        return <MaterialIcons name="person-add" size={24} color="#1877F2" />;
-      } else if (item.type === 'offer_made') {
-        return <MaterialCommunityIcons name="currency-php" size={24} color="#1877F2" />;
-      } else if (item.type === 'offer') {
+    const getIcon = (type: Notification['type']) => {
+      if (type === 'chat_rejected' || type === 'offer_rejected') {
+        return <MaterialIcons name="cancel" size={24} color="#e74c3c" />;
+      } else if (type === 'chat_approved' || type === 'offer_accepted') {
+        return <MaterialIcons name="check-circle" size={24} color="#2ecc71" />;
+      } else if (type === 'job_match') {
         return <MaterialIcons name="work" size={24} color="#1877F2" />;
-      } else if (item.type === 'review') {
+      } else if (type === 'review_jobseeker') {
         return <MaterialIcons name="rate-review" size={24} color="#1877F2" />;
+      } else {
+        return <MaterialIcons name="notifications" size={24} color="#1877F2" />;
       }
-      // fallback icon if needed
-      return <MaterialIcons name="notifications" size={24} color="#1877F2" />;
     };
 
     return (
       <TouchableOpacity
         style={[styles.notificationItem, !item.read && styles.unreadNotification]}
         onPress={() => handleNotificationPress(item)}
+        disabled={isNavigating}
       >
         <View style={styles.notificationContent}>
           <View style={styles.iconContainer}>
-            {getIcon()}
+            {getIcon(item.type)}
           </View>
           <View style={styles.textContainer}>
             <Text style={styles.notificationTitle}>{item.title}</Text>

@@ -174,7 +174,13 @@ const ChatScreen: React.FC = () => {
         });
 
         newSocket.on('user_chats_fetched', (fetchedChats: Chat[]) => {
-          setChats(fetchedChats);
+          setChats(
+            fetchedChats.sort((a, b) => {
+              const aTime = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : new Date(a.createdAt).getTime();
+              const bTime = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : new Date(b.createdAt).getTime();
+              return bTime - aTime;
+            })
+          );
           setLoading(false);
           setRefreshing(false);
         });
@@ -196,10 +202,11 @@ const ChatScreen: React.FC = () => {
               updatedChats = [updatedChat, ...prevChats];
             }
 
-            return updatedChats.sort((a, b) =>
-              new Date(b.lastMessageTime || 0).getTime() -
-              new Date(a.lastMessageTime || 0).getTime()
-            );
+            return updatedChats.sort((a, b) => {
+              const aTime = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : new Date(a.createdAt).getTime();
+              const bTime = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : new Date(b.createdAt).getTime();
+              return bTime - aTime;
+            });
           });
         });
 
