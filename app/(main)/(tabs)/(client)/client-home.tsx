@@ -124,6 +124,9 @@ export default function JobListingScreen() {
   const [feedback, setReview] = useState<string>("");
   const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [viewModalVisible, setViewModalVisible] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<JobDetails | null>(null);
+
   useEffect(() => {
     setTimeout(() => {
       handleCheckToken();
@@ -211,7 +214,14 @@ export default function JobListingScreen() {
                 job.jobStatus !== "completed" && job.jobStatus !== "reviewed"
             )
             .map((job: JobDetails) => (
-              <View key={job.id} style={styles.jobCard}>
+              <TouchableOpacity
+                key={job.id}
+                style={styles.jobCard}
+                onPress={() => {
+                  setSelectedJob(job);
+                  setViewModalVisible(true);
+                }}
+              >
                 <View style={styles.jobHeader}>
                   <Text style={styles.jobTitle}>{job.jobTitle}</Text>
 
@@ -283,7 +293,7 @@ export default function JobListingScreen() {
                     })}
                   </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))
         ) : (
           <View style={styles.emptyStateContainer}>
@@ -437,6 +447,93 @@ export default function JobListingScreen() {
               >
                 <Text style={styles.discardButtonText}>Submit</Text>
               </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        visible={viewModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setViewModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.detailsModalContent}>
+            {/* Header */}
+            <View style={styles.detailsModalHeader}>
+              <View style={styles.detailsModalIconCircle}>
+                <Feather name="file-text" size={28} color="#fff" />
+              </View>
+              <TouchableOpacity
+                style={styles.detailsModalClose}
+                onPress={() => setViewModalVisible(false)}
+              >
+                <Feather name="x" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+            {/* Title */}
+            <Text style={styles.detailsModalTitle}>
+              {selectedJob?.jobTitle}
+            </Text>
+            {/* Divider */}
+            <View style={styles.detailsDivider} />
+            {/* Info Rows */}
+            <View style={styles.detailsRow}>
+              <Feather name="align-left" size={18} color="#0B153C" style={{ marginRight: 8 }} />
+              <Text style={styles.detailsLabel}>Description:</Text>
+            </View>
+            <Text style={styles.detailsValue}>{selectedJob?.jobDescription}</Text>
+
+            <View style={styles.detailsRow}>
+              <Feather name="tag" size={18} color="#0B153C" style={{ marginRight: 8 }} />
+              <Text style={styles.detailsLabel}>Category:</Text>
+              <Text style={styles.detailsValue}>{reverseCamelCase(selectedJob?.category || "")}</Text>
+            </View>
+
+            <View style={styles.detailsRow}>
+              <Feather name="map-pin" size={18} color="#0B153C" style={{ marginRight: 8 }} />
+              <Text style={styles.detailsLabel}>Location:</Text>
+              <Text style={styles.detailsValue}>{selectedJob?.jobLocation}</Text>
+            </View>
+
+            <View style={styles.detailsRow}>
+              <Feather name="dollar-sign" size={18} color="#0B153C" style={{ marginRight: 8 }} />
+              <Text style={styles.detailsLabel}>Rate:</Text>
+              <Text style={styles.detailsValue}>{selectedJob?.budget}</Text>
+            </View>
+
+            <View style={styles.detailsRow}>
+              <Feather name="calendar" size={18} color="#0B153C" style={{ marginRight: 8 }} />
+              <Text style={styles.detailsLabel}>Date Posted:</Text>
+              <Text style={styles.detailsValue}>
+                {selectedJob &&
+                  new Date(selectedJob.datePosted).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+              </Text>
+            </View>
+
+            <View style={styles.detailsRow}>
+              <Feather name="info" size={18} color="#0B153C" style={{ marginRight: 8 }} />
+              <Text style={styles.detailsLabel}>Status:</Text>
+              <Text
+                style={[
+                  styles.detailsValue,
+                  {
+                    color:
+                      selectedJob?.jobStatus === "Open"
+                        ? "#f39c12"
+                        : selectedJob?.jobStatus === "Pending"
+                        ? "#3498db"
+                        : "#2ecc71",
+                    fontWeight: "bold",
+                  },
+                ]}
+              >
+                {selectedJob?.jobStatus}
+              </Text>
             </View>
           </View>
         </View>
@@ -647,5 +744,73 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
     marginTop: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  detailsModalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 18,
+    width: "90%",
+    padding: 24,
+    maxWidth: 380,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    position: "relative",
+  },
+  detailsModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  detailsModalIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#0B153C",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  detailsModalClose: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    padding: 8,
+  },
+  detailsModalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#0B153C",
+    textAlign: "center",
+    marginBottom: 8,
+    marginTop: 8,
+  },
+  detailsDivider: {
+    height: 1,
+    backgroundColor: "#eee",
+    marginVertical: 10,
+  },
+  detailsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 10,
+  },
+  detailsLabel: {
+    fontWeight: "600",
+    color: "#333",
+    marginRight: 4,
+    fontSize: 15,
+  },
+  detailsValue: {
+    color: "#444",
+    fontSize: 15,
+    flexShrink: 1,
   },
 });

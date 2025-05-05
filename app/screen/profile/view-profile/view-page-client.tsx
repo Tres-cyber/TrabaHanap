@@ -40,6 +40,8 @@ interface WorkerData {
   gender: string;
   birthday: string;
   feedbacks: Feedback[];
+  jobsDone: number;
+  joinedAt: string;
 }
 
 interface Achievement {
@@ -123,7 +125,8 @@ const UtilityWorkerProfile: React.FC = () => {
         profileImage: profileData.profileImage 
           ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${profileData.profileImage}`
           : '',
-        feedbacks: reviewsData || []
+        feedbacks: reviewsData || [],
+        joinedAt: profileData.joinedAt || '',
       };
       
       setWorker(combinedData);
@@ -201,9 +204,9 @@ const UtilityWorkerProfile: React.FC = () => {
   const formatDate = (isoString: string) => {
     const date = new Date(isoString);
     return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+      year: '2-digit',
+      month: '2-digit',
+      day: '2-digit'
     });
   };
   
@@ -302,14 +305,16 @@ const UtilityWorkerProfile: React.FC = () => {
         <View style={styles.infoRow}>
           <View style={styles.infoItem}>
             <FontAwesome5 name="toolbox" size={20} color="#0B153C" />
-            <Text style={styles.infoValue}>{worker.completedJobs ?? 0}</Text>
-            <Text style={styles.infoLabel}>Jobs Done</Text>
+            <Text style={styles.infoValue}>{worker.jobsDone}</Text>
+            <Text style={styles.infoLabel}>Jobs Completed</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.infoItem}>
-            <MaterialCommunityIcons name="certificate" size={20} color="#0B153C" />
-            <Text style={styles.infoValue}>{worker.yearsExperience ?? 0}</Text>
-            <Text style={styles.infoLabel}>Years Exp.</Text>
+            <AntDesign name="calendar" size={20} color="#0B153C" />
+            <Text style={styles.infoValue}>
+              {worker.joinedAt ? formatDate(worker.joinedAt) : 'N/A'}
+            </Text>
+            <Text style={styles.infoLabel}>Date Joined</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.infoItem}>
