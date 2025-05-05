@@ -10,14 +10,18 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import io, { Socket } from "socket.io-client";
+
 export default function SignInScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
+
   const handleLogin = async () => {
     try {
       const response = await fetch(
@@ -102,12 +106,26 @@ export default function SignInScreen() {
         </View>
 
         <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+          <View style={styles.passwordInputContainer}>
+            <TextInput
+              style={[styles.input, styles.passwordInput]}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+            />
+            {password.length > 0 && (
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <Ionicons
+                  name={showPassword ? "eye-off" : "eye"}
+                  size={24}
+                  color="#666"
+                />
+              </TouchableOpacity>
+            )}
+          </View>
           <View style={styles.inputLine} />
           <View style={styles.passwordLabelContainer}>
             <Text style={styles.inputLabel}>Password</Text>
@@ -210,5 +228,15 @@ const styles = StyleSheet.create({
   signUpText: {
     fontSize: 14,
     color: "#2196F3",
+  },
+  passwordInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  passwordInput: {
+    flex: 1,
+  },
+  eyeIcon: {
+    padding: 8,
   },
 });
