@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   StyleSheet,
   Text,
@@ -15,10 +15,39 @@ export default function PasswordScreen() {
   const router = useRouter();
   const [password, setPassword] = useState<string>("");
   const [confirmPassword, setConfirmPassword] = useState<string>("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState({
     password: "",
     confirmPassword: "",
   });
+
+  const getPasswordStrength = useMemo(() => {
+    if (!password) return { strength: 0, color: '#ccc', text: '', bars: 0 };
+    
+    let strength = 0;
+    if (password.length >= 8) strength += 1;
+    if (/[A-Z]/.test(password)) strength += 1;
+    if (/[a-z]/.test(password)) strength += 1;
+    if (/[0-9]/.test(password)) strength += 1;
+    if (/[^A-Za-z0-9]/.test(password)) strength += 1;
+
+    let color = '#ff4444'; // red
+    let text = 'Weak';
+    let bars = 1;
+    
+    if (strength >= 4) {
+      color = '#00C851'; // green
+      text = 'Strong';
+      bars = 3;
+    } else if (strength >= 2) {
+      color = '#ffbb33'; // yellow
+      text = 'Medium';
+      bars = 2;
+    }
+
+    return { strength, color, text, bars };
+  }, [password]);
 
   const handleNext = (): void => {
     const newErrors = {
@@ -75,17 +104,31 @@ export default function PasswordScreen() {
         <View style={styles.formContainer}>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={[styles.input, errors.password ? styles.inputError : null]}
-              value={password}
-              onChangeText={(text) => {
-                setPassword(text);
-                if (errors.password) {
-                  setErrors((prev) => ({ ...prev, password: "" }));
-                }
-              }}
-              secureTextEntry
-            />
+            <View style={styles.passwordInputContainer}>
+              <TextInput
+                style={[styles.input, errors.password ? styles.inputError : null]}
+                value={password}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (errors.password) {
+                    setErrors((prev) => ({ ...prev, password: "" }));
+                  }
+                }}
+                secureTextEntry={!showPassword}
+              />
+              {password.length > 0 && (
+                <TouchableOpacity
+                  style={styles.eyeIcon}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Ionicons
+                    name={showPassword ? "eye-off" : "eye"}
+                    size={24}
+                    color="#666"
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
             {errors.password ? (
               <Text style={styles.errorText}>{errors.password}</Text>
             ) : null}
@@ -93,24 +136,60 @@ export default function PasswordScreen() {
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Confirm Password</Text>
-            <TextInput
-              style={[
-                styles.input,
-                errors.confirmPassword ? styles.inputError : null,
-              ]}
-              value={confirmPassword}
-              onChangeText={(text) => {
-                setConfirmPassword(text);
-                if (errors.confirmPassword) {
-                  setErrors((prev) => ({ ...prev, confirmPassword: "" }));
-                }
-              }}
-              secureTextEntry
-            />
+            <View style={styles.passwordInputContainer}>
+              <TextInput
+                style={[
+                  styles.input,
+                  errors.confirmPassword ? styles.inputError : null,
+                ]}
+                value={confirmPassword}
+                onChangeText={(text) => {
+                  setConfirmPassword(text);
+                  if (errors.confirmPassword) {
+                    setErrors((prev) => ({ ...prev, confirmPassword: "" }));
+                  }
+                }}
+                secureTextEntry={!showConfirmPassword}
+              />
+              {confirmPassword.length > 0 && (
+                <TouchableOpacity
+                  style={styles.eyeIcon}
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  <Ionicons
+                    name={showConfirmPassword ? "eye-off" : "eye"}
+                    size={24}
+                    color="#666"
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
             {errors.confirmPassword ? (
               <Text style={styles.errorText}>{errors.confirmPassword}</Text>
             ) : null}
           </View>
+
+          {password.length > 0 && (
+            <View style={styles.strengthContainer}>
+              <Text style={styles.strengthLabel}>Password Strength:</Text>
+              <View style={styles.barsContainer}>
+                {[1, 2, 3].map((bar) => (
+                  <View
+                    key={bar}
+                    style={[
+                      styles.strengthBar,
+                      {
+                        backgroundColor: bar <= getPasswordStrength.bars ? getPasswordStrength.color : '#e0e0e0',
+                      },
+                    ]}
+                  />
+                ))}
+              </View>
+              <Text style={[styles.strengthText, { color: getPasswordStrength.color }]}>
+                {getPasswordStrength.text}
+              </Text>
+            </View>
+          )}
         </View>
 
         <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
@@ -171,12 +250,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontWeight: "bold",
   },
-  input: {
+  passwordInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
     borderColor: "#ccc",
     borderRadius: 4,
+  },
+  input: {
+    flex: 1,
     padding: 12,
     fontSize: 16,
+    borderWidth: 0,
+  },
+  eyeIcon: {
+    padding: 8,
   },
   inputError: {
     borderColor: "red",
@@ -198,5 +286,31 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "500",
+  },
+  strengthContainer: {
+    marginBottom: 20,
+    paddingTop: 20,
+    width: '100%',
+  },
+  strengthLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+    textAlign: 'left',
+  },
+  barsContainer: {
+    flexDirection: 'row',
+    gap: 4,
+    marginBottom: 4,
+    justifyContent: 'flex-start',
+  },
+  strengthBar: {
+    width: 30,
+    height: 4,
+    borderRadius: 2,
+  },
+  strengthText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
 });
