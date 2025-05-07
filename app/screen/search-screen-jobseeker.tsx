@@ -297,9 +297,13 @@ const SearchScreen = () => {
                         style={styles.clientImage}
                         defaultSource={require('assets/images/client-user.png')}
                       />
-                      <View>
-                        <Text style={styles.jobTitle}>{job.jobTitle}</Text>
-                        <Text style={styles.clientName}>{job.client.name}</Text>
+                      <View style={styles.jobInfoContainer}>
+                        <Text style={styles.jobTitle} numberOfLines={1} ellipsizeMode="tail">
+                          {job.jobTitle}
+                        </Text>
+                        <Text style={styles.clientName} numberOfLines={1} ellipsizeMode="tail">
+                          {job.client.name}
+                        </Text>
                       </View>
                     </View>
                     {job.jobImage && (
@@ -488,6 +492,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    marginRight: 8,
   },
   clientImage: {
     width: 40,
@@ -495,11 +500,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginRight: 12,
   },
-  jobThumbnail: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    marginLeft: 12,
+  jobInfoContainer: {
+    flex: 1,
+    marginRight: 8,
   },
   jobTitle: {
     fontSize: 16,
@@ -510,6 +513,12 @@ const styles = StyleSheet.create({
   clientName: {
     fontSize: 14,
     color: '#666',
+  },
+  jobThumbnail: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginLeft: 8,
   },
   jobDescription: {
     fontSize: 14,
@@ -524,6 +533,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
     padding: 10,
     borderRadius: 8,
+    flexWrap: 'wrap',
   },
   jobDetail: {
     flexDirection: 'row',
