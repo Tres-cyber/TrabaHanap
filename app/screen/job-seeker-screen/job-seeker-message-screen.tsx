@@ -120,7 +120,8 @@ const ChatScreen: React.FC<ChatProps> = ({
   const [isBlocked, setIsBlocked] = useState(false);
   const [blockModalVisible, setBlockModalVisible] = useState(false);
   const [blockReason, setBlockReason] = useState('');
-    
+  const [jobBudget, setJobBudget] = useState<string | null>(null);
+
   const handleDeleteChat = (chatId: string) => {
     if(!socket) return;
     socket.emit('delete_chat', {
@@ -229,20 +230,22 @@ const ChatScreen: React.FC<ChatProps> = ({
         console.error("Error sending message:", error);
       }
     };
-    const handleSystemMessage =(messageContent:string,messageType:string) => {
-  
+    const handleSystemMessage = (messageContent: string, messageType: string) => {
       if (!socket) return;
-  
+
       try {
+        // Replace dollar sign with peso sign in the message content
+        const formattedMessage = messageContent.replace('$', '₱');
+        
         const newMessage = {
           chatId,
-          messageContent,
+          messageContent: formattedMessage,
           messageType
         };
-  
+
         // Emit message through socket
         socket.emit('send_message', newMessage);
-  
+
         // Clear input
         setMessageInput("");
       } catch (error) {
@@ -306,6 +309,12 @@ const ChatScreen: React.FC<ChatProps> = ({
   };
 
   const openOfferModal = () => {
+    // If there's an existing offer, populate the input
+    if (currentOffer?.offerAmount) {
+      setOfferAmount(currentOffer.offerAmount);
+    } else {
+      setOfferAmount(''); // Clear the input if no existing offer
+    }
     setOfferModalVisible(true);
   };
 
@@ -1022,6 +1031,32 @@ return isVisibleToUser ? (
     checkBlockStatus();
   }, [otherParticipantId]);
 
+  const fetchJobBudget = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) return;
+
+      const response = await axios.get(
+        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/job/${jobRequestId}/budget`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      
+      if (response.data.budget) {
+        setJobBudget(response.data.budget);
+      }
+    } catch (error) {
+      console.error("Error fetching job budget:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (jobRequestId) {
+      fetchJobBudget();
+    }
+  }, [jobRequestId]);
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -1069,7 +1104,7 @@ return isVisibleToUser ? (
         <View style={styles.offerNoticeBanner}>
           <DollarSign size={16} color="#fff" />
           <Text style={styles.offerNoticeText}>
-            You've sent an offer of ${currentOffer.offerAmount}
+            You've sent an offer of ₱{currentOffer.offerAmount}
           </Text>
         </View>
       )}
@@ -1079,7 +1114,7 @@ return isVisibleToUser ? (
         style={styles.makeOfferButton}
         onPress={openOfferModal}
       >
-        <DollarSign size={16} color="#0b216f" />
+        <Text style={{ fontSize: 16, color: "#0b216f" }}>₱</Text>
         <Text style={styles.makeOfferText}>Make Offer</Text>
       </TouchableOpacity>
         )}
@@ -1145,15 +1180,14 @@ return isVisibleToUser ? (
             </View>
             
             <ScrollView style={styles.offerModalContent}>
-              <Text style={styles.offerLabel}>Amount ($)</Text>
+              <Text style={styles.offerLabel}>Amount (₱)</Text>
               <TextInput
                 style={styles.offerAmountInput}
-                placeholder="Enter amount"
                 value={offerAmount}
                 onChangeText={setOfferAmount}
                 keyboardType="numeric"
+                placeholder={jobBudget ? `${jobBudget}` : 'Enter amount'}
               />
-
               
               <TouchableOpacity 
                 style={[
@@ -1237,52 +1271,48 @@ return isVisibleToUser ? (
         />
       
      
-      {currentChatStatus === 'approved' && (
-        <>
-          {isBlocked ? (
-            <View style={styles.blockedContainer}>
-              <UserX size={50} color="#ff3b30" />
-              <Text style={styles.blockedText}>
-                You have blocked {receiverName}
-              </Text>
-              <TouchableOpacity 
-                style={styles.unblockButton}
-                onPress={handleUnblockUser}
-              >
-                <Text style={styles.unblockButtonText}>Unblock User</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <KeyboardAvoidingView
-              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-              keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
-              style={styles.inputContainer}
-            >
-              <TouchableOpacity style={styles.attachButton} onPress={handleAttachPress}>
-                <Paperclip size={24} color="#999" />
-              </TouchableOpacity>
-              
-              <TextInput
-                style={styles.textInput}
-                placeholder="Write a message..."
-                value={messageInput}
-                onChangeText={setMessageInput}
-                multiline
-              />
-              
-              <TouchableOpacity 
-                style={[
-                  styles.sendButton,
-                  messageInput.trim().length === 0 && styles.sendButtonDisabled
-                ]}
-                onPress={() => handleSendMessage(messageInput, 'text')}
-                disabled={messageInput.trim().length === 0}
-              >
-                <Send size={20} color="#fff" />
-              </TouchableOpacity>
-            </KeyboardAvoidingView>
-          )}
-        </>
+      {isBlocked ? (
+        <View style={styles.blockedContainer}>
+          <UserX size={50} color="#ff3b30" />
+          <Text style={styles.blockedText}>
+            You have blocked {receiverName}
+          </Text>
+          <TouchableOpacity 
+            style={styles.unblockButton}
+            onPress={handleUnblockUser}
+          >
+            <Text style={styles.unblockButtonText}>Unblock User</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
+          style={styles.inputContainer}
+        >
+          <TouchableOpacity style={styles.attachButton} onPress={handleAttachPress}>
+            <Paperclip size={24} color="#999" />
+          </TouchableOpacity>
+          
+          <TextInput
+            style={styles.textInput}
+            placeholder="Write a message..."
+            value={messageInput}
+            onChangeText={setMessageInput}
+            multiline
+          />
+          
+          <TouchableOpacity 
+            style={[
+              styles.sendButton,
+              messageInput.trim().length === 0 && styles.sendButtonDisabled
+            ]}
+            onPress={() => handleSendMessage(messageInput, 'text')}
+            disabled={messageInput.trim().length === 0}
+          >
+            <Send size={20} color="#fff" />
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
       )}
 
       <Modal
@@ -1896,6 +1926,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '500',
+  },
+  budgetInfo: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 10,
+    fontStyle: 'italic',
   },
 });
 
