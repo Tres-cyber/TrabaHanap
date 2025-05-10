@@ -117,7 +117,11 @@ const ChatScreen: React.FC<ChatProps> = ({
   const [showOfferBanner, setShowOfferBanner] = useState(true);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
-    
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [blockModalVisible, setBlockModalVisible] = useState(false);
+  const [blockReason, setBlockReason] = useState('');
+  const [jobBudget, setJobBudget] = useState<string | null>(null);
+
   const handleDeleteChat = (chatId: string) => {
     if(!socket) return;
     socket.emit('delete_chat', {
@@ -132,8 +136,12 @@ const ChatScreen: React.FC<ChatProps> = ({
       label: 'Delete conversation',
       onPress: () => handleDeleteChat(chatId as string)
     },
-    { icon: <UserX size={18} color="#777" />, label: 'Block',onPress:undefined },
-    { icon: <Flag size={18} color="#777" />, label: 'Report' ,onPress:undefined}
+    { 
+      icon: <UserX size={18} color="#777" />, 
+      label: isBlocked ? 'Unblock' : 'Block',
+      onPress: isBlocked ? () => handleUnblockUser() : () => setBlockModalVisible(true)
+    },
+    { icon: <Flag size={18} color="#777" />, label: 'Report', onPress: undefined }
   ];
   const canDeleteForEveryone = (msg: any) => {
     if (!msg || !msg.sentAt) return false;
@@ -222,20 +230,22 @@ const ChatScreen: React.FC<ChatProps> = ({
         console.error("Error sending message:", error);
       }
     };
-    const handleSystemMessage =(messageContent:string,messageType:string) => {
-  
+    const handleSystemMessage = (messageContent: string, messageType: string) => {
       if (!socket) return;
-  
+
       try {
+        // Replace dollar sign with peso sign in the message content
+        const formattedMessage = messageContent.replace('$', '₱');
+        
         const newMessage = {
           chatId,
-          messageContent,
+          messageContent: formattedMessage,
           messageType
         };
-  
+
         // Emit message through socket
         socket.emit('send_message', newMessage);
-  
+
         // Clear input
         setMessageInput("");
       } catch (error) {
@@ -299,6 +309,12 @@ const ChatScreen: React.FC<ChatProps> = ({
   };
 
   const openOfferModal = () => {
+    // If there's an existing offer, populate the input
+    if (currentOffer?.offerAmount) {
+      setOfferAmount(currentOffer.offerAmount);
+    } else {
+      setOfferAmount(''); // Clear the input if no existing offer
+    }
     setOfferModalVisible(true);
   };
 
@@ -956,6 +972,91 @@ return isVisibleToUser ? (
     </View>
   );
 
+  const handleBlockUser = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      await axios.post(
+        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/block`,
+        {
+          blockedId: otherParticipantId,
+          reason: blockReason
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      setIsBlocked(true);
+      setBlockModalVisible(false);
+      setBlockReason('');
+      router.back();
+    } catch (error) {
+      console.error("Error blocking user:", error);
+      Alert.alert("Error", "Failed to block user. Please try again.");
+    }
+  };
+
+  const handleUnblockUser = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      await axios.delete(
+        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/block/${otherParticipantId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      setIsBlocked(false);
+      Alert.alert("Success", "User has been unblocked");
+    } catch (error) {
+      console.error("Error unblocking user:", error);
+      Alert.alert("Error", "Failed to unblock user. Please try again.");
+    }
+  };
+
+  const checkBlockStatus = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const response = await axios.get(
+        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/block/check/${otherParticipantId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      setIsBlocked(response.data.isBlocked);
+    } catch (error) {
+      console.error("Error checking block status:", error);
+    }
+  };
+
+  useEffect(() => {
+    checkBlockStatus();
+  }, [otherParticipantId]);
+
+  const fetchJobBudget = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) return;
+
+      const response = await axios.get(
+        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/job/${jobRequestId}/budget`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      
+      if (response.data.budget) {
+        setJobBudget(response.data.budget);
+      }
+    } catch (error) {
+      console.error("Error fetching job budget:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (jobRequestId) {
+      fetchJobBudget();
+    }
+  }, [jobRequestId]);
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -1003,7 +1104,7 @@ return isVisibleToUser ? (
         <View style={styles.offerNoticeBanner}>
           <DollarSign size={16} color="#fff" />
           <Text style={styles.offerNoticeText}>
-            You've sent an offer of ${currentOffer.offerAmount}
+            You've sent an offer of ₱{currentOffer.offerAmount}
           </Text>
         </View>
       )}
@@ -1013,7 +1114,7 @@ return isVisibleToUser ? (
         style={styles.makeOfferButton}
         onPress={openOfferModal}
       >
-        <DollarSign size={16} color="#0b216f" />
+        <Text style={{ fontSize: 16, color: "#0b216f" }}>₱</Text>
         <Text style={styles.makeOfferText}>Make Offer</Text>
       </TouchableOpacity>
         )}
@@ -1079,15 +1180,14 @@ return isVisibleToUser ? (
             </View>
             
             <ScrollView style={styles.offerModalContent}>
-              <Text style={styles.offerLabel}>Amount ($)</Text>
+              <Text style={styles.offerLabel}>Amount (₱)</Text>
               <TextInput
                 style={styles.offerAmountInput}
-                placeholder="Enter amount"
                 value={offerAmount}
                 onChangeText={setOfferAmount}
                 keyboardType="numeric"
+                placeholder={jobBudget ? `${jobBudget}` : 'Enter amount'}
               />
-
               
               <TouchableOpacity 
                 style={[
@@ -1171,36 +1271,89 @@ return isVisibleToUser ? (
         />
       
      
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
-        style={styles.inputContainer}
-      >
-
-      <TouchableOpacity style={styles.attachButton} onPress={handleAttachPress}>
-        <Paperclip size={24} color="#999" />
-      </TouchableOpacity>
-
-        
-        <TextInput
-          style={styles.textInput}
-          placeholder="Write a message..."
-          value={messageInput}
-          onChangeText={setMessageInput}
-          multiline
-        />
-        
-        <TouchableOpacity 
-          style={[
-            styles.sendButton,
-            messageInput.trim().length === 0 && styles.sendButtonDisabled
-          ]}
-          onPress={() => handleSendMessage(messageInput, 'text')}
-          disabled={messageInput.trim().length === 0}
+      {isBlocked ? (
+        <View style={styles.blockedContainer}>
+          <UserX size={50} color="#ff3b30" />
+          <Text style={styles.blockedText}>
+            You have blocked {receiverName}
+          </Text>
+          <TouchableOpacity 
+            style={styles.unblockButton}
+            onPress={handleUnblockUser}
+          >
+            <Text style={styles.unblockButtonText}>Unblock User</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
+          style={styles.inputContainer}
         >
-          <Send size={20} color="#fff" />
-        </TouchableOpacity>
-      </KeyboardAvoidingView>
+          <TouchableOpacity style={styles.attachButton} onPress={handleAttachPress}>
+            <Paperclip size={24} color="#999" />
+          </TouchableOpacity>
+          
+          <TextInput
+            style={styles.textInput}
+            placeholder="Write a message..."
+            value={messageInput}
+            onChangeText={setMessageInput}
+            multiline
+          />
+          
+          <TouchableOpacity 
+            style={[
+              styles.sendButton,
+              messageInput.trim().length === 0 && styles.sendButtonDisabled
+            ]}
+            onPress={() => handleSendMessage(messageInput, 'text')}
+            disabled={messageInput.trim().length === 0}
+          >
+            <Send size={20} color="#fff" />
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      )}
+
+      <Modal
+        transparent
+        visible={blockModalVisible}
+        animationType="fade"
+        onRequestClose={() => setBlockModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.blockModalContainer}>
+            <Text style={styles.blockModalTitle}>Block User</Text>
+            <Text style={styles.blockModalText}>
+              Are you sure you want to block {receiverName}? You won't be able to send or receive messages from them.
+            </Text>
+            <TextInput
+              style={styles.blockReasonInput}
+              placeholder="Reason for blocking (optional)"
+              value={blockReason}
+              onChangeText={setBlockReason}
+              multiline
+            />
+            <View style={styles.blockModalButtons}>
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={() => {
+                  setBlockModalVisible(false);
+                  setBlockReason('');
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.blockButton}
+                onPress={handleBlockUser}
+              >
+                <Text style={styles.blockButtonText}>Block</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -1682,6 +1835,103 @@ const styles = StyleSheet.create({
   profileTouchable: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  blockModalContainer: {
+    width: SCREEN_WIDTH * 0.85,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  blockModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#ff3b30',
+  },
+  blockModalText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#666',
+  },
+  blockReasonInput: {
+    width: '100%',
+    height: 100,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 20,
+    textAlignVertical: 'top',
+  },
+  blockModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    marginRight: 8,
+    backgroundColor: '#f2f2f7',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  blockButton: {
+    flex: 1,
+    paddingVertical: 12,
+    marginLeft: 8,
+    backgroundColor: '#ff3b30',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  blockButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  blockedContainer: {
+    padding: 20,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  blockedText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 10,
+    marginBottom: 15,
+  },
+  unblockButton: {
+    backgroundColor: '#0b216f',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+  },
+  unblockButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  budgetInfo: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 10,
+    fontStyle: 'italic',
   },
 });
 

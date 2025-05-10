@@ -223,7 +223,13 @@ export default function JobListingScreen() {
                 }}
               >
                 <View style={styles.jobHeader}>
-                  <Text style={styles.jobTitle}>{job.jobTitle}</Text>
+                  <Text
+                    style={styles.jobTitle}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {job.jobTitle}
+                  </Text>
 
                   <View style={styles.actionsContainer}>
                     <TouchableOpacity
@@ -497,9 +503,11 @@ export default function JobListingScreen() {
             </View>
 
             <View style={styles.detailsRow}>
-              <Feather name="dollar-sign" size={18} color="#0B153C" style={{ marginRight: 8 }} />
+              <Feather name="credit-card" size={18} color="#0B153C" style={{ marginRight: 8 }} />
               <Text style={styles.detailsLabel}>Rate:</Text>
-              <Text style={styles.detailsValue}>{selectedJob?.budget}</Text>
+              <Text style={styles.detailsValue}>
+                {selectedJob?.budget ? `₱${selectedJob.budget}` : "N/A"}
+              </Text>
             </View>
 
             <View style={styles.detailsRow}>
@@ -625,6 +633,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     color: "#000",
+    flexShrink: 1,
+    flex: 1,
+    marginRight: 8,
   },
   jobDescription: {
     fontSize: 14,
