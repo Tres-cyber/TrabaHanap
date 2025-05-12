@@ -143,6 +143,8 @@ export default function AddressEntryScreen() {
               ]}
               value={formData.houseNumber}
               onChangeText={(text) => handleInputChange("houseNumber", text)}
+              keyboardType="numeric"
+              maxLength={10}
             />
             {errors.houseNumber ? (
               <Text style={styles.errorText}>{errors.houseNumber}</Text>
