@@ -12,6 +12,7 @@ import {
   FlatList,
   Alert,
   BackHandler,
+  Platform,
 } from "react-native";
 import { Ionicons, Feather, MaterialIcons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -311,7 +312,7 @@ export default function AddJobScreen() {
 
       <ScrollView style={styles.scrollView}>
         <Text style={styles.label}>
-          Job title <Text style={styles.required}>*</Text>
+          Title <Text style={styles.required}>*</Text>
         </Text>
         <TextInput
           style={[styles.input, titleError && styles.inputError]}
@@ -320,7 +321,7 @@ export default function AddJobScreen() {
             setJobTitle(text);
             if (text.trim()) setTitleError(false);
           }}
-          placeholder="Enter job title"
+          placeholder="Enter title"
         />
         {titleError && (
           <Text style={styles.errorText}>Job title is required</Text>
@@ -351,12 +352,12 @@ export default function AddJobScreen() {
           <Text style={styles.errorText}>Position is required</Text>
         )}
 
-        <Text style={styles.label}>Budget</Text>
+        <Text style={styles.label}>Rate</Text>
         <TextInput
           style={styles.input}
           value={budget}
           onChangeText={setBudget}
-          placeholder="Enter budget"
+          placeholder="Enter rate"
           keyboardType="numeric"
         />
         <Text style={styles.label}>Duration</Text>
@@ -618,6 +619,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: 16,
     paddingVertical: 12,
+    paddingTop: Platform.OS === 'android' ? 40 : 12,
     alignItems: "center",
   },
   backButton: {
