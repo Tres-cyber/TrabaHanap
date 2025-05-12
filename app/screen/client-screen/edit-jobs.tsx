@@ -12,6 +12,7 @@ import {
   FlatList,
   Alert,
   BackHandler,
+  Platform,
 } from "react-native";
 import { Ionicons, Feather, MaterialIcons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -681,6 +682,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: 16,
     paddingVertical: 12,
+    paddingTop: Platform.OS === 'android' ? 40 : 12,
     alignItems: "center",
   },
   backButton: {
