@@ -96,6 +96,8 @@ export default function EditJobScreen() {
   const [budget, setBudget] = useState("");
   const [location, setLocation] = useState("");
   const [duration, setDuration] = useState("");
+  const [durationUnit, setDurationUnit] = useState("");
+  const [showDurationUnitModal, setShowDurationUnitModal] = useState(false);
   const [images, setImages] = useState<string[]>([]);
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [unsavedChanges, setUnsavedChanges] = useState(false);
@@ -126,12 +128,16 @@ export default function EditJobScreen() {
         `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${imgPath}`
     );
 
+    // Split duration into number and unit
+    const durationParts = jobData.jobDuration ? jobData.jobDuration.split(" ") : ["", ""];
+    setDuration(durationParts[0] || "");
+    setDurationUnit(durationParts[1] || "");
+
     setJobTitle(jobData.jobTitle);
     setDescription(jobData.jobDescription);
     setPosition(jobData.category);
     setBudget(jobData.budget);
     setLocation(jobData.jobLocation);
-    setDuration(jobData.jobDuration || "");
     setImages(parsedImage);
   };
   const requestPermissions = async () => {
@@ -307,7 +313,7 @@ export default function EditJobScreen() {
       category: position,
       budget: budget,
       jobLocation: location,
-      jobDuration: duration,
+      jobDuration: duration + " " + durationUnit,
       jobImage: images,
     });
 
@@ -347,7 +353,7 @@ export default function EditJobScreen() {
 
       <ScrollView style={styles.scrollView}>
         <Text style={styles.label}>
-          Job title <Text style={styles.required}>*</Text>
+          Title <Text style={styles.required}>*</Text>
         </Text>
         <TextInput
           style={[styles.input, titleError && styles.inputError]}
@@ -387,21 +393,44 @@ export default function EditJobScreen() {
           <Text style={styles.errorText}>Position is required</Text>
         )}
 
-        <Text style={styles.label}>Budget</Text>
+        <Text style={styles.label}>Rate</Text>
         <TextInput
           style={styles.input}
           value={budget}
           onChangeText={setBudget}
-          placeholder="Enter budget"
+          placeholder="Enter Rate"
           keyboardType="numeric"
         />
         <Text style={styles.label}>Duration</Text>
-        <TextInput
-          style={styles.input}
-          value={duration}
-          onChangeText={setDuration}
-          placeholder="Enter duration"
-        />
+        <View style={styles.durationContainer}>
+          <TextInput
+            style={[styles.input, styles.durationInput]}
+            value={duration}
+            onChangeText={(text) => {
+              // Only allow numbers
+              const numericValue = text.replace(/[^0-9]/g, '');
+              
+              // Apply digit restrictions based on duration unit
+              let maxDigits = 3; // Default for days
+              if (durationUnit === 'Hours') maxDigits = 2;
+              if (durationUnit === 'Weeks') maxDigits = 2;
+              
+              // Limit the number of digits
+              const limitedValue = numericValue.slice(0, maxDigits);
+              setDuration(limitedValue);
+            }}
+            placeholder="Enter number"
+            keyboardType="numeric"
+          />
+          <TouchableOpacity
+            style={[styles.input, styles.durationUnitButton]}
+            onPress={() => setShowDurationUnitModal(true)}
+          >
+            <Text style={durationUnit ? styles.inputText : styles.placeholderText}>
+              {durationUnit || "Select unit"}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         <Text style={styles.label}>Location</Text>
         <TextInput
@@ -505,6 +534,59 @@ export default function EditJobScreen() {
               )}
               style={styles.tagsList}
             />
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showDurationUnitModal}
+        onRequestClose={() => setShowDurationUnitModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Duration Unit</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowDurationUnitModal(false)}
+              >
+                <Ionicons name="close" size={24} color="#001F3F" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.tagsList}>
+              {["Hours", "Days", "Weeks"].map((unit) => (
+                <TouchableOpacity
+                  key={unit}
+                  style={[
+                    styles.tagItem,
+                    durationUnit === unit && styles.selectedTagItem,
+                  ]}
+                  onPress={() => {
+                    setDurationUnit(unit);
+                    setShowDurationUnitModal(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.tagText,
+                      durationUnit === unit && styles.selectedTagText,
+                    ]}
+                  >
+                    {unit}
+                  </Text>
+                  {durationUnit === unit && (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={24}
+                      color="#001F3F"
+                    />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </View>
       </Modal>
@@ -927,5 +1009,16 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "500",
+  },
+  durationContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  durationInput: {
+    flex: 1,
+  },
+  durationUnitButton: {
+    flex: 1,
   },
 });
