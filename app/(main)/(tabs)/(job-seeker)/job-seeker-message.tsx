@@ -15,12 +15,6 @@ import {
   SafeAreaView,
   RefreshControl,
 } from 'react-native';
-import { 
-  Filter, 
-  Search,
-  User
-} from 'lucide-react-native';
-
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter,useLocalSearchParams, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -279,7 +273,7 @@ const ChatScreen: React.FC = () => {
           />
       ) : (
         <View style={styles.avatarPlaceholder}>
-          <User size={24} color="#999" />
+          <Ionicons name="person" size={24} color="#999" />
           
         </View>
       )}
@@ -387,13 +381,13 @@ const ChatScreen: React.FC = () => {
         <TouchableOpacity 
           onPress={() => setFilterModalVisible(true)}
         >
-          <Filter size={24} color="#000" />
+          <Ionicons name="filter" size={24} color="#000" />
         </TouchableOpacity>
       </View>
 
       <View style={styles.searchContainer}>
         <View style={styles.searchInputWrapper}>
-          <Search size={20} color="#999" style={styles.searchIcon} />
+          <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
 
           <TextInput 
             placeholder="Search Chats" 
