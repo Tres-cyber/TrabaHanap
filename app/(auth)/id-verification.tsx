@@ -17,7 +17,11 @@ import * as ImagePicker from "expo-image-picker";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { SignUpData, handleFormData } from "../../api/signup-request";
+import {
+  SignUpData,
+  handleFormData,
+  verifyApplicant,
+} from "../../api/signup-request";
 
 const ID_TYPES = [
   { id: "national_id", label: "National ID (PhilSys)" },
@@ -45,33 +49,69 @@ export default function IDVerification() {
       backImage: backImage,
     });
 
-    handleFormData();
+    verifyApplicant();
 
     setSuccessModalVisible(true);
   };
 
   const pickImage = async (type: "front" | "back") => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.5,
-    });
+    try {
+      // Use lower quality for Android to ensure smaller file sizes
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: Platform.OS === "android" ? 0.2 : 0.5, // Much lower quality on Android to ensure smaller files
+        exif: false, // Don't need extra metadata
+      });
 
-    if (!result.canceled) {
-      const fileSize = result.assets[0].fileSize;
-      const maxSize = 1 * 1024 * 1024; // 1MB
+      if (!result.canceled) {
+        // Get file size if available (works reliably on iOS)
+        const fileSize = result.assets[0].fileSize;
+        console.log(
+          `Selected image details - Width: ${result.assets[0].width}, Height: ${
+            result.assets[0].height
+          }, Size: ${fileSize || "Unknown"} bytes`
+        );
 
-      if (fileSize && fileSize > maxSize) {
-        alert("Image size exceeds 1MB limit. Please select a smaller image.");
-        return;
+        const maxSize = 1 * 1024 * 1024; // 1MB
+
+        // On iOS, fileSize is reliable
+        if (fileSize && fileSize > maxSize) {
+          alert(
+            `Image size (${(fileSize / 1024 / 1024).toFixed(
+              2
+            )}MB) exceeds 1MB limit. Please select a smaller image.`
+          );
+          return;
+        }
+
+        // On Android, use the dimensions as a heuristic for large images
+        if (Platform.OS === "android") {
+          // If width or height is very large, the image is likely too big
+          const { width, height } = result.assets[0];
+
+          // Calculate approximate size based on dimensions and 3 bytes per pixel (RGB)
+          // This is very rough but helps catch obviously large images
+          const estimatedSize =
+            (width * height * 3) / (Platform.OS === "android" ? 5 : 1); // Divide by 5 to account for compression
+          console.log(`Estimated image size: ${estimatedSize} bytes`);
+
+          if (estimatedSize > maxSize) {
+            alert("Image is too large. Please select a smaller image.");
+            return;
+          }
+        }
+
+        if (type === "front") {
+          setFrontImage(result.assets[0].uri);
+        } else {
+          setBackImage(result.assets[0].uri);
+        }
       }
-
-      if (type === "front") {
-        setFrontImage(result.assets[0].uri);
-      } else {
-        setBackImage(result.assets[0].uri);
-      }
+    } catch (error) {
+      console.error("Error picking image:", error);
+      alert("There was an error selecting the image. Please try again.");
     }
   };
 
