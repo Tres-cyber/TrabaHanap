@@ -105,3 +105,24 @@ export const getSignUpUserType = () => {
 export const clearFormData = () => {
   formData = new FormData();
 };
+
+export const verifyApplicant = async () => {
+  try {
+    const response = await axios.post(
+      `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/verify-applicant`,
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Error creating applicant:",
+      error.response?.data?.error || error.message
+    );
+
+    return error.response?.data?.error || "Failed to create applicant";
+  }
+};

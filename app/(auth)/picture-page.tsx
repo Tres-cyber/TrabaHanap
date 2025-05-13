@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Image,
+  Platform,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -17,31 +18,59 @@ export default function ProfilePictureScreen() {
   const [profileImage, setProfileImage] = useState<string | null>(null);
 
   const openImagePicker = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-    if (status !== "granted") {
-      alert("Sorry, we need camera roll permissions to make this work!");
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.5,
-    });
-
-    if (!result.canceled) {
-      // Check if the image file size is greater than 1MB (1,048,576 bytes)
-      const fileSize = result.assets[0].fileSize;
-      const maxSize = 1 * 1024 * 1024; // 1MB
-
-      if (fileSize && fileSize > maxSize) {
-        alert("Image size exceeds 1MB limit. Please select a smaller image.");
+      if (status !== "granted") {
+        alert("Sorry, we need camera roll permissions to make this work!");
         return;
       }
 
-      setProfileImage(result.assets[0].uri);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: Platform.OS === "android" ? 0.2 : 0.5, // Lower quality on Android
+        exif: false, // Don't need extra metadata
+      });
+
+      if (!result.canceled) {
+        // Get file size if available (works reliably on iOS)
+        const fileSize = result.assets[0].fileSize;
+        console.log(
+          `Profile image details - Width: ${result.assets[0].width}, Height: ${result.assets[0].height}, Size: ${fileSize || "Unknown"} bytes`
+        );
+
+        const maxSize = 1 * 1024 * 1024; // 1MB
+
+        // On iOS, fileSize is reliable
+        if (fileSize && fileSize > maxSize) {
+          alert(
+            `Image size (${(fileSize / 1024 / 1024).toFixed(2)}MB) exceeds 1MB limit. Please select a smaller image.`
+          );
+          return;
+        }
+
+        // On Android, use the dimensions as a heuristic for large images
+        if (Platform.OS === "android") {
+          // If width or height is very large, the image is likely too big
+          const { width, height } = result.assets[0];
+
+          // Calculate approximate size based on dimensions and 3 bytes per pixel (RGB)
+          const estimatedSize = (width * height * 3) / (Platform.OS === "android" ? 5 : 1); // Divide by 5 to account for compression
+          console.log(`Estimated profile image size: ${estimatedSize} bytes`);
+
+          if (estimatedSize > maxSize) {
+            alert("Image is too large. Please select a smaller image.");
+            return;
+          }
+        }
+
+        setProfileImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error("Error picking profile image:", error);
+      alert("There was an error selecting the image. Please try again.");
     }
   };
 
