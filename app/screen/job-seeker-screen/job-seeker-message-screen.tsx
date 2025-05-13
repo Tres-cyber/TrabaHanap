@@ -17,24 +17,8 @@ import {
   ScrollView,
   Alert
 } from 'react-native';
-import { 
-  ArrowLeft,
-  MoreVertical,
-  Paperclip,
-  Send,
-  Phone,
-  Video,
-  Info,
-  AlertCircle,
-  Bell,
-  X,
-  Trash2,
-  UserX,
-  Flag,
-  DollarSign
-} from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import io, { Socket } from 'socket.io-client';
@@ -132,16 +116,20 @@ const ChatScreen: React.FC<ChatProps> = ({
   };
   const menuOptions: MenuOption[] = [
     { 
-      icon: <Trash2 size={18} color="#777" />, 
+      icon: <Ionicons name="trash" size={18} color="#777" />, 
       label: 'Delete conversation',
       onPress: () => handleDeleteChat(chatId as string)
     },
     { 
-      icon: <UserX size={18} color="#777" />, 
+      icon: <Ionicons name="person-remove" size={18} color="#777" />, 
       label: isBlocked ? 'Unblock' : 'Block',
       onPress: isBlocked ? () => handleUnblockUser() : () => setBlockModalVisible(true)
     },
-    { icon: <Flag size={18} color="#777" />, label: 'Report', onPress: undefined }
+    { 
+      icon: <Ionicons name="flag" size={18} color="#777" />, 
+      label: 'Report', 
+      onPress: undefined 
+    },
   ];
   const canDeleteForEveryone = (msg: any) => {
     if (!msg || !msg.sentAt) return false;
@@ -1067,7 +1055,7 @@ return isVisibleToUser ? (
         Platform.OS === 'android' && styles.androidHeader
       ]}>
         <TouchableOpacity onPress={handleBack}>
-          <ArrowLeft size={24} color="#000" />
+          <Ionicons name="chevron-back" size={24} color="#000" />
         </TouchableOpacity>
         
         <View style={styles.headerUserInfo}>
@@ -1096,13 +1084,13 @@ return isVisibleToUser ? (
           onPress={toggleModal}
           style={styles.moreButton}
         >
-          <MoreVertical size={24} color="#000" />
+          <Ionicons name="ellipsis-vertical" size={24} color="#000" />
         </TouchableOpacity>
       </View>
       
       {(currentOffer && currentOfferStatus =='pending') &&  showOfferBanner && (
         <View style={styles.offerNoticeBanner}>
-          <DollarSign size={16} color="#fff" />
+          <Ionicons name="cash" size={16} color="#fff" />
           <Text style={styles.offerNoticeText}>
             You've sent an offer of ₱{currentOffer.offerAmount}
           </Text>
@@ -1175,7 +1163,7 @@ return isVisibleToUser ? (
             <View style={styles.offerModalHeader}>
               <Text style={styles.offerModalTitle}>Make an Offer</Text>
               <TouchableOpacity onPress={closeOfferModal}>
-                <X size={24} color="#666" />
+                <Ionicons name="close" size={24} color="#666" />
               </TouchableOpacity>
             </View>
             
@@ -1273,7 +1261,7 @@ return isVisibleToUser ? (
      
       {isBlocked ? (
         <View style={styles.blockedContainer}>
-          <UserX size={50} color="#ff3b30" />
+          <Ionicons name="person-remove" size={50} color="#ff3b30" />
           <Text style={styles.blockedText}>
             You have blocked {receiverName}
           </Text>
@@ -1291,7 +1279,7 @@ return isVisibleToUser ? (
           style={styles.inputContainer}
         >
           <TouchableOpacity style={styles.attachButton} onPress={handleAttachPress}>
-            <Paperclip size={24} color="#999" />
+            <Ionicons name="attach" size={24} color="#999" />
           </TouchableOpacity>
           
           <TextInput
@@ -1310,7 +1298,7 @@ return isVisibleToUser ? (
             onPress={() => handleSendMessage(messageInput, 'text')}
             disabled={messageInput.trim().length === 0}
           >
-            <Send size={20} color="#fff" />
+            <Ionicons name="send" size={20} color="#fff" />
           </TouchableOpacity>
         </KeyboardAvoidingView>
       )}

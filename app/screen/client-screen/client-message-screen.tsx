@@ -19,25 +19,10 @@ import {
   AppState
 } from 'react-native';
 import { 
-  ArrowLeft,
-  MoreVertical,
-  Paperclip,
-  Send,
-  Phone,
-  Video,
-  Info,
-  AlertCircle,
-  Bell,
-  X,
-  Trash2,
-  UserX,
-  Flag,
-  Check,
-  XCircle,
-  User,
-  DollarSign,
-  Rss
-} from 'lucide-react-native';
+  MaterialIcons,
+  Ionicons,
+  MaterialCommunityIcons 
+} from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter,useGlobalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -675,7 +660,7 @@ const ChatScreen: React.FC<ChatProps> = ({
 
   const getPendingMenuOptions = (): MenuOption[] => [
     { 
-      icon: <User size={18} color="#777" />, 
+      icon: <MaterialIcons name="person" size={18} color="#777" />, 
       label: 'View Profile', 
       onPress: () => router.push({
         pathname: '/screen/profile/view-profile/view-page-job-seeker',
@@ -686,16 +671,20 @@ const ChatScreen: React.FC<ChatProps> = ({
   
   const getAcceptedMenuOptions = (): MenuOption[] => [
     { 
-      icon: <Trash2 size={18} color="#777" />, 
+      icon: <MaterialIcons name="delete" size={18} color="#777" />, 
       label: 'Delete conversation',
       onPress: () => handleDeleteChat(chatId as string)
     },
     { 
-      icon: <UserX size={18} color="#777" />, 
+      icon: <MaterialIcons name="person-off" size={18} color="#777" />, 
       label: isBlocked ? 'Unblock' : 'Block', 
       onPress: isBlocked ? handleUnblockUser : () => setBlockModalVisible(true)
     },
-    { icon: <Flag size={18} color="#777" />, label: 'Report', onPress: undefined },
+    { 
+      icon: <MaterialIcons name="flag" size={18} color="#777" />, 
+      label: 'Report', 
+      onPress: undefined 
+    },
   ];
 
   const handleBack = () => {
@@ -1176,7 +1165,7 @@ return isVisibleToUser ? (
         Platform.OS === 'ios' ? styles.iosHeader : styles.androidHeader
       ]}>
         <TouchableOpacity onPress={handleBack}>
-          <ArrowLeft size={24} color="#000" />
+          <MaterialIcons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         
 
@@ -1209,7 +1198,7 @@ return isVisibleToUser ? (
           onPress={toggleMenuModal}
           style={styles.moreButton}
         >
-          <MoreVertical size={24} color="#000" />
+          <MaterialIcons name="more-vert" size={24} color="#000" />
         </TouchableOpacity>
       </View>
       
@@ -1223,14 +1212,14 @@ return isVisibleToUser ? (
               style={styles.rejectButton}
               onPress={handleRejectChat}
             >
-              <XCircle size={20} color="#fff" />
+              <MaterialIcons name="cancel" size={20} color="#fff" />
               <Text style={styles.actionButtonText}>Reject</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.acceptButton}
               onPress={handleAcceptChat}
             >
-              <Check size={20} color="#fff" />
+              <MaterialIcons name="check" size={20} color="#fff" />
               <Text style={styles.actionButtonText}>Accept</Text>
             </TouchableOpacity>
           </View>
@@ -1240,7 +1229,7 @@ return isVisibleToUser ? (
       {currentChatStatus  === 'approved' && currentOfferStatus == 'pending' && offerModalVisible && (
         <View style={styles.offerBanner}>
           <View style={styles.offerContent}>
-            <DollarSign size={24} color="#0b8043" style={styles.offerIcon} />
+            <MaterialIcons name="attach-money" size={24} color="#0b8043" style={styles.offerIcon} />
             <View style={styles.offerTextContainer}>
               <Text style={styles.offerTitle}>Payment Offer: {offerAmount}</Text>
               <Text style={styles.offerDescription}>
@@ -1253,14 +1242,14 @@ return isVisibleToUser ? (
               style={styles.offerRejectButton}
                onPress={handleRejectOffer}
             >
-              <XCircle size={20} color="#fff" />
+              <MaterialIcons name="cancel" size={20} color="#fff" />
               <Text style={styles.actionButtonText}>Decline</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.offerAcceptButton}
               onPress={handleInitiateAcceptOffer}
             >
-              <Check size={20} color="#fff" />
+              <MaterialIcons name="check" size={20} color="#fff" />
               <Text style={styles.actionButtonText}>Accept</Text>
             </TouchableOpacity>
           </View>
@@ -1442,7 +1431,7 @@ return isVisibleToUser ? (
         <>
           {isBlocked ? (
             <View style={styles.blockedContainer}>
-              <UserX size={50} color="#ff3b30" />
+              <MaterialIcons name="person-off" size={50} color="#ff3b30" />
               <Text style={styles.blockedText}>
                 You have blocked {receiverName}
               </Text>
@@ -1460,7 +1449,7 @@ return isVisibleToUser ? (
               style={styles.inputContainer}
             >
               <TouchableOpacity style={styles.attachButton} onPress={handleAttachPress}>
-                <Paperclip size={24} color="#999" />
+                <MaterialIcons name="attach-file" size={24} color="#999" />
               </TouchableOpacity>
 
               <ActionSheet
@@ -1486,7 +1475,7 @@ return isVisibleToUser ? (
                 onPress={handleSendMessage}
                 disabled={messageInput.trim().length === 0}
               >
-                <Send size={20} color="#fff" />
+                <MaterialIcons name="send" size={20} color="#fff" />
               </TouchableOpacity>
             </KeyboardAvoidingView>
           )}
@@ -1495,7 +1484,7 @@ return isVisibleToUser ? (
       
       {currentChatStatus  === 'rejected' && (
         <View style={styles.rejectedContainer}>
-          <AlertCircle size={50} color="#ff3b30" />
+          <MaterialIcons name="error" size={50} color="#ff3b30" />
           <Text style={styles.rejectedText}>
             You've rejected this chat request
           </Text>
@@ -1753,8 +1742,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     marginTop: 5,
   },
-  acceptButton: {
-    backgroundColor: '#34c759', 
+  rejectButton: {
+    backgroundColor: '#ff3b30',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1763,8 +1752,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     minWidth: 100,
   },
-  rejectButton: {
-    backgroundColor: '#ff3b30',
+  acceptButton: {
+    backgroundColor: '#34c759', 
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
