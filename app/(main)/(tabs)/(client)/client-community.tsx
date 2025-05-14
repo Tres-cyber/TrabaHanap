@@ -88,6 +88,7 @@ const SocialFeedScreen = () => {
   const [username, setUsername] = useState<string>("");
   const [data, setData] = useState<any>(null);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
 
   const {
     data: fetchedPosts = [],
@@ -234,6 +235,10 @@ const SocialFeedScreen = () => {
       setNewPostText("");
       setSelectedImage(null);
       setShowCreatePost(false);
+      setShowSuccessModal(true);
+      setTimeout(() => {
+        setShowSuccessModal(false);
+      }, 2000);
     } catch (error) {
       Alert.alert("Error", "Failed to create post");
     }
@@ -775,6 +780,20 @@ const SocialFeedScreen = () => {
           )}
         </SafeAreaView>
       </Modal>
+
+      <Modal
+        transparent
+        visible={showSuccessModal}
+        animationType="fade"
+        onRequestClose={() => setShowSuccessModal(false)}
+      >
+        <View style={styles.successModalOverlay}>
+          <View style={styles.successModalContainer}>
+            <Ionicons name="checkmark-circle" size={50} color="#0b8043" />
+            <Text style={styles.successModalText}>Post uploaded successfully!</Text>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -1137,6 +1156,27 @@ const styles = StyleSheet.create({
   },
   noPostsText: {
     color: "#666",
+  },
+  successModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  successModalContainer: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '80%',
+    maxWidth: 300,
+  },
+  successModalText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#333',
+    textAlign: 'center',
   },
 });
 
