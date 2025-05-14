@@ -37,12 +37,20 @@ export default function IDVerification() {
   const [selectedID, setSelectedID] = useState<string | null>(null);
   const [frontImage, setFrontImage] = useState<string | null>(null);
   const [backImage, setBackImage] = useState<string | null>(null);
+  const [termsAgreed, setTermsAgreed] = useState(false);
+  const [showTermsError, setShowTermsError] = useState(false);
 
   const handleBack = () => {
     router.back();
   };
 
   const handleSubmit = () => {
+    if (!termsAgreed) {
+      setShowTermsError(true);
+      return;
+    }
+    setShowTermsError(false);
+
     SignUpData({
       idType: selectedID,
       frontImage: frontImage,
@@ -176,14 +184,42 @@ export default function IDVerification() {
           </TouchableOpacity>
         </View>
 
+        {/* Terms and Conditions Checkbox */}
+        <View style={styles.termsContainer}>
+          <TouchableOpacity
+            style={styles.checkboxContainer}
+            onPress={() => {
+              setTermsAgreed(!termsAgreed);
+              setShowTermsError(false);
+            }}
+          >
+            <View style={[styles.checkbox, termsAgreed && styles.checkboxChecked]}>
+              {termsAgreed && <Ionicons name="checkmark" size={16} color="#fff" />}
+            </View>
+            <Text style={styles.termsText}>
+              I agree to the{" "}
+              <Text style={styles.termsLink} onPress={() => router.push("/screen/terms-conditions")}>
+                Terms and Conditions
+              </Text>{" "}
+              and{" "}
+              <Text style={styles.termsLink} onPress={() => router.push("/screen/privacy-policy")}>
+                Privacy Policy
+              </Text>
+            </Text>
+          </TouchableOpacity>
+          {showTermsError && (
+            <Text style={styles.errorText}>You must agree to the terms and conditions to proceed</Text>
+          )}
+        </View>
+
         {/* Submit Button */}
         <TouchableOpacity
           style={[
             styles.submitButton,
-            (!selectedID || !frontImage || !backImage) &&
+            (!selectedID || !frontImage || !backImage || !termsAgreed) &&
               styles.submitButtonDisabled,
           ]}
-          disabled={!selectedID || !frontImage || !backImage}
+          disabled={!selectedID || !frontImage || !backImage || !termsAgreed}
           onPress={handleSubmit}
         >
           <Text style={styles.submitButtonText}>Submit Verification</Text>
@@ -423,5 +459,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     textAlign: "center",
+  },
+  termsContainer: {
+    marginBottom: 20,
+  },
+  checkboxContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderWidth: 2,
+    borderColor: "#0A1747",
+    borderRadius: 4,
+    marginRight: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkboxChecked: {
+    backgroundColor: "#0A1747",
+  },
+  termsText: {
+    fontSize: 14,
+    color: "#666",
+    flex: 1,
+  },
+  termsLink: {
+    color: "#0A1747",
+    textDecorationLine: "underline",
+  },
+  errorText: {
+    color: "#FF0000",
+    fontSize: 12,
+    marginTop: 5,
+    marginLeft: 34,
   },
 });
