@@ -42,6 +42,7 @@ interface WorkerData {
   feedbacks: Feedback[];
   jobsDone: number;
   joinedAt: string;
+  isVerified: boolean;
 }
 
 interface Achievement {
@@ -127,6 +128,7 @@ const UtilityWorkerProfile: React.FC = () => {
           : '',
         feedbacks: reviewsData || [],
         joinedAt: profileData.joinedAt || '',
+        isVerified: profileData.isVerified || false,
       };
       
       setWorker(combinedData);
@@ -285,7 +287,16 @@ const UtilityWorkerProfile: React.FC = () => {
           style={styles.profileImage} 
         />
         <View style={styles.headerInfo}>
-          <Text style={styles.name}>{worker.name}</Text>
+          <View style={styles.nameContainer}>
+            <Text style={styles.name}>{worker.name}</Text>
+            <View style={[styles.verifiedBadge, !worker.isVerified && styles.unverifiedBadge]}>
+              <Ionicons 
+                name="checkmark-circle" 
+                size={20} 
+                color={worker.isVerified ? "#4CAF50" : "#9E9E9E"} 
+              />
+            </View>
+          </View>
           <View style={styles.addressContainer}>
             <Ionicons name="location-outline" size={16} color="#666" />
             <Text style={styles.address}>{worker.address}</Text>
@@ -441,11 +452,15 @@ const styles = StyleSheet.create({
     marginLeft: 16,
     flex: 1,
   },
+  nameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   name: {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 4,
   },
   addressContainer: {
     flexDirection: 'row',
@@ -732,6 +747,17 @@ const styles = StyleSheet.create({
   },
   emptyAchievementCard: {
     opacity: 0.7,
+  },
+  verifiedBadge: {
+    marginLeft: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E8F5E9',
+    borderRadius: 12,
+    padding: 2,
+  },
+  unverifiedBadge: {
+    backgroundColor: '#F5F5F5',
   },
 });
 
