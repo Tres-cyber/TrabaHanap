@@ -16,22 +16,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SettingsScreen = () => {
   const router = useRouter();
-  const [tagalogLanguage, setTagalogLanguage] = useState(false);
-  const [notifications, setNotifications] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
 
   const handleGoBack = () => {
     router.back();
-  };
-
-  const handleLanguageToggle = () => {
-    setTagalogLanguage(!tagalogLanguage);
-    // Here you would typically save the language preference
-    Alert.alert(
-      tagalogLanguage ? 'Language' : 'Wika',
-      tagalogLanguage ? 'Switched to English' : 'Pinalitan sa Tagalog'
-    );
   };
 
   const handlePrivacyPolicy = () => {
@@ -66,50 +54,6 @@ const SettingsScreen = () => {
       </TouchableOpacity>
 
       <Text style={styles.title}>Settings</Text>
-
-      {/* General Settings Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>General</Text>
-        
-        <View style={styles.settingItem}>
-          <View style={styles.settingLeft}>
-            <MaterialIcons name="language" size={24} color="#0B153C" />
-            <Text style={styles.settingText}>Tagalog Language</Text>
-          </View>
-          <Switch
-            value={tagalogLanguage}
-            onValueChange={handleLanguageToggle}
-            trackColor={{ false: "#767577", true: "#0B153C" }}
-            thumbColor={tagalogLanguage ? "#fff" : "#f4f3f4"}
-          />
-        </View>
-
-        <View style={styles.settingItem}>
-          <View style={styles.settingLeft}>
-            <Ionicons name="notifications-outline" size={24} color="#0B153C" />
-            <Text style={styles.settingText}>Notifications</Text>
-          </View>
-          <Switch
-            value={notifications}
-            onValueChange={setNotifications}
-            trackColor={{ false: "#767577", true: "#0B153C" }}
-            thumbColor={notifications ? "#fff" : "#f4f3f4"}
-          />
-        </View>
-
-        <View style={styles.settingItem}>
-          <View style={styles.settingLeft}>
-            <Ionicons name="moon-outline" size={24} color="#0B153C" />
-            <Text style={styles.settingText}>Dark Mode</Text>
-          </View>
-          <Switch
-            value={darkMode}
-            onValueChange={setDarkMode}
-            trackColor={{ false: "#767577", true: "#0B153C" }}
-            thumbColor={darkMode ? "#fff" : "#f4f3f4"}
-          />
-        </View>
-      </View>
 
       {/* Legal Section */}
       <View style={styles.section}>
