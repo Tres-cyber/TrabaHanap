@@ -21,6 +21,7 @@ import { AddJobRequest } from "@/api/client-request";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system";
+import * as Location from 'expo-location';
 
 const jobCategories = [
   {
@@ -91,7 +92,7 @@ export default function AddJobScreen() {
   const [titleError, setTitleError] = useState(false);
   const [positionError, setPositionError] = useState(false);
   const [successModal, setSuccessModal] = useState(false);
-
+  const [isLoading, setIsLoading] = useState(false)
   const resetForm = () => {
     setJobTitle("");
     setDescription("");
@@ -129,7 +130,44 @@ export default function AddJobScreen() {
       return true;
     }
   };
+  const getCurrentLocation = async () => {
+    setIsLoading(true);
+    try {
+      // Request permission to access location
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert('Permission denied', 'Allow location access to use this feature');
+        setIsLoading(false);
+        return;
+      }
+      
+      // Get current location coordinates
+      const currentLocation = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      
+      const { latitude, longitude } = currentLocation.coords;
+      
+      // Reverse geocode to get address
+      const addresses = await Location.reverseGeocodeAsync({ latitude, longitude });
+      console.log("The address is ",addresses);
+      if (addresses && addresses.length > 0) {
+        const address = addresses[0];
+        // Format the address as you prefer
+        const formattedAddress = [
+          address.formattedAddress
+        ].filter(Boolean).join(', ');
 
+        setLocation(formattedAddress.split(', Tuguegarao')[0].trim());
+      }
+    } catch (error) {
+      console.error('Error getting location:', error);
+      Alert.alert('Error', 'Failed to get your location');
+    } finally {
+      setIsLoading(false);
+    }
+  };
   const handleDiscardChanges = () => {
     setShowUnsavedModal(false);
     resetForm();
@@ -391,13 +429,28 @@ export default function AddJobScreen() {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.label}>Location</Text>
-        <TextInput
-          style={styles.input}
-          value={location}
-          onChangeText={setLocation}
-          placeholder="Enter location"
+        <View>
+    <Text style={styles.label}>Location</Text>
+    <View style={styles.locationContainer}>
+      <TextInput
+        style={styles.locationInput}
+        value={location}
+        onChangeText={setLocation}
+        placeholder="Enter location"
+      />
+      <TouchableOpacity 
+        style={styles.locationButton}
+        onPress={getCurrentLocation}
+        disabled={isLoading}
+      >
+        <Ionicons 
+          name="location" 
+          size={24} 
+          color="#fff" 
         />
+      </TouchableOpacity>
+    </View>
+  </View>
 
         <Text style={styles.label}>
           Add images ({images.length}/{MAX_IMAGES})
@@ -900,5 +953,25 @@ const styles = StyleSheet.create({
   },
   durationUnitButton: {
     flex: 1,
+  },
+  locationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  locationInput: {
+    flex: 1,
+    height: 40,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+    paddingHorizontal: 10,
+  },
+  locationButton: {
+    backgroundColor: '#007AFF',
+    padding: 8,
+    borderRadius: 5,
+    marginLeft: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

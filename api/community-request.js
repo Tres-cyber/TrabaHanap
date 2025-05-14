@@ -113,10 +113,10 @@ export async function fetchCommunityPosts() {
     console.log("Successfully processed all community posts.");
     return postsWithUsernames;
   } catch (error) {
-    console.error(
-      "Error in fetchCommunityPosts pipeline:",
-      error.code === "ECONNABORTED" ? "Timeout" : error
-    );
+    // console.error(
+    //   "Error in fetchCommunityPosts pipeline:",
+    //   error.code === "ECONNABORTED" ? "Timeout" : error
+    // );
     throw error;
   }
 }
@@ -298,7 +298,7 @@ export async function fetchPostComments(postId) {
 
     return transformedComments;
   } catch (error) {
-    console.error("Error fetching comments:", error);
+    // console.error("Error fetching comments:", error);
     throw error;
   }
 }

@@ -314,7 +314,7 @@ const UtilityWorkerProfile: React.FC = () => {
             <Text style={styles.infoValue}>
               {worker.joinedAt ? formatDate(worker.joinedAt) : 'N/A'}
             </Text>
-            <Text style={styles.infoLabel}>Date Joined</Text>
+            <Text style={styles.infoLabel}>Joined</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.infoItem}>

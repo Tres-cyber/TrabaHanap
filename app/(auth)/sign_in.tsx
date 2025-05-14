@@ -22,8 +22,35 @@ export default function SignInScreen() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
 
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
   const handleLogin = async () => {
     try {
+      // Validate empty fields
+      if (!email.trim() && !password.trim()) {
+        setMessage("Please enter both email and password");
+        return;
+      }
+
+      if (!email.trim()) {
+        setMessage("Please enter your email");
+        return;
+      }
+
+      if (!password.trim()) {
+        setMessage("Please enter your password");
+        return;
+      }
+
+      // Validate email format
+      if (!validateEmail(email)) {
+        setMessage("Please enter a valid email address");
+        return;
+      }
+
       const response = await fetch(
         `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/login`,
         {
@@ -36,7 +63,19 @@ export default function SignInScreen() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Invalid login");
+        // Handle specific error cases based on backend response
+        if (response.status === 401) {
+          if (data.error === "User not found") {
+            setMessage("Email not found. Please check your email or sign up.");
+          } else if (data.error === "Invalid password") {
+            setMessage("Incorrect password. Please try again.");
+          } else {
+            setMessage("Invalid email or password");
+          }
+        } else {
+          setMessage(data.error || "Login failed. Please try again.");
+        }
+        return;
       }
 
       await AsyncStorage.setItem("token", data.token);
@@ -46,7 +85,7 @@ export default function SignInScreen() {
       setCurrentUserId(data.user.id);
       setMessage("Login successful!");
 
-      // ✅ Initialize the socket and register the user
+      // Initialize socket and register user
       const newSocket = io(
         `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000`,
         {
@@ -57,7 +96,6 @@ export default function SignInScreen() {
       );
 
       newSocket.on("connect", () => {
-        // console.log("Connected to socket:", newSocket.id);
         newSocket.emit("register_user", data.user.id);
       });
 
@@ -71,8 +109,7 @@ export default function SignInScreen() {
           : "/(main)/(tabs)/(client)/client-home"
       );
     } catch (error) {
-      // console.error("Login error:", error);
-      setMessage("Login failed. Please check your credentials.");
+      setMessage("An error occurred. Please try again later.");
     }
   };
 
@@ -97,9 +134,13 @@ export default function SignInScreen() {
           <TextInput
             style={styles.input}
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(text) => {
+              setEmail(text);
+              setMessage(""); // Clear error message when user types
+            }}
             keyboardType="email-address"
             autoCapitalize="none"
+            placeholder="Enter your email"
           />
           <View style={styles.inputLine} />
           <Text style={styles.inputLabel}>Email</Text>
@@ -110,8 +151,12 @@ export default function SignInScreen() {
             <TextInput
               style={[styles.input, styles.passwordInput]}
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => {
+                setPassword(text);
+                setMessage(""); // Clear error message when user types
+              }}
               secureTextEntry={!showPassword}
+              placeholder="Enter your password"
             />
             {password.length > 0 && (
               <TouchableOpacity
@@ -136,7 +181,7 @@ export default function SignInScreen() {
         </View>
 
         {message ? (
-          <Text style={{ color: "red", textAlign: "center", marginBottom: 10 }}>
+          <Text style={[styles.errorMessage, message === "Login successful!" ? styles.successMessage : null]}>
             {message}
           </Text>
         ) : null}
@@ -238,5 +283,14 @@ const styles = StyleSheet.create({
   },
   eyeIcon: {
     padding: 8,
+  },
+  errorMessage: {
+    color: "red",
+    textAlign: "center",
+    marginBottom: 10,
+    fontSize: 14,
+  },
+  successMessage: {
+    color: "green",
   },
 });

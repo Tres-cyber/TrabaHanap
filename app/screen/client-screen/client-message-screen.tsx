@@ -111,6 +111,7 @@ const ChatScreen: React.FC<ChatProps> = ({
   const [isBlocked, setIsBlocked] = useState(false);
   const [blockModalVisible, setBlockModalVisible] = useState(false);
   const [blockReason, setBlockReason] = useState('');
+  const [isBlockedByJobSeeker, setIsBlockedByJobSeeker] = useState(false);
 
   const getStatusText = (item:any) => {
     if (
@@ -1156,6 +1157,30 @@ return isVisibleToUser ? (
     checkBlockStatus();
   }, [otherParticipantId]);
 
+  const checkIfBlockedByJobSeeker = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const response = await axios.get(
+        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/users/${currentUserId}/blocked-by`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      
+      // Check if the job seeker's ID is in the list of users who blocked the client
+      const isBlocked = response.data.includes(otherParticipantId);
+      setIsBlockedByJobSeeker(isBlocked);
+    } catch (error) {
+      console.error("Error checking if blocked by job seeker:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (currentUserId) {
+      checkIfBlockedByJobSeeker();
+    }
+  }, [currentUserId]);
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -1429,18 +1454,22 @@ return isVisibleToUser ? (
       
       {currentChatStatus === 'approved' && (
         <>
-          {isBlocked ? (
+          {isBlocked || isBlockedByJobSeeker ? (
             <View style={styles.blockedContainer}>
               <MaterialIcons name="person-off" size={50} color="#ff3b30" />
               <Text style={styles.blockedText}>
-                You have blocked {receiverName}
+                {isBlocked 
+                  ? `You have blocked ${receiverName}`
+                  : `${receiverName} has blocked you`}
               </Text>
-              <TouchableOpacity 
-                style={styles.unblockButton}
-                onPress={handleUnblockUser}
-              >
-                <Text style={styles.unblockButtonText}>Unblock User</Text>
-              </TouchableOpacity>
+              {isBlocked && (
+                <TouchableOpacity 
+                  style={styles.unblockButton}
+                  onPress={handleUnblockUser}
+                >
+                  <Text style={styles.unblockButtonText}>Unblock User</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : (
             <KeyboardAvoidingView

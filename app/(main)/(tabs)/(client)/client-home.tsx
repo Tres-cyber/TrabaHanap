@@ -57,7 +57,24 @@ export default function JobListingScreen() {
     router.push("/screen/search-screen");
   };
 
-  const handleNotificationPress = () => {
+  const markNotificationsAsRead = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      await fetch(`http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/notifications/mark-read`, {
+        method: 'PUT', // or 'PATCH'
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      setHasUnread(false);
+    } catch (error) {
+      console.error('Error marking notifications as read:', error);
+    }
+  };
+
+  const handleNotificationPress = async () => {
+    await markNotificationsAsRead();
     router.push("/screen/notification-screen");
   };
 
@@ -126,6 +143,38 @@ export default function JobListingScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [viewModalVisible, setViewModalVisible] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobDetails | null>(null);
+  const [userType, setUserType] = useState<'client' | 'job-seeker' | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [hasUnread, setHasUnread] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
+  
+  useEffect(() => {
+    const fetchHasUnreadNotifications = async () => {
+      setLoading(true);
+      try {
+        const token = await AsyncStorage.getItem('token');
+        const userId = await AsyncStorage.getItem('currentUserId');
+        setUserId(userId);
+        const storedUserType = await AsyncStorage.getItem('userType');
+        setUserType(storedUserType as 'client' | 'job-seeker');
+        
+        const response = await fetch(`http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/hasUnreadNotification`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        
+        const data = await response.json();
+        setHasUnread(data.hasUnread);
+      } catch (error) {
+        console.error('Error fetching unread notifications:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+  
+    fetchHasUnreadNotifications();
+  }, []);
 
   useEffect(() => {
     setTimeout(() => {
@@ -179,7 +228,14 @@ export default function JobListingScreen() {
           onPress={handleNotificationPress}
           style={styles.notificationButton}
         >
-          <Ionicons name="notifications-outline" size={24} color="#000" />
+           <View style={{ position: 'relative' }}>
+    <Ionicons name="notifications-outline" size={24} color="#000" />
+    {hasUnread && (
+      <View 
+        style={styles.notifIndicator}
+      />
+    )}
+  </View>
         </TouchableOpacity>
       </View>
 
@@ -212,6 +268,9 @@ export default function JobListingScreen() {
             .filter(
               (job: JobDetails) =>
                 job.jobStatus !== "completed" && job.jobStatus !== "reviewed"
+            )
+            .sort((a: JobDetails, b: JobDetails) => 
+              new Date(b.datePosted).getTime() - new Date(a.datePosted).getTime()
             )
             .map((job: JobDetails) => (
               <TouchableOpacity
@@ -823,5 +882,14 @@ const styles = StyleSheet.create({
     color: "#444",
     fontSize: 15,
     flexShrink: 1,
+  },
+  notifIndicator:{
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'red',
   },
 });
