@@ -126,53 +126,62 @@ const EditProfilePage: React.FC = () => {
   };
 
   const handleImagePicker = async () => {
-    const permissionResult =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-    if (permissionResult.granted === false) {
-      Alert.alert(
-        "Permission Required",
-        "Please allow access to your photo library to change profile picture."
-      );
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8, // Quality setting might slightly affect final size
-    });
-
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      const asset = result.assets[0];
-
-      // --- Image Size Check ---
-      const maxSizeInBytes = 1 * 1024 * 1024; // 1MB
-      if (asset.fileSize && asset.fileSize > maxSizeInBytes) {
+      if (permissionResult.granted === false) {
         Alert.alert(
-          "Image Too Large",
-          `Please select an image smaller than ${
-            maxSizeInBytes / 1024 / 1024
-          }MB.`
+          "Permission Required",
+          "Please allow access to your photo library to change profile picture."
         );
-        return; // Stop processing if image is too large
+        return;
       }
-      // --- End Size Check ---
 
-      const uri = asset.uri;
-      const type = asset.mimeType || "image/jpeg"; // Default type if not provided
-      const name =
-        asset.fileName || uri.split("/").pop() || `profile-${Date.now()}.jpg`; // Create a filename
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
 
-      // Update state for display
-      setFormData((prev) => ({
-        ...prev,
-        profileImage: uri, // Use local URI for display
-      }));
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
 
-      // Update state for upload
-      setSelectedImageFile({ uri, type, name });
+        // Image Size Check
+        const maxSizeInBytes = 1 * 1024 * 1024; // 1MB
+        if (asset.fileSize && asset.fileSize > maxSizeInBytes) {
+          Alert.alert(
+            "Image Too Large",
+            `Please select an image smaller than ${maxSizeInBytes / 1024 / 1024}MB.`
+          );
+          return;
+        }
+
+        // Ensure we have a valid URI
+        if (!asset.uri) {
+          Alert.alert("Error", "Failed to get image URI");
+          return;
+        }
+
+        const uri = Platform.OS === 'android' 
+          ? asset.uri 
+          : asset.uri.replace('file://', '');
+
+        const type = asset.mimeType || "image/jpeg";
+        const name = asset.fileName || `profile-${Date.now()}.jpg`;
+
+        // Update state for display
+        setFormData((prev) => ({
+          ...prev,
+          profileImage: uri,
+        }));
+
+        // Update state for upload
+        setSelectedImageFile({ uri, type, name });
+      }
+    } catch (error) {
+      console.error("Error picking image:", error);
+      Alert.alert("Error", "Failed to pick image. Please try again.");
     }
   };
 
@@ -273,16 +282,21 @@ const EditProfilePage: React.FC = () => {
     return null;
   }
 
-  // Determine image source URI based on whether a new image is selected
-  let imageUriToShow = "";
-  if (selectedImageFile) {
-    imageUriToShow = selectedImageFile.uri; // Show local selected image
-  } else if (formData.profileImage) {
-    // Show server image (if it exists)
-    imageUriToShow = `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${formData.profileImage}`;
-  } else {
-    imageUriToShow = require("assets/images/default-user.png");
-  }
+  // Modify the image source handling logic
+  const getImageSource = () => {
+    if (selectedImageFile) {
+      return { uri: selectedImageFile.uri };
+    } else if (formData.profileImage) {
+      // Ensure the profile image path is properly formatted
+      const imagePath = formData.profileImage.startsWith('http') 
+        ? formData.profileImage 
+        : `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${formData.profileImage}`;
+      return { uri: imagePath };
+    } else {
+      // For default image, use require
+      return require("assets/images/default-user.png");
+    }
+  };
 
   return (
     <View style={styles.mainContainer}>
@@ -303,8 +317,9 @@ const EditProfilePage: React.FC = () => {
           <TouchableOpacity onPress={handleImagePicker}>
             <View style={styles.profileImageContainer}>
               <Image
-                source={{ uri: imageUriToShow }}
+                source={getImageSource()}
                 style={styles.profileImage}
+                defaultSource={require("assets/images/default-user.png")}
               />
               <View style={styles.editImageButton}>
                 <Feather name="camera" size={18} color="#FFF" />

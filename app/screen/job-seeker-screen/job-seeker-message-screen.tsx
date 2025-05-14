@@ -105,6 +105,7 @@ const ChatScreen: React.FC<ChatProps> = ({
   const [blockModalVisible, setBlockModalVisible] = useState(false);
   const [blockReason, setBlockReason] = useState('');
   const [jobBudget, setJobBudget] = useState<string | null>(null);
+  const [isBlockedByClient, setIsBlockedByClient] = useState(false);
 
   const handleDeleteChat = (chatId: string) => {
     if(!socket) return;
@@ -1045,6 +1046,30 @@ return isVisibleToUser ? (
     }
   }, [jobRequestId]);
 
+  const checkIfBlockedByClient = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const response = await axios.get(
+        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/users/${currentUserId}/blocked-by`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      
+      // Check if the client's ID is in the list of users who blocked the current user
+      const isBlocked = response.data.includes(otherParticipantId);
+      setIsBlockedByClient(isBlocked);
+    } catch (error) {
+      console.error("Error checking if blocked by client:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (currentUserId) {
+      checkIfBlockedByClient();
+    }
+  }, [currentUserId]);
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -1259,18 +1284,22 @@ return isVisibleToUser ? (
         />
       
      
-      {isBlocked ? (
+      {isBlocked || isBlockedByClient ? (
         <View style={styles.blockedContainer}>
           <Ionicons name="person-remove" size={50} color="#ff3b30" />
           <Text style={styles.blockedText}>
-            You have blocked {receiverName}
+            {isBlocked 
+              ? `You have blocked ${receiverName}`
+              : `${receiverName} has blocked you`}
           </Text>
-          <TouchableOpacity 
-            style={styles.unblockButton}
-            onPress={handleUnblockUser}
-          >
-            <Text style={styles.unblockButtonText}>Unblock User</Text>
-          </TouchableOpacity>
+          {isBlocked && (
+            <TouchableOpacity 
+              style={styles.unblockButton}
+              onPress={handleUnblockUser}
+            >
+              <Text style={styles.unblockButtonText}>Unblock User</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <KeyboardAvoidingView

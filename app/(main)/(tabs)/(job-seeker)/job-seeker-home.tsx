@@ -51,7 +51,7 @@ export default function JobListingScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>("bestMatch");
   const [jobRequests, setJobRequests] = useState<JobRequest[]>([]);
-  const [myJobs, setMyJobs] = useState<JobRequest[]>([]);
+  const [myJobs1, setMyJobs] = useState<JobRequest[]>([]);
   const [jobSeeker, setJobSeeker] = useState<JobSeeker | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -60,6 +60,37 @@ export default function JobListingScreen() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [rating, setRating] = useState<number>(0);
   const [feedback, setFeedback] = useState<string>("");
+  const [userType, setUserType] = useState<'client' | 'job-seeker' | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [hasUnread, setHasUnread] = useState<boolean>(false);
+  
+  useEffect(() => {
+    const fetchHasUnreadNotifications = async () => {
+      setLoading(true);
+      try {
+        const token = await AsyncStorage.getItem('token');
+        const userId = await AsyncStorage.getItem('currentUserId');
+        setUserId(userId);
+        const storedUserType = await AsyncStorage.getItem('userType');
+        setUserType(storedUserType as 'client' | 'job-seeker');
+        
+        const response = await fetch(`http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/hasUnreadNotification`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        
+        const data = await response.json();
+        setHasUnread(data.hasUnread);
+      } catch (error) {
+        console.error('Error fetching unread notifications:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+  
+    fetchHasUnreadNotifications();
+  }, []);
   const fetchData = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
@@ -83,7 +114,7 @@ export default function JobListingScreen() {
       );
       console.log(myJobsResponse);
       const myJobsData = await myJobsResponse.json();
-      setMyJobs(myJobsData);
+      setMyJobs(myJobsData.sort((a: JobRequest, b: JobRequest) => new Date(b.datePosted).getTime() - new Date(a.datePosted).getTime()));
 
       const tagsResponse = await fetch(
         `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/job-seeker/tags`,
@@ -156,32 +187,61 @@ export default function JobListingScreen() {
     fetchData();
   };
 
-  const matchingJobs = jobRequests.filter((job) =>
-
-    jobSeeker?.jobTags.some(
-      (tag) => tag.toLowerCase() === job.category.toLowerCase()
+  const matchingJobs = jobRequests
+    .filter((job) =>
+      jobSeeker?.jobTags.some(
+        (tag) => tag.toLowerCase() === job.category.toLowerCase()
+      )
     )
-  );
+    .sort((a, b) => new Date(b.datePosted).getTime() - new Date(a.datePosted).getTime());
   
-  const otherJobs = jobRequests.filter((job) =>
-    !jobSeeker?.jobTags.some(
-      (tag) => tag.toLowerCase() === job.category.toLowerCase()
+  const otherJobs = jobRequests
+    .filter((job) =>
+      !jobSeeker?.jobTags.some(
+        (tag) => tag.toLowerCase() === job.category.toLowerCase()
+      )
     )
+    .sort((a, b) => new Date(b.datePosted).getTime() - new Date(a.datePosted).getTime());
 
-  );
+  const myJobs = myJobs1
+    .sort((a, b) => new Date(b.datePosted).getTime() - new Date(a.datePosted).getTime());
 
   const handleProfilePress = () => {
     router.push("../../../screen/profile/profile-screen");
   };
   
-  const handleNotificationPress = () => {
+  const markNotificationsAsRead = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const response = await fetch(`http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/notifications/mark-read`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to mark notifications as read');
+      }
+
+      const data = await response.json();
+      console.log('Notifications marked as read:', data);
+      setHasUnread(false);
+    } catch (error) {
+      console.error('Error marking notifications as read:', error);
+    }
+  };
+
+  const handleNotificationPress = async () => {
+    await markNotificationsAsRead();
     router.push('/screen/notification-screen-jobseeker');
   };
 
   const displayedJobs = 
   activeTab === "bestMatch" ? matchingJobs :
   activeTab === "otherJobs" ? otherJobs :
-  myJobs;
+  myJobs1;
   
   return (
     <SafeAreaView style={styles.container}>
@@ -211,7 +271,14 @@ export default function JobListingScreen() {
           style={styles.notificationButton}
           onPress={handleNotificationPress}
         >
-          <Ionicons name="notifications-outline" size={24} color="#000" />
+        <View style={{ position: 'relative' }}>
+        <Ionicons name="notifications-outline" size={24} color="#000" />
+        {hasUnread && (
+          <View 
+            style={styles.notifIndicator}
+          />
+        )}
+      </View>
         </TouchableOpacity>
       </View>
 
@@ -338,7 +405,7 @@ export default function JobListingScreen() {
                         <View style={styles.applicantCountContainer}>
                           <Ionicons name="people-outline" size={14} color="#666" />
                           <Text style={styles.applicantCountText}>
-                            {job.applicantCount} applicant{job.applicantCount === 1 ? "" : "s"}
+                            {job.applicantCount} applicant{job.applicantCount >1 ? "s" : ""}
                           </Text>
                         </View>
                       </View>
@@ -439,7 +506,7 @@ export default function JobListingScreen() {
                       const reviewerId = userData.id;
                       const userType = userData.userType;
                       // Find the job object for the selectedJobId
-                      const job = myJobs.find((job) => job.id === selectedJobId);
+                      const job = myJobs1.find((job) => job.id === selectedJobId);
                       const reviewedId = job?.client.id;
                       const response = await fetch(
                         `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/jobrequest/verify/${selectedJobId}`,
@@ -776,5 +843,14 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "500",
+  },
+  notifIndicator:{
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'red',
   },
 });
