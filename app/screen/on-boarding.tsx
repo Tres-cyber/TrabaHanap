@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -33,6 +34,29 @@ const OnboardingScreen: React.FC = () => {
   const slideAnim = useRef(new Animated.Value(50)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   
+  useEffect(() => {
+    checkOnboardingStatus();
+  }, []);
+
+  const checkOnboardingStatus = async () => {
+    try {
+      const hasSeenOnboarding = await AsyncStorage.getItem('hasSeenOnboarding');
+      if (hasSeenOnboarding === 'true') {
+        router.replace('/(auth)/option');
+      }
+    } catch (error) {
+      console.error('Error checking onboarding status:', error);
+    }
+  };
+
+  const markOnboardingAsComplete = async () => {
+    try {
+      await AsyncStorage.setItem('hasSeenOnboarding', 'true');
+    } catch (error) {
+      console.error('Error saving onboarding status:', error);
+    }
+  };
+
   useEffect(() => {
     // Reset animations
     fadeAnim.setValue(0);
@@ -82,18 +106,18 @@ const OnboardingScreen: React.FC = () => {
     },
   ];
 
-  const goToNextPage = (): void => {
+  const goToNextPage = async (): Promise<void> => {
     if (currentPage < onboardingData.length - 1) {
       setCurrentPage(currentPage + 1);
     } else {
-      // Navigate to the main app using Expo Router
-      router.replace('/(auth)/option');  // Navigate to the home/index route
+      await markOnboardingAsComplete();
+      router.replace('/(auth)/option');
     }
   };
 
-  const skipOnboarding = (): void => {
-    // Skip onboarding and go directly to main app using Expo Router
-    router.replace('/(auth)/option');  // Navigate to the home/index route
+  const skipOnboarding = async (): Promise<void> => {
+    await markOnboardingAsComplete();
+    router.replace('/(auth)/option');
   };
 
   const renderDots = (): JSX.Element => {
