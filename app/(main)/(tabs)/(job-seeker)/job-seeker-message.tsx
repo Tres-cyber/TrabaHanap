@@ -53,6 +53,7 @@ const ChatScreen: React.FC = () => {
   const [currentUserId,setCurrentUserId] = useState<string>('');
   const [filteredSearchedChats, setFilteredSearchedChats] = useState<Chat[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [navigatingChatId, setNavigatingChatId] = useState<string | null>(null);
 
   const handleDeleteChat = (chatId: string) => {
     if(!socket) return;
@@ -99,12 +100,18 @@ const ChatScreen: React.FC = () => {
     fetchChats();
   };
 
-  const handleChatPress = (chatId: string,participantName: string,chatStatus:string,jobId:string,offerStatus:string,otherParticipantId:string,profileImage:string) => {
-    router.push({
-      pathname: "../../../screen/job-seeker-screen/job-seeker-message-screen",
-      params: { chatId,receiverName: participantName,chatStatus: chatStatus,jobId:jobId ,offerStatus,otherParticipantId,profileImage},
-      
-    });
+  const handleChatPress = async (chatId: string, participantName: string, chatStatus: string, jobId: string, offerStatus: string, otherParticipantId: string, profileImage: string) => {
+    try {
+      setNavigatingChatId(chatId);
+      await router.push({
+        pathname: "../../../screen/job-seeker-screen/job-seeker-message-screen",
+        params: { chatId, receiverName: participantName, chatStatus: chatStatus, jobId: jobId, offerStatus, otherParticipantId, profileImage },
+      });
+    } catch (error) {
+      console.error('Navigation error:', error);
+    } finally {
+      setNavigatingChatId(null);
+    }
   };
 
   const formatTime = (dateString: string | number | Date) => {
@@ -249,32 +256,44 @@ const ChatScreen: React.FC = () => {
 
   const renderChatItem = ({ item }: { item: Chat }) => (
     <TouchableOpacity 
-      style={styles.ChatContainer}
-
+      style={[
+        styles.ChatContainer,
+        navigatingChatId === item.id && styles.disabledChat
+      ]}
       onLongPress={() => {
+        if (navigatingChatId === item.id) return;
         setSelectedChat(item);
         setChatOptionsModalVisible(true);
       }}
-      onPress={() => handleChatPress(item.id, item.participantName, item.chatStatus,item.jobId,item.offerStatus,item.otherParticipantId,item.profileImage)} 
-
+      onPress={() => {
+        if (navigatingChatId === item.id) return;
+        handleChatPress(
+          item.id, 
+          item.participantName, 
+          item.chatStatus,
+          item.jobId,
+          item.offerStatus,
+          item.otherParticipantId,
+          item.profileImage
+        );
+      }}
+      disabled={navigatingChatId === item.id}
     >
-      
       {item.profileImage ? (
         <Image 
-            source={{ 
-              uri: item.profileImage 
-                ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${
-                    item.profileImage.split("profiles/")[1] || ''
-                  }`
-                : undefined 
-            }}
-            style={styles.avatarPlaceholder}
-            defaultSource={require('assets/images/client-user.png')}
-          />
+          source={{ 
+            uri: item.profileImage 
+              ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${
+                  item.profileImage.split("profiles/")[1] || ''
+                }`
+              : undefined 
+          }}
+          style={styles.avatarPlaceholder}
+          defaultSource={require('assets/images/client-user.png')}
+        />
       ) : (
         <View style={styles.avatarPlaceholder}>
           <Ionicons name="person" size={24} color="#999" />
-          
         </View>
       )}
       <View style={styles.ChatContent}>
@@ -297,11 +316,16 @@ const ChatScreen: React.FC = () => {
             item.lastMessage ?? 'No messages yet'
           )}
         </Text>
-        <Text style={styles.ChatDate}>{ formatTime(item.lastMessageTime+'') || formatTime(item.createdAt)||'fdsfads'}</Text>
+        <Text style={styles.ChatDate}>{formatTime(item.lastMessageTime+'') || formatTime(item.createdAt) || ''}</Text>
       </View>
-      {item.chatStatus === 'approved' && <View style={[styles.statusIndicator, styles.activeStatus]} />}
-      {item.chatStatus === 'pending' && <View style={[styles.statusIndicator, styles.pendingStatus]} />}
-     
+      {navigatingChatId === item.id ? (
+        <ActivityIndicator size="small" color="#0b216f" style={styles.navigationLoading} />
+      ) : (
+        <>
+          {item.chatStatus === 'approved' && <View style={[styles.statusIndicator, styles.activeStatus]} />}
+          {item.chatStatus === 'pending' && <View style={[styles.statusIndicator, styles.pendingStatus]} />}
+        </>
+      )}
     </TouchableOpacity>
   );
 
@@ -592,7 +616,13 @@ const styles = StyleSheet.create({
   
   clearButtonText: {
     color: '#999',
-  }
+  },
+  disabledChat: {
+    opacity: 0.7,
+  },
+  navigationLoading: {
+    marginLeft: 8,
+  },
 });
 
 export default ChatScreen;

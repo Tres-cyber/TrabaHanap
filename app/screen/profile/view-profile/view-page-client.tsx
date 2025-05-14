@@ -395,7 +395,7 @@ const UtilityWorkerProfile: React.FC = () => {
                   <Text style={styles.feedbackDetailName}>{selectedFeedback.anonymousName}</Text>
                   {renderFeedbackStars(selectedFeedback.rating)}
                 </View>
-                <Text style={styles.feedbackDetailDate}>{selectedFeedback.date}</Text>
+                <Text style={styles.feedbackDetailDate}>{formatDate(selectedFeedback.date)}</Text>
                 <Text style={styles.feedbackDetailComment}>{selectedFeedback.comment}</Text>
               </View>
             )}

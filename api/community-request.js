@@ -39,8 +39,8 @@ export async function AddCommunityPost(params) {
     console.log("Successfully created community post!", response.data);
     return response.data;
   } catch (error) {
-    console.error("Error message:", error.message);
-    throw error;
+    // console.error("Error message:", error.message);
+    // throw error;
   }
 }
 

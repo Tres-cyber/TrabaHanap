@@ -269,9 +269,17 @@ export default function JobListingScreen() {
               (job: JobDetails) =>
                 job.jobStatus !== "completed" && job.jobStatus !== "reviewed"
             )
-            .sort((a: JobDetails, b: JobDetails) => 
-              new Date(b.datePosted).getTime() - new Date(a.datePosted).getTime()
-            )
+            .sort((a: JobDetails, b: JobDetails) => {
+              // First, prioritize pending jobs
+              if (a.jobStatus.toLowerCase() === "pending" && b.jobStatus.toLowerCase() !== "pending") {
+                return -1;
+              }
+              if (a.jobStatus.toLowerCase() !== "pending" && b.jobStatus.toLowerCase() === "pending") {
+                return 1;
+              }
+              // If both jobs have the same status, sort by date
+              return new Date(b.datePosted).getTime() - new Date(a.datePosted).getTime();
+            })
             .map((job: JobDetails) => (
               <TouchableOpacity
                 key={job.id}

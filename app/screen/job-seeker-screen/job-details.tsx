@@ -37,6 +37,8 @@ export default function JobDetailsScreen() {
           uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/${imgPath.split('job_request_files/')[1]}`,
         }))
       : [],
+      isMyJob: params.isMyJob as string,
+      jobStatus: params.jobStatus as string,
   };
 
   const [activeSlide, setActiveSlide] = useState<number>(0);
@@ -220,9 +222,13 @@ export default function JobDetailsScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.applyButton} onPress={handleApplyNow}>
-          <Text style={styles.applyButtonText}>Apply Now</Text>
-        </TouchableOpacity>
+        {jobData.isMyJob !== "true" && 
+         jobData.jobStatus !== "pending" && 
+         jobData.jobStatus !== "completed" && (
+          <TouchableOpacity style={styles.applyButton} onPress={handleApplyNow}>
+            <Text style={styles.applyButtonText}>Apply Now</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );

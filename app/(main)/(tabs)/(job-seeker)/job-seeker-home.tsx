@@ -174,6 +174,8 @@ export default function JobListingScreen() {
         clientFirstName: job.client.firstName,
         clientLastName: job.client.lastName,
         clientProfileImage: job.client.profileImage,
+        isMyJob: activeTab === "pendingJobs" ? "true" : "false",
+        jobStatus: job.jobStatus
       },
     });
   };
@@ -328,7 +330,10 @@ export default function JobListingScreen() {
             displayedJobs.map((job) => (
               <TouchableOpacity
                 key={job.id}
-                style={styles.jobCard}
+                style={[
+                  styles.jobCard,
+                  activeTab === "pendingJobs" && styles.myJobCard
+                ]}
                 onPress={() => handleSeeMorePress(job)}
                 activeOpacity={0.7}
               >
@@ -355,7 +360,7 @@ export default function JobListingScreen() {
                         source={
                           job.client.profileImage
                             ? { uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${job.client.profileImage}` }
-                            : require("assets/images/default-user.png")
+                            : require("assets/images/default-user.png")//here
                         }
                         style={styles.posterProfileImage}
                       />
@@ -852,5 +857,8 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: 'red',
+  },
+  myJobCard: {
+
   },
 });
