@@ -205,21 +205,6 @@ export default function JobListingScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <View style={[styles.header, Platform.OS === "ios" && styles.iosHeader]}>
-        <TouchableOpacity
-          onPress={handleProfilePress}
-          style={styles.profileButton}
-        >
-          <Image
-            source={
-              userProfileImage
-                ? { uri: userProfileImage }
-                : require("assets/images/default-user.png")
-            }
-            style={styles.profileImage}
-            defaultSource={require("assets/images/client-user.png")}
-          />
-        </TouchableOpacity>
-
         <TouchableOpacity style={styles.searchBar} onPress={handleSearchPress}>
           <Ionicons name="search-outline" size={18} color="#666" />
           <Text style={styles.searchText}>Search jobs here</Text>
@@ -644,15 +629,6 @@ const styles = StyleSheet.create({
   },
   iosHeader: {
     paddingTop: Platform.OS === "ios" ? 10 : 10,
-  },
-  profileButton: {
-    marginRight: 12,
-  },
-  profileImage: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#eee",
   },
   searchBar: {
     flex: 1,
