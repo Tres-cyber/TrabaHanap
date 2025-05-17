@@ -69,7 +69,7 @@ type ChatProps = {
 
 type Offer = {
   offerAmount: string;
-  offerStatus: 'pending' | 'accepted' | 'rejected';
+  offerStatus: 'pending' | 'accepted' | 'declined';
 } | null;
 
 
@@ -445,9 +445,9 @@ const ChatScreen: React.FC<ChatProps> = ({
             }
           });
       
-          socket.on("chat_rejected", (data) => {
-            if (data.status === "rejected") {
-              setCurrentChatStatus("rejected"); 
+          socket.on("chat_declined", (data) => {
+            if (data.status === "declined") {
+              setCurrentChatStatus("declined"); 
             }
           });
         
@@ -455,7 +455,7 @@ const ChatScreen: React.FC<ChatProps> = ({
             socket.off('receive_message');
             socket.off('message_seen');
             socket.off("chat_approved");
-            socket.off("chat_rejected");
+            socket.off("chat_declined");
             socket.off('message_delivered');
           };
         }, [socket]);
@@ -463,8 +463,8 @@ const ChatScreen: React.FC<ChatProps> = ({
   useEffect(() => {
       if (!socket) return;
       //dito
-      socket.on("offer_rejected", ({ chatId, offerAmount ,offerStatus}) => {
-      console.log("❌ Offer was rejected for chat:", chatId);
+      socket.on("offer_declined", ({ chatId, offerAmount ,offerStatus}) => {
+      console.log("❌ Offer was declined for chat:", chatId);
       console.log("New offer status:", offerStatus);
       console.log("The offer is",offerAmount);
       setCurrentOffer({
@@ -472,7 +472,7 @@ const ChatScreen: React.FC<ChatProps> = ({
         offerStatus:offerStatus,
       });
       setOfferStatus(offerStatus);
-      handleSystemMessage('The offer has been rejected','system')
+      handleSystemMessage('The offer has been declined','system')
           });
       socket.on("offer_accepted", ({ chatId, offerAmount ,offerStatus}) => {
             console.log("Offer was accepted for chat:", chatId);
@@ -488,7 +488,7 @@ const ChatScreen: React.FC<ChatProps> = ({
                 });
 
           return () => {
-            socket.off("offer_rejected");
+            socket.off("offer_declined");
             socket.off("offer_accepted");
           };
         }, [socket]);
@@ -655,12 +655,12 @@ const ChatScreen: React.FC<ChatProps> = ({
             let customMessage = item.messageContent;
             const match = item.messageContent.match(/\d+/); // Finds the first number
             const amount = match ? match[0] : ''; // Extract the number or
-            // Check if the message contains "client", "reject", and "message"
+            // Check if the message contains "client", "declined", and "message"
             if (item.messageContent.toLowerCase().includes('client') &&
-                item.messageContent.toLowerCase().includes('rejected') &&
+                item.messageContent.toLowerCase().includes('declined') &&
                 item.messageContent.toLowerCase().includes('chat')) {
                 
-                customMessage = `${receiverName} rejected your chat request`; // Replace with the recipient's name
+                customMessage = `${receiverName} declined your chat request`; // Replace with the recipient's name
             }
             else if(item.messageContent.toLowerCase().includes('client') &&
             item.messageContent.toLowerCase().includes('accepted') &&
@@ -672,12 +672,12 @@ const ChatScreen: React.FC<ChatProps> = ({
             customMessage = `${receiverName} accepted your offer`;
           }
         else if(item.messageContent.toLocaleLowerCase().includes('offer') &&
-      !item.messageContent.toLocaleLowerCase().includes('rejected')){
+      !item.messageContent.toLocaleLowerCase().includes('declined')){
           customMessage = `You sent an offer of ${amount} pesos`;
         }
         else if(item.messageContent.toLocaleLowerCase().includes('offer') &&
-      item.messageContent.toLocaleLowerCase().includes('rejected')){
-        customMessage = `${receiverName} rejected your offer`;
+      item.messageContent.toLocaleLowerCase().includes('declined')){
+        customMessage = `${receiverName} declined your offer`;
         }
         
             return (
@@ -1122,7 +1122,7 @@ return isVisibleToUser ? (
         </View>
       )}
       
-      {(currentOfferStatus === 'none'|| currentOfferStatus ==='rejected') && currentChatStatus === 'approved' && (
+      {(currentOfferStatus === 'none'|| currentOfferStatus ==='declined') && currentChatStatus === 'approved' && (
       <TouchableOpacity 
         style={styles.makeOfferButton}
         onPress={openOfferModal}
