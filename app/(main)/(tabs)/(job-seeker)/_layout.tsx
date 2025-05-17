@@ -6,7 +6,17 @@ export default function JobSeekerLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: { backgroundColor: "white" },
+        tabBarStyle: {
+          backgroundColor: "white",
+          elevation: 8,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 3.84,
+          borderTopWidth: 0,
+        },
+        tabBarActiveTintColor: "#0A1747",
+        tabBarInactiveTintColor: "#666",
       }}
     >
       <Tabs.Screen
@@ -33,6 +43,15 @@ export default function JobSeekerLayout() {
           title: "Community",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="newspaper-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Profile",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-outline" size={size} color={color} />
           ),
         }}
       />
