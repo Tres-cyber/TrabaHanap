@@ -250,17 +250,6 @@ export default function JobListingScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
       <View style={[styles.header, Platform.OS === 'ios' && styles.iosHeader]}>
-        <TouchableOpacity style={styles.profileButton}  onPress={handleProfilePress}>
-          <Image
-                     source={
-                      userProfileImage
-                        ? { uri: userProfileImage }
-                        : require("assets/images/default-user.png")
-                    }
-            style={styles.profileImage}
-          />
-        </TouchableOpacity>
-
         <TouchableOpacity 
           style={styles.searchBar}
           onPress={() => router.push('/screen/search-screen-jobseeker')}
@@ -569,15 +558,6 @@ const styles = StyleSheet.create({
   },
   iosHeader:{
     paddingTop: Platform.OS === 'ios' ? 60 : 10,
-  },
-  profileButton: {
-    marginRight: 12,
-  },
-  profileImage: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#eee",
   },
   searchBar: {
     flex: 1,
