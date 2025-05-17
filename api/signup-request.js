@@ -118,10 +118,7 @@ export const verifyApplicant = async () => {
 
     return response.data;
   } catch (error) {
-    console.error(
-      "Error creating applicant:",
-      error.response?.data?.error || error.message
-    );
+
 
     return error.response?.data?.error || "Failed to create applicant";
   }

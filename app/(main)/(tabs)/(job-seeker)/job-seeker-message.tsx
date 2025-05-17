@@ -324,6 +324,7 @@ const ChatScreen: React.FC = () => {
         <>
           {item.chatStatus === 'approved' && <View style={[styles.statusIndicator, styles.activeStatus]} />}
           {item.chatStatus === 'pending' && <View style={[styles.statusIndicator, styles.pendingStatus]} />}
+          {item.chatStatus === 'rejected' && <View style={[styles.statusIndicator, styles.rejectedStatus]} />}
         </>
       )}
     </TouchableOpacity>
@@ -393,6 +394,18 @@ const ChatScreen: React.FC = () => {
           <Text style={styles.modalOptionIconText}>⏳</Text>
         </View>
         <Text style={styles.modalOptionText}>Pending Chats</Text>
+      </TouchableOpacity>
+      <TouchableOpacity 
+        style={styles.modalOption}
+        onPress={() => {
+          setSelectedFilter('rejected');
+          setFilterModalVisible(false);
+        }}
+      >
+        <View style={styles.modalOptionIcon}>
+          <Text style={styles.modalOptionIconText}>❌</Text>
+        </View>
+        <Text style={styles.modalOptionText}>Rejected Chats</Text>
       </TouchableOpacity>
     </View>
   );
@@ -566,6 +579,9 @@ const styles = StyleSheet.create({
   },
   pendingStatus: {
     backgroundColor: '#f39c12', // Bright orange
+  },
+  rejectedStatus: {
+    backgroundColor: '#e74c3c', // Bright red
   },
   modalBackground: {
     flex: 1,

@@ -1301,6 +1301,13 @@ return isVisibleToUser ? (
             </TouchableOpacity>
           )}
         </View>
+      ) : currentChatStatus === 'rejected' ? (
+        <View style={styles.rejectedContainer}>
+          <Ionicons name="close-circle" size={50} color="#ff3b30" />
+          <Text style={styles.rejectedText}>
+            This chat has been rejected
+          </Text>
+        </View>
       ) : (
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -1949,6 +1956,20 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 10,
     fontStyle: 'italic',
+  },
+  rejectedContainer: {
+    padding: 20,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rejectedText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 10,
   },
 });
 

@@ -278,7 +278,7 @@ export default function IDVerification() {
               style={styles.successButton}
               onPress={() => {
                 setSuccessModalVisible(false);
-                router.push("/sign_in");
+                router.push("/waiting-validation");
               }}
             >
               <Text style={styles.successButtonText}>OK</Text>
