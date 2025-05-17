@@ -30,6 +30,7 @@ interface JobDetails {
   budget: string;
   datePosted: string;
   jobSeekerId: string;
+  applicantCount: number;
 }
 
 function reverseCamelCase(str: string) {
@@ -299,18 +300,22 @@ export default function JobListingScreen() {
                   </Text>
 
                   <View style={styles.actionsContainer}>
-                    <TouchableOpacity
-                      onPress={() => handleEditJobPress(job.id)}
-                      style={styles.actionButton}
-                    >
-                      <Feather name="edit" size={18} color="#000" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => handleDeleteJobPress(job.id)}
-                      style={styles.actionButton}
-                    >
-                      <Feather name="trash-2" size={18} color="#ff4444" />
-                    </TouchableOpacity>
+                    {job.jobStatus.toLowerCase() !== "pending" && (
+                      <>
+                        <TouchableOpacity
+                          onPress={() => handleEditJobPress(job.id)}
+                          style={styles.actionButton}
+                        >
+                          <Feather name="edit" size={18} color="#000" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => handleDeleteJobPress(job.id)}
+                          style={styles.actionButton}
+                        >
+                          <Feather name="trash-2" size={18} color="#ff4444" />
+                        </TouchableOpacity>
+                      </>
+                    )}
                     {job.jobStatus.toLowerCase() === "pending" && (
                       <TouchableOpacity
                         onPress={() => {
@@ -608,6 +613,14 @@ export default function JobListingScreen() {
                 ]}
               >
                 {selectedJob?.jobStatus}
+              </Text>
+            </View>
+
+            <View style={styles.detailsRow}>
+              <Feather name="users" size={18} color="#0B153C" style={{ marginRight: 8 }} />
+              <Text style={styles.detailsLabel}>Applicants:</Text>
+              <Text style={styles.detailsValue}>
+                {selectedJob?.applicantCount || 0}
               </Text>
             </View>
           </View>

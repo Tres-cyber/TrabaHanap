@@ -430,7 +430,7 @@ const UtilityWorkerProfile: React.FC = () => {
 
       {worker.userType === "job-seeker" && (
         <>
-          <View style={styles.infoCard}>
+          {/* <View style={styles.infoCard}>
             <View style={styles.infoRow}>
               <View style={styles.infoItem}>
                 <FontAwesome5 name="toolbox" size={20} color="#0B153C" />
@@ -472,7 +472,7 @@ const UtilityWorkerProfile: React.FC = () => {
                 <Text style={styles.infoLabel}>Rating</Text>
               </View>
             </View>
-          </View>
+          </View> */}
 
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
