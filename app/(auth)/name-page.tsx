@@ -44,11 +44,6 @@ export default function NameEntryScreen() {
       hasError = true;
     }
 
-    if (!middleName.trim()) {
-      setMiddleNameError(true);
-      hasError = true;
-    }
-
     if (hasError) {
       Alert.alert("Required Fields", "Please fill in all required fields");
       return;
@@ -124,21 +119,17 @@ export default function NameEntryScreen() {
           <View style={styles.rowContainer}>
             <View style={[styles.inputGroup, styles.middleNameContainer]}>
               <Text style={styles.label}>
-                Middle Name <Text style={styles.required}>*</Text>
+                Middle Name
               </Text>
               <TextInput
-                style={[styles.input, middleNameError && styles.inputError]}
+                style={styles.input}
                 value={middleName}
                 onChangeText={(text) => {
                   const filteredText = handleStringInput(text);
                   setMiddleName(filteredText);
-                  if (filteredText.trim()) setMiddleNameError(false);
                 }}
                 placeholder=""
               />
-              {middleNameError && (
-                <Text style={styles.errorText}>Middle name is required</Text>
-              )}
             </View>
 
             <View style={[styles.inputGroup, styles.suffixContainer]}>
