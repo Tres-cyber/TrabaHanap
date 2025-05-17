@@ -86,6 +86,7 @@ const ChatScreen: React.FC<ChatProps> = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [menuModalVisible, setMenuModalVisible] = useState(false);
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
+  const [acceptModalVisible, setAcceptModalVisible] = useState(false);
   const [modalAnimation] = useState(new Animated.Value(0));
   const [offerModalVisible, setOfferModalVisible] = useState(false);
   const [acceptOfferConfirmationVisible, setAcceptOfferConfirmationVisible] = useState(false);
@@ -731,8 +732,13 @@ const ChatScreen: React.FC<ChatProps> = ({
     }
   };
   const handleAcceptChat = () => { 
+    setAcceptModalVisible(true);
+  };
+
+  const confirmAcceptChat = () => {
     handleApprove()
     setCurrentChatStatus("approved")
+    setAcceptModalVisible(false)
     setMenuModalVisible(false)
     // Show offer modal after accepting chat
     setTimeout(() => {
@@ -1339,6 +1345,36 @@ return isVisibleToUser ? (
                 onPress={confirmRejectChat}
               >
                 <Text style={styles.confirmButtonText}>Yes, Reject</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      
+      <Modal
+        transparent
+        visible={acceptModalVisible}
+        animationType="fade"
+        onRequestClose={() => setAcceptModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.confirmModalContainer}>
+            <Text style={styles.confirmModalTitle}>Accept Chat?</Text>
+            <Text style={styles.confirmModalText}>
+              Are you sure you want to accept this chat request from {receiverName}?
+            </Text>
+            <View style={styles.confirmModalButtons}>
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={() => setAcceptModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.acceptConfirmButton}
+                onPress={confirmAcceptChat}
+              >
+                <Text style={styles.confirmButtonText}>Yes, Accept</Text>
               </TouchableOpacity>
             </View>
           </View>
