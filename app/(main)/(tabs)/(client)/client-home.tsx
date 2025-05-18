@@ -325,7 +325,7 @@ export default function JobListingScreen() {
           <ActivityIndicator size="large" />
         ) : activeTab === "history" ? (
           mockHistoryData.length > 0 ? (
-            mockHistoryData.map((job: JobDetails) => (
+            mockHistoryData.map((job) => (
               <TouchableOpacity
                 key={job.id}
                 style={styles.jobCard}
@@ -367,7 +367,7 @@ export default function JobListingScreen() {
                   </View>
                 )}
 
-                <View style={[styles.jobFooter, { marginTop: 12 }]}>
+                <View style={[styles.jobFooter, { marginTop: 12, borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 12 }]}>
                   <View style={[styles.categoryBadge, {
                     backgroundColor: job.category === "plumbing" ? "#9b59b6" : "#3498db"
                   }]}>
@@ -377,7 +377,7 @@ export default function JobListingScreen() {
                   </View>
 
                   <Text style={[styles.statusText, {
-                    color: job.jobStatus === "completed" ? "#2ecc71" : "#f39c12"
+                    color: "#2ecc71"
                   }]}>
                     Completed
                   </Text>
@@ -1075,10 +1075,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-  },
-  ratingText: {
-    fontSize: 14,
-    color: "#666",
   },
   ratingStars: {
     fontSize: 14,
