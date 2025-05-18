@@ -45,7 +45,7 @@ interface JobSeeker {
   jobTags: string[];
 }
 
-type TabType = "bestMatch" | "otherJobs" | "pendingJobs";
+type TabType = "bestMatch" | "otherJobs" | "pendingJobs" | "history";
 
 export default function JobListingScreen() {
   const router = useRouter();
@@ -63,6 +63,50 @@ export default function JobListingScreen() {
   const [userType, setUserType] = useState<'client' | 'job-seeker' | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [hasUnread, setHasUnread] = useState<boolean>(false);
+  
+  // Mock history data
+  const mockHistoryData: JobRequest[] = [
+    {
+      id: "hist1",
+      jobTitle: "Completed Website Development",
+      jobSeekerId: "js1",
+      jobDescription: "Built a responsive website for a local business",
+      category: "Web Development",
+      budget: "15000",
+      jobLocation: "Manila",
+      jobDuration: "2 weeks",
+      datePosted: "2024-02-15",
+      jobImage: ["sample1.jpg"],
+      client: {
+        id: "c1",
+        firstName: "John",
+        lastName: "Doe",
+        profileImage: "profile1.jpg"
+      },
+      jobStatus: "completed",
+      applicantCount: 3
+    },
+    {
+      id: "hist2",
+      jobTitle: "Mobile App UI Design",
+      jobSeekerId: "js1",
+      jobDescription: "Designed UI/UX for a food delivery app",
+      category: "UI/UX Design",
+      budget: "20000",
+      jobLocation: "Quezon City",
+      jobDuration: "1 month",
+      datePosted: "2024-01-20",
+      jobImage: ["sample2.jpg"],
+      client: {
+        id: "c2",
+        firstName: "Jane",
+        lastName: "Smith",
+        profileImage: "profile2.jpg"
+      },
+      jobStatus: "completed",
+      applicantCount: 5
+    }
+  ];
   
   useEffect(() => {
     const fetchHasUnreadNotifications = async () => {
@@ -241,9 +285,10 @@ export default function JobListingScreen() {
   };
 
   const displayedJobs = 
-  activeTab === "bestMatch" ? matchingJobs :
-  activeTab === "otherJobs" ? otherJobs :
-  myJobs1;
+    activeTab === "bestMatch" ? matchingJobs :
+    activeTab === "otherJobs" ? otherJobs :
+    activeTab === "history" ? mockHistoryData :
+    myJobs1;
   
   return (
     <SafeAreaView style={styles.container}>
@@ -262,23 +307,24 @@ export default function JobListingScreen() {
           style={styles.notificationButton}
           onPress={handleNotificationPress}
         >
-        <View style={{ position: 'relative' }}>
-        <Ionicons name="notifications-outline" size={24} color="#000" />
-        {hasUnread && (
-          <View 
-            style={styles.notifIndicator}
-          />
-        )}
-      </View>
+          <View style={{ position: 'relative' }}>
+            <Ionicons name="notifications-outline" size={24} color="#000" />
+            {hasUnread && (
+              <View style={styles.notifIndicator} />
+            )}
+          </View>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.tabContainer}>
-
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        style={styles.tabScrollView}
+        contentContainerStyle={styles.tabScrollContent}
+      >
         <TouchableOpacity style={styles.tab} onPress={() => handleTabPress('bestMatch')}>
           <Text style={[styles.tabText, activeTab === 'bestMatch' && styles.activeTab]}>
             Best Matches
-
           </Text>
           {activeTab === "bestMatch" && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
@@ -287,22 +333,32 @@ export default function JobListingScreen() {
           style={styles.tab}
           onPress={() => handleTabPress("otherJobs")}
         >
-          <Text
-            style={[styles.tabText, activeTab === "otherJobs" && styles.activeTab]}
-          >
+          <Text style={[styles.tabText, activeTab === "otherJobs" && styles.activeTab]}>
             Other Jobs
           </Text>
           {activeTab === "otherJobs" && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.tab} onPress={() => handleTabPress("pendingJobs")}>
-                <Text style={[styles.tabText, activeTab === "pendingJobs" && styles.activeTab]}>
-                  My Jobs
-                </Text>
-                {activeTab === "pendingJobs" && <View style={styles.activeIndicator} />}
-              </TouchableOpacity>
-              
-      </View>
+        <TouchableOpacity 
+          style={styles.tab} 
+          onPress={() => handleTabPress("pendingJobs")}
+        >
+          <Text style={[styles.tabText, activeTab === "pendingJobs" && styles.activeTab]}>
+            My Jobs
+          </Text>
+          {activeTab === "pendingJobs" && <View style={styles.activeIndicator} />}
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.tab} 
+          onPress={() => handleTabPress("history")}
+        >
+          <Text style={[styles.tabText, activeTab === "history" && styles.activeTab]}>
+            History
+          </Text>
+          {activeTab === "history" && <View style={styles.activeIndicator} />}
+        </TouchableOpacity>
+      </ScrollView>
 
       {loading ? (
         <ActivityIndicator size="large" color="#000" />
@@ -577,15 +633,18 @@ const styles = StyleSheet.create({
   notificationButton: {
     padding: 4,
   },
-  tabContainer: {
-    flexDirection: "row",
+  tabScrollView: {
+    maxHeight: 50,
+  },
+  tabScrollContent: {
     paddingHorizontal: 16,
-    marginVertical: 10,
+    alignItems: 'center',
   },
   tab: {
     marginRight: 24,
     paddingBottom: 8,
     position: "relative",
+    minWidth: 100,
   },
   tabText: {
     fontSize: 16,
