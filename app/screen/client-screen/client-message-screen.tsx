@@ -16,7 +16,9 @@ import {
   Dimensions,
   ScrollView,
   Alert,
-  AppState
+  AppState,
+  ActivityIndicator,
+  Linking
 } from 'react-native';
 import { 
   MaterialIcons,
@@ -31,6 +33,8 @@ import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
 import ActionSheet from 'react-native-actionsheet';
 import * as Clipboard from 'expo-clipboard';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type Message = {
@@ -41,7 +45,7 @@ type Message = {
   sentAt: string;
   deletedBySender: string;
   deletedByReceiver: string;
-  messageType: string| 'sent' | 'received' | 'system';
+  messageType: string| 'sent' | 'received' | 'system' | 'file';
   senderPic?: string | "https://randomuser.me/api/portraits/men/1.jpg";
   isDelivered?: boolean;
   isSeen?: boolean;
@@ -113,6 +117,7 @@ const ChatScreen: React.FC<ChatProps> = ({
   const [blockModalVisible, setBlockModalVisible] = useState(false);
   const [blockReason, setBlockReason] = useState('');
   const [isBlockedByJobSeeker, setIsBlockedByJobSeeker] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const getStatusText = (item:any) => {
     if (
@@ -1016,6 +1021,117 @@ const ChatScreen: React.FC<ChatProps> = ({
       
       
     }
+
+    if (item.messageType === 'file') {
+      const fileUrl = `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/messages/${item.messageContent.split("messages_files/")[1]}`;
+      // Add null check for messageContent
+      const fileName = item.messageContent ? item.messageContent.split("messages_files/")[1] : '';
+      // Add null check for fileName
+      const fileExtension = fileName ? fileName.split('.').pop()?.toLowerCase() : '';
+      
+      const isDeletedForEveryone = item.deletedBySender === 'yes' && item.deletedByReceiver === 'yes';
+      const isVisibleToUser = !shouldHideMessage(item, currentUserId) || isDeletedForEveryone;
+
+      // Get file icon based on extension
+      const getFileIcon = () => {
+        switch (fileExtension) {
+          case 'pdf':
+            return <Ionicons name="document-text" size={24} color="#ff3b30" />;
+          case 'doc':
+          case 'docx':
+            return <Ionicons name="document" size={24} color="#007AFF" />;
+          case 'txt':
+            return <Ionicons name="text" size={24} color="#34C759" />;
+          default:
+            return <Ionicons name="document" size={24} color="#8E8E93" />;
+        }
+      };
+
+      return isVisibleToUser ? (
+        <View>
+          {showDateSeparator && (
+            <View style={styles.dateSeparator}>
+              <Text style={styles.dateText}>{messageDate}</Text>
+            </View>
+          )}
+
+          <View
+            style={[
+              styles.messageRow,
+              isCurrentUser ? styles.sentMessageRow : styles.receivedMessageRow,
+            ]}
+          >
+            {!isCurrentUser && recipientPic && (
+              <Image
+                source={{ 
+                  uri: profileImage 
+                    ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${
+                        (profileImage+'').split("profiles/")[1]|| ''
+                      }`
+                  : undefined 
+                }}
+                style={styles.senderAvatar}
+                defaultSource={require("assets/images/client-user.png")}
+              />
+            )}
+
+            <TouchableOpacity
+              onLongPress={
+                shouldHideMessage(item, currentUserId)
+                  ? undefined
+                  : () => handleLongPress(item)
+              }
+              delayLongPress={300}
+              activeOpacity={0.7}
+              disabled={shouldHideMessage(item, currentUserId)}
+              onPress={() => {
+                if (!shouldHideMessage(item, currentUserId)) {
+                  // Handle file preview/download
+                  Linking.openURL(fileUrl).catch((err) => {
+                    Alert.alert('Error', 'Could not open the file');
+                  });
+                }
+              }}
+              style={[
+                styles.fileMessageBubble,
+                isCurrentUser ? styles.sentFileBubble : styles.receivedFileBubble
+              ]}
+            >
+              {isDeletedForEveryone ? (
+                <View style={styles.deletedFilePlaceholder}>
+                  <Text style={styles.deletedMessageText}>
+                    {item.senderId === currentUserId
+                      ? 'You removed a file'
+                      : `${receiverName ?? 'Someone'} removed a file`}
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <View style={styles.fileIconContainer}>
+                    {getFileIcon()}
+                  </View>
+                  <View style={styles.fileInfoContainer}>
+                    <Text style={styles.fileName} numberOfLines={1}>
+                      {fileName}
+                    </Text>
+                    <Text style={styles.fileExtension}>
+                      {fileExtension?.toUpperCase()}
+                    </Text>
+                  </View>
+                  {showStatus && (
+                    <Text style={styles.statusText}>
+                      {statusText}
+                    </Text>
+                  )}
+                  <Text style={styles.fileTime}>{formatTime(item.sentAt)}</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : null;
+    }
+
 if (isCurrentUser) item.messageType = 'sent';
 else if(!isCurrentUser) item.messageType= 'received';
     
@@ -1186,6 +1302,76 @@ return isVisibleToUser ? (
       checkIfBlockedByJobSeeker();
     }
   }, [currentUserId]);
+  const handleFilePress = async () => {
+    try {
+      setIsUploading(true);
+      
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 
+              'application/msword', 
+              'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+              'text/plain'],
+        copyToCacheDirectory: true
+      });
+  
+      if (result.canceled) {
+        setIsUploading(false);
+        return;
+      }
+  
+      const file = result.assets[0];
+      
+      // Check file size (e.g., 10MB limit)
+      const fileInfo = await FileSystem.getInfoAsync(file.uri);
+      if (fileInfo.exists && fileInfo.size && fileInfo.size > 10 * 1024 * 1024) {
+        Alert.alert('Error', 'File size must be less than 10MB');
+        console.log('File size must be less than 10MB');
+        setIsUploading(false);
+        return;
+      }
+  
+      // Get the file mime type
+      const mimeType = file.mimeType || 'application/octet-stream';
+      
+      // Validate file type on client side again
+      const allowedTypes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'text/plain'
+      ];
+      
+      if (!allowedTypes.includes(mimeType)) {
+        Alert.alert('Error', 'Invalid file type. Please upload PDF, Word, or text files only.');
+        setIsUploading(false);
+        return;
+      }
+  
+      const base64FileData = await FileSystem.readAsStringAsync(file.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+  
+      if (!socket) {
+        throw new Error('Socket not initialized');
+      }
+      const dataUri = `data:${file.mimeType};base64,${base64FileData}`;
+      socket.emit('upload_file', {
+        senderId: currentUserId,
+        chatId: chatId,
+        file: dataUri,
+        fileName: file.name,
+        fileType: mimeType, // Send the actual mimeType instead of extension
+      });
+  
+      console.log('File upload initiated:', file.name);
+  
+    } catch (error) {
+      console.error('Error picking or uploading file:', error);
+      Alert.alert('Error', 'Failed to upload file. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -1513,9 +1699,25 @@ return isVisibleToUser ? (
               keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
               style={styles.inputContainer}
             >
-              <TouchableOpacity style={styles.attachButton} onPress={handleAttachPress}>
-                <MaterialIcons name="attach-file" size={24} color="#999" />
-              </TouchableOpacity>
+              <View style={styles.attachmentButtons}>
+                <TouchableOpacity 
+                  style={styles.attachButton} 
+                  onPress={handleAttachPress}
+                >
+                  <MaterialIcons name="image" size={24} color="#999" />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.attachButton} 
+                  onPress={handleFilePress}
+                  disabled={isUploading}
+                >
+                  {isUploading ? (
+                    <ActivityIndicator size="small" color="#999" />
+                  ) : (
+                    <MaterialIcons name="attach-file" size={24} color="#999" />
+                  )}
+                </TouchableOpacity>
+              </View>
 
               <ActionSheet
                 ref={actionSheetRef}
@@ -1547,13 +1749,21 @@ return isVisibleToUser ? (
         </>
       )}
       
-      {currentChatStatus  === 'declined' && (
+      {currentChatStatus === 'rejected' ? (
         <View style={styles.rejectedContainer}>
-          <MaterialIcons name="error" size={50} color="#ff3b30" />
+          <Ionicons name="close-circle" size={50} color="#ff3b30" />
           <Text style={styles.rejectedText}>
-            You've declined this chat request
+            You rejected {receiverName}'s chat request
           </Text>
         </View>
+      ) : (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
+          style={styles.inputContainer}
+        >
+          {/* ... rest of the input container code ... */}
+        </KeyboardAvoidingView>
       )}
 
       <Modal
@@ -1728,8 +1938,13 @@ const styles = StyleSheet.create({
     marginBottom: Platform.OS === 'ios' ? 0 : 0,
     paddingBottom: Platform.OS === 'android' ? 55 : 55,
   },
+  attachmentButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   attachButton: {
     padding: 8,
+    marginRight: 4, // Add some spacing between the buttons
   },
   textInput: {
     flex: 1,
@@ -1929,16 +2144,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   rejectedContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     padding: 20,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 'auto', // This will push it to the bottom
   },
   rejectedText: {
-    fontSize: 18,
+    fontSize: 16,
     color: '#666',
     textAlign: 'center',
-    marginTop: 15,
+    marginTop: 10,
   },
   emptyContainer: {
     flex: 1,
@@ -2245,6 +2463,47 @@ unblockButtonText: {
   color: '#fff',
   fontSize: 16,
   fontWeight: '500',
+},
+fileMessageBubble: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  padding: 12,
+  borderRadius: 18,
+  maxWidth: '70%',
+  marginHorizontal: 8,
+},
+sentFileBubble: {
+  backgroundColor: '#0b216f',
+  borderBottomRightRadius: 5,
+},
+receivedFileBubble: {
+  backgroundColor: '#e9e9eb',
+  borderBottomLeftRadius: 5,
+},
+fileIconContainer: {
+  marginRight: 12,
+},
+fileInfoContainer: {
+  flex: 1,
+},
+fileName: {
+  fontSize: 14,
+  fontWeight: '500',
+  color: '#000',
+  marginBottom: 4,
+},
+fileExtension: {
+  fontSize: 12,
+  color: '#666',
+},
+fileTime: {
+  fontSize: 12,
+  color: '#8e8e93',
+  marginTop: 4,
+},
+deletedFilePlaceholder: {
+  padding: 10,
+  alignItems: 'center',
 },
 });
 
