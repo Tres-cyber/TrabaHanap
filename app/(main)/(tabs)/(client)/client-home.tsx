@@ -342,7 +342,32 @@ export default function JobListingScreen() {
 
                 <Text style={styles.jobDescription}>{job.jobDescription}</Text>
 
-                <View style={styles.jobFooter}>
+                {job.jobSeeker && (
+                  <View style={styles.historyFooter}>
+                    <View style={styles.jobSeekerInfo}>
+                      <Image
+                        source={
+                          job.jobSeeker.profileImage
+                            ? { uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${job.jobSeeker.profileImage}` }
+                            : require("assets/images/default-user.png")
+                        }
+                        style={styles.jobSeekerImage}
+                      />
+                      <Text style={styles.jobSeekerName}>
+                        {job.jobSeeker.firstName} {job.jobSeeker.lastName}
+                      </Text>
+                    </View>
+                    {job.rating && (
+                      <View style={styles.ratingContainer}>
+                        <Text style={styles.ratingStars}>
+                          {"⭐".repeat(job.rating)}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                <View style={[styles.jobFooter, { marginTop: 12 }]}>
                   <View style={[styles.categoryBadge, {
                     backgroundColor: job.category === "plumbing" ? "#9b59b6" : "#3498db"
                   }]}>
@@ -365,18 +390,6 @@ export default function JobListingScreen() {
                     })}
                   </Text>
                 </View>
-
-                {job.jobSeeker && (
-                  <View style={styles.historyFooter}>
-                    {job.rating && (
-                      <View style={styles.ratingContainer}>
-                        <Text style={styles.ratingStars}>
-                          {"⭐".repeat(job.rating)}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                )}
               </TouchableOpacity>
             ))
           ) : (
