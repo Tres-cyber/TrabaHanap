@@ -354,7 +354,7 @@ export default function JobListingScreen() {
                   <Text style={[styles.statusText, {
                     color: job.jobStatus === "completed" ? "#2ecc71" : "#f39c12"
                   }]}>
-                    {job.jobStatus.charAt(0).toUpperCase() + job.jobStatus.slice(1)}
+                    Completed
                   </Text>
 
                   <Text style={styles.dateText}>
@@ -368,22 +368,8 @@ export default function JobListingScreen() {
 
                 {job.jobSeeker && (
                   <View style={styles.historyFooter}>
-                    <View style={styles.jobSeekerInfo}>
-                      <Image
-                        source={
-                          job.jobSeeker.profileImage
-                            ? { uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${job.jobSeeker.profileImage}` }
-                            : require("assets/images/default-user.png")
-                        }
-                        style={styles.jobSeekerImage}
-                      />
-                      <Text style={styles.jobSeekerName}>
-                        {job.jobSeeker.firstName} {job.jobSeeker.lastName}
-                      </Text>
-                    </View>
                     {job.rating && (
                       <View style={styles.ratingContainer}>
-                        <Text style={styles.ratingText}>Rating: {job.rating}/5</Text>
                         <Text style={styles.ratingStars}>
                           {"⭐".repeat(job.rating)}
                         </Text>
