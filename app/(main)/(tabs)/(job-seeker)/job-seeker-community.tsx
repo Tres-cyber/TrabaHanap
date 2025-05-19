@@ -16,6 +16,9 @@ import {
   Platform,
   ActivityIndicator,
   Share,
+  ViewStyle,
+  TextStyle,
+  ImageStyle,
 } from "react-native";
 import { Ionicons, MaterialIcons, FontAwesome } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -68,6 +71,87 @@ type AddCommentMutation = {
     userType: string;
     parentCommentId?: string | null;
   };
+};
+
+type Styles = {
+  container: ViewStyle;
+  androidContainer: ViewStyle;
+  header: ViewStyle;
+  headerTitle: TextStyle;
+  createPostTrigger: ViewStyle;
+  createPostPlaceholder: ViewStyle;
+  createPostText: TextStyle;
+  userAvatar: ImageStyle;
+  postButton: ViewStyle;
+  disabledButton: ViewStyle;
+  postButtonText: TextStyle;
+  feedContainer: ViewStyle;
+  postContainer: ViewStyle;
+  postHeader: ViewStyle;
+  postHeaderContent: ViewStyle;
+  postActions: ViewStyle;
+  postActionButton: ViewStyle;
+  avatar: ImageStyle;
+  smallAvatar: ImageStyle;
+  username: TextStyle;
+  jobTitle: TextStyle;
+  time: TextStyle;
+  content: TextStyle;
+  postImage: ImageStyle;
+  stats: ViewStyle;
+  statsText: TextStyle;
+  actions: ViewStyle;
+  actionButton: ViewStyle;
+  actionText: TextStyle;
+  activeActionText: TextStyle;
+  commentSection: ViewStyle;
+  addCommentContainer: ViewStyle;
+  commentInput: TextStyle;
+  sendButton: ViewStyle;
+  commentContainer: ViewStyle;
+  replyContainer: ViewStyle;
+  commentAvatar: ImageStyle;
+  commentContent: ViewStyle;
+  commentBubble: ViewStyle;
+  commentHeader: ViewStyle;
+  commentActionButton: ViewStyle;
+  commentUsername: TextStyle;
+  commentText: TextStyle;
+  commentActions: ViewStyle;
+  commentTime: TextStyle;
+  commentAction: TextStyle;
+  repliesContainer: ViewStyle;
+  replyLikeButton: ViewStyle;
+  replyLikeText: TextStyle;
+  replyLikeTextActive: TextStyle;
+  modalHeader: ViewStyle;
+  modalTitle: TextStyle;
+  modalContent: ViewStyle;
+  userInfoContainer: ViewStyle;
+  postInputFull: TextStyle;
+  selectedImageContainer: ViewStyle;
+  selectedImage: ImageStyle;
+  removeImageButton: ViewStyle;
+  postOptions: ViewStyle;
+  addToYourPost: TextStyle;
+  postOptionsButtons: ViewStyle;
+  optionButton: ViewStyle;
+  commentsScrollView: ViewStyle;
+  originalPostReference: ViewStyle;
+  originalPostContent: TextStyle;
+  commentInputSection: ViewStyle;
+  replyingToContainer: ViewStyle;
+  replyingToText: TextStyle;
+  loadingContainer: ViewStyle;
+  errorContainer: ViewStyle;
+  errorText: TextStyle;
+  noPostsContainer: ViewStyle;
+  noPostsText: TextStyle;
+  noCommentsContainer: ViewStyle;
+  noCommentsText: TextStyle;
+  successModalOverlay: ViewStyle;
+  successModalContainer: ViewStyle;
+  successModalText: TextStyle;
 };
 
 const SocialFeedScreen = () => {
@@ -376,11 +460,38 @@ const SocialFeedScreen = () => {
       />
       <View style={styles.commentContent}>
         <View style={styles.commentBubble}>
-          <Text style={styles.commentUsername}>{comment.username}</Text>
+          <View style={styles.commentHeader}>
+            <Text style={styles.commentUsername}>{comment.username}</Text>
+            {comment.username === username && (
+              <View style={styles.commentActions}>
+                <TouchableOpacity style={styles.commentActionButton}>
+                  <Ionicons name="create-outline" size={16} color="#666" />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.commentActionButton}>
+                  <Ionicons name="trash-outline" size={16} color="#666" />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
           <Text style={styles.commentText}>{comment.text}</Text>
         </View>
         <View style={styles.commentActions}>
           <Text style={styles.commentTime}>{comment.time}</Text>
+          {isReply && (
+            <TouchableOpacity style={styles.replyLikeButton}>
+              <Ionicons 
+                name={comment.isUpvoted ? "heart" : "heart-outline"} 
+                size={14} 
+                color={comment.isUpvoted ? "#0077B5" : "#666"} 
+              />
+              <Text style={[
+                styles.replyLikeText,
+                comment.isUpvoted && styles.replyLikeTextActive
+              ]}>
+                Like
+              </Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             onPress={() => startReply(comment.id, comment.username)}
           >
@@ -417,7 +528,7 @@ const SocialFeedScreen = () => {
             }
             style={styles.avatar}
           />
-          <View>
+          <View style={styles.postHeaderContent}>
             <Text style={styles.username}>{item.username}</Text>
             <Text style={styles.time}>
               {new Date(item.createdAt).toLocaleDateString("en-US", {
@@ -427,6 +538,16 @@ const SocialFeedScreen = () => {
               })}
             </Text>
           </View>
+          {item.jobSeekerId === data?.id && (
+            <View style={styles.postActions}>
+              <TouchableOpacity style={styles.postActionButton}>
+                <Ionicons name="create-outline" size={20} color="#666" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.postActionButton}>
+                <Ionicons name="trash-outline" size={20} color="#666" />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         <Text style={styles.content}>{item.postContent}</Text>
@@ -805,8 +926,7 @@ const SocialFeedScreen = () => {
   );
 };
 
-// Styles preserved with additions for Android top margin
-const styles = StyleSheet.create({
+const styles = StyleSheet.create<Styles>({
   container: {
     flex: 1,
     backgroundColor: "#f3f6f8",
@@ -1192,6 +1312,41 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     textAlign: 'center',
+  },
+  postHeaderContent: {
+    flex: 1,
+  },
+  postActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  postActionButton: {
+    padding: 5,
+    marginLeft: 10,
+  },
+  commentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  commentActionButton: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  replyLikeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  replyLikeText: {
+    fontSize: 12,
+    color: '#65676B',
+    marginLeft: 4,
+  },
+  replyLikeTextActive: {
+    color: '#0077B5',
+    fontWeight: '500',
   },
 });
 
