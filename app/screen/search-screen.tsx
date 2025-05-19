@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from "react";
+
+import React, { useState, useCallback, useEffect } from "react";
+
 import {
   StyleSheet,
   View,
@@ -10,11 +12,13 @@ import {
   Image,
   SafeAreaView,
   ActivityIndicator,
+
   FlatList,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { searchJobSeekers } from "../../api/search-request";
+import { debounce } from "lodash";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface JobSeeker {
@@ -30,12 +34,7 @@ interface JobSeeker {
 interface SearchResponse {
   data: JobSeeker[];
   pagination: { [key: string]: any };
-}
 
-interface Filter {
-  id: string;
-  label: string;
-  count?: number;
 }
 
 const SearchScreen = () => {
@@ -45,52 +44,58 @@ const SearchScreen = () => {
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
   const [searchResults, setSearchResults] = useState<JobSeeker[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [filters, setFilters] = useState<Filter[]>([
-    { id: "all", label: "All" },
-  ]);
 
-  const fetchJobSeekers = async (query: string, filter: string) => {
-    try {
-      setIsLoading(true);
-      const token = await AsyncStorage.getItem("token");
-
-      if (!token) {
-        router.push("/sign_in");
+  const debouncedSearch = useCallback(
+    debounce(async (query: string, filter: string) => {
+      if (query.trim().length === 0 && filter === "all") {
+        setSearchResults([]);
+        setIsLoading(false);
         return;
       }
 
-      // Log the filter being used
-      console.log("Using filter:", filter);
+      try {
+        const options: { category?: string } = {};
+        if (filter !== "all") {
+          options.category = filter;
+        }
 
-      // Prepare search options
-      const options: { category?: string } = {};
-      if (filter !== "all") {
-        options.category = filter;
+        const results = (await searchJobSeekers(
+          query,
+          options
+        )) as SearchResponse;
+        setSearchResults(results.data);
+      } catch (error) {
+        console.error("Search error:", error);
+      } finally {
+        setIsLoading(false);
       }
+    }, 500),
+    []
+  );
 
-      // Always send a request, even if query is empty
-      // This allows us to fetch all job seekers in a specific category
-      const results = (await searchJobSeekers(
-        query || "", // Send empty string if query is null/undefined
-        options
-      )) as SearchResponse;
-      
-      setSearchResults(results.data);
+  // Handle search input changes
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text);
 
-      // Log the results to debug
-      console.log("Search results count:", results.data.length);
-      if (results.data && results.data.length > 0) {
-        console.log("Search result IDs:", results.data.map(item => item.id));
-      }
-      console.log("Filter used:", filter);
-    } catch (error) {
-      console.error("Search error:", error);
-    } finally {
-      setIsLoading(false);
+    if (text.trim().length > 0) {
+      setIsLoading(true);
+      // Always search "all" categories when typing in the search bar
+      debouncedSearch(text, "all");
+    } else {
+      setSearchResults([]);
+      // Optional: Reset loading state if needed when clearing input
+      // setIsLoading(false);
     }
   };
 
-  // We don't need handleSearchChange since we're directly using setSearchQuery in the TextInput
+  // Handle filter selection
+  // const handleFilterSelect = (filterId: string) => {
+  //   setSelectedFilter(filterId);
+  //   if (searchQuery.trim().length > 0) {
+  //     setIsLoading(true);
+  //     debouncedSearch(searchQuery, filterId);
+  //   }
+  // };
 
   // Navigate to job seeker profile
   const handleJobSeekerSelect = (jobSeekerId: string) => {
@@ -101,11 +106,21 @@ const SearchScreen = () => {
     });
   };
 
+
   const handleGoBack = () => {
     router.back();
   };
 
-  // Render individual job seeker search result
+
+  const filters = [
+    { id: "all", label: "All" },
+    { id: "plumbing", label: "Plumbing" },
+    { id: "electricalRepairs", label: "Electrical" },
+    { id: "carpentry", label: "Carpentry" },
+    { id: "homeCleaningServices", label: "Cleaning" },
+    { id: "paintingServices", label: "Painting" },
+  ];
+
   const renderSearchResult = ({ item }: { item: JobSeeker }) => (
     <TouchableOpacity
       style={styles.searchResultItem}
@@ -134,12 +149,14 @@ const SearchScreen = () => {
     </TouchableOpacity>
   );
 
+
+
   const fetchTopCategories = async () => {
     try {
-      const token = await AsyncStorage.getItem("token");
-
+      const token = await AsyncStorage.getItem('token');
+      
       if (!token) {
-        router.push("/sign_in");
+        router.push('/sign_in');
         return;
       }
 
@@ -147,31 +164,23 @@ const SearchScreen = () => {
         `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/jobs/top-categories`,
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            'Authorization': `Bearer ${token}`,
           },
         }
       );
 
       if (!response.ok) {
-        throw new Error("Failed to fetch categories");
+        throw new Error('Failed to fetch categories');
       }
 
       const data = await response.json();
+      
 
-      // Keep the original case from the database
-      setFilters([
-        { id: "all", label: "All" },
-        ...data.categories.map((item: { category: string; count: any }) => ({
-          id: item.category, // Keep original case
-          label: item.category,
-          count: item.count,
-        })),
-      ]);
 
       // Log the categories to debug
-      console.log("Fetched categories:", data.categories);
+      console.log('Fetched categories:', data.categories);
     } catch (error) {
-      console.error("Error fetching categories:", error);
+      console.error('Error fetching categories:', error);
     }
   };
 
@@ -179,18 +188,9 @@ const SearchScreen = () => {
     fetchTopCategories();
   }, []);
 
-  // Initial loading of job seekers based on filters
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      // Always fetch job seekers when a filter is selected, even if search query is empty
-      fetchJobSeekers(searchQuery, selectedFilter);
-    }, 300);
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery, selectedFilter]);
 
   const handleFilterSelect = (filterId: string) => {
-    console.log("Selected filter:", filterId); // Debug log
+    console.log('Selected filter:', filterId); // Debug log
     setSelectedFilter(filterId);
   };
 
@@ -205,15 +205,17 @@ const SearchScreen = () => {
           <Ionicons name="search-outline" size={20} color="#666" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search job seekers"
+            placeholder="Search job seekers by name, skill..."
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={handleSearchChange}
             autoFocus={true}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity
-              onPress={() => setSearchQuery("")}
-              style={styles.clearButton}
+              onPress={() => {
+                setSearchQuery("");
+                setSearchResults([]);
+              }}
             >
               <Ionicons name="close-circle" size={20} color="#666" />
             </TouchableOpacity>
@@ -221,92 +223,82 @@ const SearchScreen = () => {
         </View>
       </View>
 
-      <FlatList
-        style={styles.content}
-        ListHeaderComponent={
-          <>
-            {/* Filter Tabs */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.filtersContainer}
+      {/* Filters - REMOVED */}
+      {/* <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filtersContainer}
+        contentContainerStyle={styles.filtersContentContainer}
+      >
+        {filters.map((filter) => (
+          <TouchableOpacity
+            key={filter.id}
+            style={[
+              styles.filterChip,
+              selectedFilter === filter.id && styles.filterChipSelected,
+            ]}
+            onPress={() => handleFilterSelect(filter.id)}
+          >
+            <Text
+              style={[
+
+                styles.filterText,
+                selectedFilter === filter.id && styles.filterTextSelected,
+              ]}
             >
-              {filters.map((filter) => (
+              {filter.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView> */}
+
+      {/* Conditional Rendering Logic */}
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#0B153C" />
+        </View>
+      ) : searchResults.length > 0 ? (
+        <FlatList
+          data={searchResults}
+          renderItem={renderSearchResult}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.searchResultsList}
+        />
+      ) : searchQuery.length > 0 || selectedFilter !== "all" ? (
+        // Show "No results" if a search/filter was attempted but yielded nothing
+        <View style={styles.emptyResultsContainer}>
+          <Text style={styles.emptyResultsText}>No job seekers found</Text>
+        </View>
+      ) : (
+        // Show initial content (Popular Categories) only when no search/filter is active and no results
+        <ScrollView style={styles.content}>
+          {/* Popular Categories */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Popular Categories</Text>
+            <View style={styles.categoriesGrid}>
+              {filters.slice(1).map((category) => (
                 <TouchableOpacity
-                  key={filter.id}
-                  style={[
-                    styles.filterTab,
-                    selectedFilter === filter.id && styles.selectedFilterTab,
-                  ]}
-                  onPress={() => handleFilterSelect(filter.id)}
+                  key={category.id}
+                  style={styles.categoryCard}
+                  onPress={() => {
+                    setSelectedFilter(category.id); // Set the filter state
+                    setSearchQuery(""); // Clear the main search query
+                    setIsLoading(true);
+                    // Directly trigger search with empty query but selected filter
+                    debouncedSearch("", category.id);
+                  }}
                 >
-                  <Text
-                    style={[
-                      styles.filterText,
-                      selectedFilter === filter.id && styles.selectedFilterText,
-                    ]}
-                  >
-                    {filter.label}
-                    {filter.count && filter.id !== "all"
-                      ? ` (${filter.count})`
-                      : ""}
-                  </Text>
+                  <View style={styles.categoryIcon}>
+                    <MaterialIcons name="work" size={24} color="#0B153C" />
+                  </View>
+                  <Text style={styles.categoryLabel}>{category.label}</Text>
                 </TouchableOpacity>
               ))}
-            </ScrollView>
-
-            {/* Show Popular Categories only in initial state (no search/filter active, no results from active search) */}
-            {!isLoading && searchResults.length === 0 && !searchQuery && selectedFilter === "all" && (
-              filters.length > 1 ? (
-                <View style={[styles.recentSearchesContainer, { paddingHorizontal: 16 }]}>
-                  <Text style={styles.recentSearchesTitle}>Popular Categories</Text>
-                  {filters.slice(1, 6).map((filter) => (
-                    <TouchableOpacity
-                      key={filter.id}
-                      style={styles.recentSearchItem}
-                      onPress={() => handleFilterSelect(filter.id)}
-                    >
-                      <Ionicons name="time-outline" size={20} color="#666" />
-                      <Text style={styles.recentSearchText}>
-                        {filter.label} {filter.count ? `(${filter.count})` : ""}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              ) : (
-                // This case (no popular categories to show initially) might need a different message or be null
-                <View style={[styles.noResultsContainer, { paddingHorizontal: 16 }]}>
-                  <Text style={styles.noResultsText}>Loading categories...</Text>
-                </View>
-              )
-            )}
-          </>
-        }
-        data={searchResults}
-        renderItem={renderSearchResult}
-        keyExtractor={(item) => item.id}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.searchResultsList}
-        ListEmptyComponent={
-          isLoading ? (
-            <ActivityIndicator
-              size="large"
-              color="#007BFF"
-              style={styles.loader}
-            />
-          ) : (searchQuery || selectedFilter !== "all") && searchResults.length === 0 ? ( // Only show if a search or non-"all" filter was active
-            <View style={[styles.noResultsContainer, { paddingHorizontal: 16 }]}>
-              <Ionicons name="search-outline" size={60} color="#ccc" />
-              <Text style={styles.noResultsText}>No job seekers found</Text>
-              <Text style={styles.noResultsSubtext}>
-                {selectedFilter !== "all"
-                  ? `No job seekers in the ${selectedFilter} category`
-                  : "Try different keywords or filters"}
-              </Text>
             </View>
-          ) : null // If it's initial state and searchResults is empty, ListHeaderComponent handles it.
-        }
-      />
+          </View>
+        </ScrollView>
+      )}
+
     </SafeAreaView>
   );
 };
@@ -319,25 +311,23 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    padding: 16,
+    paddingTop: Platform.OS === "ios" ? 20 : 40,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-    paddingTop: Platform.OS === "android" ? 45 : 15,
+    borderBottomColor: "#f0f0f0",
   },
   backButton: {
-    padding: 8,
+    marginRight: 12,
   },
   searchContainer: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
-    borderRadius: 8,
+    backgroundColor: "#f1f1f1",
+    borderRadius: 12,
     paddingHorizontal: 12,
-    marginLeft: 12,
-    height: 45,
+    paddingVertical: 8,
   },
   searchInput: {
     flex: 1,
@@ -345,121 +335,138 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     color: "#333",
   },
-  clearButton: {
-    padding: 4,
-  },
   content: {
     flex: 1,
-    backgroundColor: "#fff",
-  },
-  filtersContainer: {
-    flexDirection: "row",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  filterTab: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: "#f5f5f5",
-    marginRight: 10,
-  },
-  selectedFilterTab: {
-    backgroundColor: "#007BFF",
-  },
-  filterText: {
-    fontSize: 14,
-    color: "#666",
-  },
-  selectedFilterText: {
-    color: "#fff",
-    fontWeight: "500",
-  },
-  loader: {
-    marginTop: 20,
-    alignSelf: 'center',
   },
   searchResultsList: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 80,
-    flexGrow: 1,
+    padding: 16,
   },
   searchResultItem: {
     flexDirection: "row",
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    borderBottomColor: "#f0f0f0",
     alignItems: "center",
   },
   resultImage: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    marginRight: 16,
+    backgroundColor: "#f0f0f0",
   },
   resultInfo: {
+    marginLeft: 16,
     flex: 1,
   },
   resultName: {
     fontSize: 16,
-    fontWeight: "500",
+    fontWeight: "bold",
     color: "#333",
-    marginBottom: 4,
   },
   resultCategory: {
     fontSize: 14,
     color: "#666",
-    marginBottom: 4,
+    marginTop: 2,
   },
   ratingContainer: {
     flexDirection: "row",
     alignItems: "center",
+    marginTop: 4,
   },
   ratingText: {
     fontSize: 14,
     color: "#666",
-    marginLeft: 5,
+    marginLeft: 4,
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: "center",
+  },
+  emptyResultsContainer: {
+    padding: 30,
+    alignItems: "center",
+  },
+  emptyResultsText: {
+    fontSize: 16,
+    color: "#666",
+  },
+  section: {
+    padding: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+  },
+
+  categoriesGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 12,
+    gap: 12,
+  },
+  categoryCard: {
+    width: "30%",
+    aspectRatio: 1,
+    backgroundColor: "#f8f9fa",
+    borderRadius: 12,
+    padding: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  categoryIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+    shadowColor: "#000",
+
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  categoryLabel: {
+    fontSize: 12,
+    color: "#333",
+    textAlign: "center",
+    fontWeight: "500",
+
+  },
+  timePosted: {
+    fontSize: 12,
+    color: '#999',
   },
   noResultsContainer: {
     padding: 40,
-    alignItems: "center",
+    alignItems: 'center',
   },
   noResultsText: {
     fontSize: 18,
-    fontWeight: "bold",
-    color: "#666",
+    fontWeight: 'bold',
+    color: '#666',
     marginTop: 16,
   },
   noResultsSubtext: {
     fontSize: 14,
-    color: "#999",
+    color: '#999',
     marginTop: 8,
-    textAlign: "center",
+    textAlign: 'center',
   },
-  recentSearchesContainer: {
-    paddingTop: 20,
+  filterCount: {
+    fontSize: 12,
+    color: '#666',
   },
-  recentSearchesTitle: {
-    fontSize: 18,
-    fontWeight: "500",
-    color: "#333",
-    marginBottom: 16,
+  filterCountSelected: {
+    color: '#fff',
   },
-  recentSearchItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  recentSearchText: {
-    fontSize: 16,
-    color: "#333",
-    marginLeft: 12,
+  filterContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });
 
