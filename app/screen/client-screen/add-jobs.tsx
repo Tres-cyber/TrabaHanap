@@ -400,8 +400,20 @@ export default function AddJobScreen() {
         />
         <Text style={styles.label}>Duration</Text>
         <View style={styles.durationContainer}>
+          <TouchableOpacity
+            style={[styles.input, styles.durationUnitButton]}
+            onPress={() => setShowDurationUnitModal(true)}
+          >
+            <Text style={durationUnit ? styles.inputText : styles.placeholderText}>
+              {durationUnit || "Select unit"}
+            </Text>
+          </TouchableOpacity>
           <TextInput
-            style={[styles.input, styles.durationInput]}
+            style={[
+              styles.input, 
+              styles.durationInput,
+              durationUnit === "Until finished" && styles.disabledInput
+            ]}
             value={duration}
             onChangeText={(text) => {
               // Only allow numbers
@@ -418,15 +430,8 @@ export default function AddJobScreen() {
             }}
             placeholder="Enter number"
             keyboardType="numeric"
+            editable={durationUnit !== "Until finished"}
           />
-          <TouchableOpacity
-            style={[styles.input, styles.durationUnitButton]}
-            onPress={() => setShowDurationUnitModal(true)}
-          >
-            <Text style={durationUnit ? styles.inputText : styles.placeholderText}>
-              {durationUnit || "Select unit"}
-            </Text>
-          </TouchableOpacity>
         </View>
 
         <View>
@@ -626,7 +631,7 @@ export default function AddJobScreen() {
             </View>
 
             <View style={styles.tagsList}>
-              {["Hours", "Days", "Weeks"].map((unit) => (
+              {["Hours", "Days", "Weeks", "Until finished"].map((unit) => (
                 <TouchableOpacity
                   key={unit}
                   style={[
@@ -635,6 +640,9 @@ export default function AddJobScreen() {
                   ]}
                   onPress={() => {
                     setDurationUnit(unit);
+                    if (unit === "Until finished") {
+                      setDuration("");
+                    }
                     setShowDurationUnitModal(false);
                   }}
                 >
@@ -973,5 +981,9 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  disabledInput: {
+    backgroundColor: '#E5E5E5',
+    color: '#666666',
   },
 });
