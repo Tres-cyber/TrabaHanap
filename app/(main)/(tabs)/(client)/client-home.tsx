@@ -34,56 +34,26 @@ interface JobDetails {
   datePosted: string;
   jobSeekerId: string;
   applicantCount: number;
-  jobSeeker?: {
+  completedAt: string;
+  averageRating: number;
+  reviews: {
+    rating: number;
+    feedback: string;
+    reviewer: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      profileImage: string;
+    };
+  }[];
+  jobSeeker: {
+    id: string;
     firstName: string;
     lastName: string;
     profileImage: string;
   };
-  rating?: number;
-  review?: string;
+  offer: string;
 }
-
-// Mock history data
-const mockHistoryData: JobDetails[] = [
-  {
-    id: "hist1",
-    jobTitle: "Plumbing Repair in Makati",
-    jobDescription: "Fixed leaking pipes and replaced bathroom fixtures",
-    category: "plumbing",
-    jobLocation: "Makati City",
-    jobStatus: "completed",
-    budget: "5000",
-    datePosted: "2024-02-15",
-    jobSeekerId: "js1",
-    applicantCount: 3,
-    jobSeeker: {
-      firstName: "John",
-      lastName: "Doe",
-      profileImage: "uploads/profile1.jpg"
-    },
-    rating: 5,
-    review: "Excellent work! Very professional and completed the job on time."
-  },
-  {
-    id: "hist2",
-    jobTitle: "Electrical Wiring Installation",
-    jobDescription: "Complete rewiring of apartment unit",
-    category: "electrical",
-    jobLocation: "Quezon City",
-    jobStatus: "reviewed",
-    budget: "8000",
-    datePosted: "2024-02-10",
-    jobSeekerId: "js2",
-    applicantCount: 2,
-    jobSeeker: {
-      firstName: "Jane",
-      lastName: "Smith",
-      profileImage: "uploads/profile2.jpg"
-    },
-    rating: 4,
-    review: "Good work overall, but took longer than expected."
-  }
-];
 
 function reverseCamelCase(str: string) {
   let result = str.replace(/([A-Z])/g, " $1").toLowerCase();
@@ -181,10 +151,36 @@ export default function JobListingScreen() {
     }
   };
 
+  const { data: completedJobs, isFetching: isCompletedJobsFetching } = useQuery({
+    queryKey: ["completed-jobs"],
+    queryFn: async () => {
+      const token = await AsyncStorage.getItem("token");
+      const { data: userData } = await decodeToken();
+      
+      const response = await fetch(
+        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/client/completed-jobs/${userData.id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch completed jobs");
+      }
+      return response.json();
+    },
+    enabled: activeTab === "history",
+  });
+
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await refetch();
+      await Promise.all([
+        refetch(),
+        completedJobs?.refetch()
+      ]);
     } finally {
       setRefreshing(false);
     }
@@ -324,8 +320,8 @@ export default function JobListingScreen() {
         {isFetching ? (
           <ActivityIndicator size="large" />
         ) : activeTab === "history" ? (
-          mockHistoryData.length > 0 ? (
-            mockHistoryData.map((job) => (
+          completedJobs && completedJobs.length > 0 ? (
+            completedJobs.map((job: JobDetails) => (
               <TouchableOpacity
                 key={job.id}
                 style={styles.jobCard}
@@ -357,10 +353,13 @@ export default function JobListingScreen() {
                         {job.jobSeeker.firstName} {job.jobSeeker.lastName}
                       </Text>
                     </View>
-                    {job.rating && (
+                    {job.averageRating > 0 && (
                       <View style={styles.ratingContainer}>
                         <Text style={styles.ratingStars}>
-                          {"⭐".repeat(job.rating)}
+                          {"⭐".repeat(Math.round(job.averageRating))}
+                        </Text>
+                        <Text style={styles.reviewCount}>
+                          ({job.reviews.length} {job.reviews.length === 1 ? 'review' : 'reviews'})
                         </Text>
                       </View>
                     )}
@@ -379,11 +378,11 @@ export default function JobListingScreen() {
                   <Text style={[styles.statusText, {
                     color: "#2ecc71"
                   }]}>
-                    Completed
+                    {job.jobStatus.charAt(0).toUpperCase() + job.jobStatus.slice(1)}
                   </Text>
 
                   <Text style={styles.dateText}>
-                    {new Date(job.datePosted).toLocaleDateString("en-US", {
+                    {new Date(job.completedAt).toLocaleDateString("en-US", {
                       year: "numeric",
                       month: "long",
                       day: "numeric",
@@ -695,6 +694,14 @@ export default function JobListingScreen() {
             </View>
 
             <View style={styles.detailsRow}>
+              <Feather name="dollar-sign" size={18} color="#0B153C" style={{ marginRight: 8 }} />
+              <Text style={styles.detailsLabel}>Final Offer:</Text>
+              <Text style={styles.detailsValue}>
+                {selectedJob?.offer ? `₱${selectedJob.offer}` : "Not specified"}
+              </Text>
+            </View>
+
+            <View style={styles.detailsRow}>
               <Feather name="calendar" size={18} color="#0B153C" style={{ marginRight: 8 }} />
               <Text style={styles.detailsLabel}>Date Posted:</Text>
               <Text style={styles.detailsValue}>
@@ -735,6 +742,38 @@ export default function JobListingScreen() {
                 {selectedJob?.applicantCount || 0}
               </Text>
             </View>
+
+            {/* Add this section for reviews without the subtitle */}
+            {selectedJob?.reviews && selectedJob.reviews.length > 0 && (
+              <View style={styles.reviewsSection}>
+                {selectedJob.reviews.map((review, index) => (
+                  <View key={index} style={styles.reviewItem}>
+                    <Text style={styles.reviewTitle}>
+                      {index === 0 ? "Your Review" : "Job-Seeker's Review"}
+                    </Text>
+                    <View style={styles.reviewHeader}>
+                      <Image
+                        source={
+                          review.reviewer.profileImage
+                            ? { uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${review.reviewer.profileImage}` }
+                            : require("assets/images/default-user.png")
+                        }
+                        style={styles.reviewerImage}
+                      />
+                      <View style={styles.reviewerInfo}>
+                        <Text style={styles.reviewerName}>
+                          {`${review.reviewer.firstName} ${review.reviewer.lastName}`}
+                        </Text>
+                        <Text style={styles.ratingStars}>
+                          {"⭐".repeat(Math.round(review.rating))}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.reviewFeedback}>{review.feedback}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         </View>
       </Modal>
@@ -1078,5 +1117,53 @@ const styles = StyleSheet.create({
   },
   ratingStars: {
     fontSize: 14,
+  },
+  reviewCount: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 4,
+  },
+  reviewsSection: {
+    marginTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    paddingTop: 20,
+  },
+  reviewItem: {
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+  },
+  reviewTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0B153C',
+    marginBottom: 12,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  reviewerImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 12,
+  },
+  reviewerInfo: {
+    flex: 1,
+  },
+  reviewerName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 4,
+  },
+  reviewFeedback: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
   },
 });

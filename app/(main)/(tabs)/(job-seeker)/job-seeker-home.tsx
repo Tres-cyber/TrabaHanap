@@ -20,27 +20,51 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams } from "expo-router";
 import decodeToken from "@/api/token-decoder";
+
 interface JobRequest {
   id: string;
   jobTitle: string;
-  jobSeekerId:string;
+  jobSeekerId: string;
   jobDescription: string;
   category: string;
   budget: string;
+  offer?:string |null;
   jobLocation: string;
   jobDuration: string;
   datePosted: string;
   jobImage: string[] | null;
-  client:Client;
-  jobStatus:string;
-  applicantCount:number;
+  client: Client;
+  jobStatus: string;
+  applicantCount: number;
+  reviews?: {
+    rating: number;
+    feedback: string;
+    reviewer: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      profileImage: string;
+    };
+  }[];
+  jobSeekerReview?: {
+    rating: number;
+    feedback: string;
+    reviewer: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      profileImage: string;
+    };
+  };
 }
-interface Client{
-  id:string;
-  firstName:string;
-  lastName:string;
-  profileImage:string;
+
+interface Client {
+  id: string;
+  firstName: string;
+  lastName: string;
+  profileImage: string;
 }
+
 interface JobSeeker {
   jobTags: string[];
 }
@@ -63,51 +87,7 @@ export default function JobListingScreen() {
   const [userType, setUserType] = useState<'client' | 'job-seeker' | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [hasUnread, setHasUnread] = useState<boolean>(false);
-  
-  // Mock history data
-  const mockHistoryData: JobRequest[] = [
-    {
-      id: "hist1",
-      jobTitle: "Completed Website Development",
-      jobSeekerId: "js1",
-      jobDescription: "Built a responsive website for a local business",
-      category: "Web Development",
-      budget: "15000",
-      jobLocation: "Manila",
-      jobDuration: "2 weeks",
-      datePosted: "2024-02-15",
-      jobImage: ["sample1.jpg"],
-      client: {
-        id: "c1",
-        firstName: "John",
-        lastName: "Doe",
-        profileImage: "profile1.jpg"
-      },
-      jobStatus: "completed",
-      applicantCount: 3
-    },
-    {
-      id: "hist2",
-      jobTitle: "Mobile App UI Design",
-      jobSeekerId: "js1",
-      jobDescription: "Designed UI/UX for a food delivery app",
-      category: "UI/UX Design",
-      budget: "20000",
-      jobLocation: "Quezon City",
-      jobDuration: "1 month",
-      datePosted: "2024-01-20",
-      jobImage: ["sample2.jpg"],
-      client: {
-        id: "c2",
-        firstName: "Jane",
-        lastName: "Smith",
-        profileImage: "profile2.jpg"
-      },
-      jobStatus: "completed",
-      applicantCount: 5
-    }
-  ];
-  
+
   useEffect(() => {
     const fetchHasUnreadNotifications = async () => {
       setLoading(true);
@@ -135,6 +115,7 @@ export default function JobListingScreen() {
   
     fetchHasUnreadNotifications();
   }, []);
+
   const fetchData = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
@@ -150,14 +131,16 @@ export default function JobListingScreen() {
         },
       );
       const jobData = await jobResponse.json();
+      console.log(jobData);
       setJobRequests(jobData);
  
       const myJobsResponse = await fetch(
         `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/job-seeker/my-jobs`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      console.log(myJobsResponse);
+      
       const myJobsData = await myJobsResponse.json();
+      console.log(myJobsData);
       setMyJobs(myJobsData.sort((a: JobRequest, b: JobRequest) => new Date(b.datePosted).getTime() - new Date(a.datePosted).getTime()));
 
       const tagsResponse = await fetch(
@@ -211,6 +194,7 @@ export default function JobListingScreen() {
         postedDate: job.datePosted,
         description: job.jobDescription,
         rate: job.budget,
+        offer:job.offer,
         location: job.jobLocation,
         otherParticipant: job.client.id,
         jobImages: job.jobImage,
@@ -219,7 +203,27 @@ export default function JobListingScreen() {
         clientLastName: job.client.lastName,
         clientProfileImage: job.client.profileImage,
         isMyJob: activeTab === "pendingJobs" ? "true" : "false",
-        jobStatus: job.jobStatus
+        jobStatus: job.jobStatus,
+        review: job.reviews?.[0] ? JSON.stringify({
+          rating: job.reviews[0].rating,
+          feedback: job.reviews[0].feedback,
+          reviewer: {
+            id: job.reviews[0].reviewer.id,
+            firstName: job.reviews[0].reviewer.firstName,
+            lastName: job.reviews[0].reviewer.lastName,
+            profileImage: job.reviews[0].reviewer.profileImage
+          }
+        }) : undefined,
+        jobSeekerReview: job.reviews?.[1] ? JSON.stringify({
+          rating: job.reviews[1].rating,
+          feedback: job.reviews[1].feedback,
+          reviewer: {
+            id: job.reviews[1].reviewer.id,
+            firstName: job.reviews[1].reviewer.firstName,
+            lastName: job.reviews[1].reviewer.lastName,
+            profileImage: job.reviews[1].reviewer.profileImage
+          }
+        }) : undefined,
       },
     });
   };
@@ -287,8 +291,8 @@ export default function JobListingScreen() {
   const displayedJobs = 
     activeTab === "bestMatch" ? matchingJobs :
     activeTab === "otherJobs" ? otherJobs :
-    activeTab === "history" ? mockHistoryData :
-    myJobs1;
+    activeTab === "history" ? myJobs1.filter(job => job.jobStatus === "completed" || job.jobStatus === "reviewed") :
+    myJobs1.filter(job => job.jobStatus !== "completed" && job.jobStatus !== "reviewed");
   
   return (
     <SafeAreaView style={styles.container}>
@@ -354,7 +358,7 @@ export default function JobListingScreen() {
           onPress={() => handleTabPress("history")}
         >
           <Text style={[styles.tabText, activeTab === "history" && styles.activeTab]}>
-            History
+            Completed Jobs
           </Text>
           {activeTab === "history" && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
@@ -475,7 +479,7 @@ export default function JobListingScreen() {
                   />
                   <View style={styles.imageOverlay} />
                 </View>
-                {activeTab === "pendingJobs" && job.jobStatus === "completed" && (
+                {((activeTab === "pendingJobs" || activeTab === "history") && job.jobStatus === "completed") && (
                   <TouchableOpacity
                     style={styles.finishButton}
                     onPress={(e) => {
