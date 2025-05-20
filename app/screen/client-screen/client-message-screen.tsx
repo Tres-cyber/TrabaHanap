@@ -897,37 +897,23 @@ const ChatScreen: React.FC<ChatProps> = ({
       index === messages.length - 1 ||
       (nextMessageDate && currentMessageDate !== nextMessageDate);
 
-    const statusText =
-      item.readBy &&
-      Array.isArray(item.readBy) &&
-      item.readBy.length > 0 &&
-      item.readBy.some((rs) => rs && rs.readAt !== null)
-        ? "Seen"
-        : item.isDelivered
-        ? "Delivered"
-        : "";
-
+    // SYSTEM MESSAGE
     if (item.messageType === "system") {
       let customMessage = item.messageContent;
       const match = item.messageContent.match(/\d+/); // Finds the first number
-      const amount = match ? match[0] : ""; // Extract the number or
-      // Check if the message contains "client", "declined", and "chat"
+      const amount = match ? match[0] : "";
       if (
         item.messageContent.toLowerCase().includes("client") &&
         item.messageContent.toLowerCase().includes("declined") &&
         item.messageContent.toLowerCase().includes("chat")
       ) {
-        customMessage = `You declined ${
-          receiverName ?? "the recipient"
-        }'s chat request`; // Replace with the recipient's name
+        customMessage = `You declined ${receiverName ?? "the recipient"}'s chat request`;
       } else if (
         item.messageContent.toLowerCase().includes("client") &&
         item.messageContent.toLowerCase().includes("accepted") &&
         item.messageContent.toLowerCase().includes("chat")
       ) {
-        customMessage = `You accepted ${
-          receiverName ?? "the recipient"
-        }'s chat request`; // Replace with the recipient's name
+        customMessage = `You accepted ${receiverName ?? "the recipient"}'s chat request`;
       } else if (
         item.messageContent.toLocaleLowerCase().includes("offer") &&
         item.messageContent.toLocaleLowerCase().includes("accepted")
@@ -944,7 +930,6 @@ const ChatScreen: React.FC<ChatProps> = ({
       ) {
         customMessage = `You declined the offer`;
       }
-
       return (
         <View style={styles.systemMessageContainer}>
           {showDateSeparator && (
@@ -959,45 +944,28 @@ const ChatScreen: React.FC<ChatProps> = ({
       );
     }
 
-    const imageMessages = messages.filter((m) => {
-      const isSender = m.senderId === currentUserId;
-
-      // Exclude if deleted by the current user
-      if (isSender && m.deletedBySender === "yes") return false;
-      if (!isSender && m.deletedByReceiver === "yes") return false;
-
-      return m.messageType === "image";
-    });
-
-    const imageArray = imageMessages.map((msg) => {
-      return `http://${
-        process.env.EXPO_PUBLIC_IP_ADDRESS
-      }:3000/uploads/messages/${
-        msg.messageContent.split("messages_files/")[1]
-      }`;
-    });
-
+    // IMAGE MESSAGE
     if (item.messageType === "image") {
-      const imageUrl = `http://${
-        process.env.EXPO_PUBLIC_IP_ADDRESS
-      }:3000/uploads/messages/${
-        item.messageContent.split("messages_files/")[1]
-      }`;
-
-      const isDeletedForEveryone =
-        item.deletedBySender === "yes" && item.deletedByReceiver === "yes";
-
-      const isVisibleToUser =
-        !shouldHideMessage(item, currentUserId) || isDeletedForEveryone;
-
-      return isVisibleToUser ? (
+      const imageMessages = messages.filter((m) => {
+        const isSender = m.senderId === currentUserId;
+        if (isSender && m.deletedBySender === "yes") return false;
+        if (!isSender && m.deletedByReceiver === "yes") return false;
+        return m.messageType === "image";
+      });
+      const imageArray = imageMessages.map((msg) => {
+        return `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/messages/${msg.messageContent.split("messages_files/")[1]}`;
+      });
+      const imageUrl = `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/messages/${item.messageContent.split("messages_files/")[1]}`;
+      const isDeletedForEveryone = item.deletedBySender === "yes" && item.deletedByReceiver === "yes";
+      const isVisibleToUser = !shouldHideMessage(item, currentUserId) || isDeletedForEveryone;
+      if (!isVisibleToUser) return null;
+      return (
         <View>
           {showDateSeparator && (
             <View style={styles.dateSeparator}>
               <Text style={styles.dateText}>{messageDate}</Text>
             </View>
           )}
-
           <View
             style={[
               styles.messageRow,
@@ -1009,18 +977,13 @@ const ChatScreen: React.FC<ChatProps> = ({
               <Image
                 source={{
                   uri: profileImage
-                    ? `http://${
-                        process.env.EXPO_PUBLIC_IP_ADDRESS
-                      }:3000/uploads/profiles/${
-                        (profileImage + "").split("profiles/")[1] || ""
-                      }`
+                    ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${(profileImage + "").split("profiles/")[1] || ""}`
                     : undefined,
                 }}
                 style={styles.senderAvatar}
                 defaultSource={require("assets/images/client-user.png")}
               />
             )}
-
             {/* Image message */}
             <TouchableOpacity
               onLongPress={
@@ -1036,7 +999,6 @@ const ChatScreen: React.FC<ChatProps> = ({
                   !shouldHideMessage(item, currentUserId) &&
                   item.messageType === "image"
                 ) {
-                  // Get the index of this image in the imageMessages array
                   const filteredImageIndex = imageMessages.findIndex(
                     (msg) => msg.id === item.id
                   );
@@ -1060,16 +1022,13 @@ const ChatScreen: React.FC<ChatProps> = ({
                     resizeMode="cover"
                   />
                   {showStatus && (
-                    <Text style={styles.statusText}>{statusText}</Text>
+                    <Text style={styles.statusText}>{getStatusText(item)}</Text>
                   )}
-                  <Text style={styles.imageTime}>
-                    {formatTime(item.sentAt)}
-                  </Text>
+                  <Text style={styles.imageTime}>{formatTime(item.sentAt)}</Text>
                 </>
               )}
             </TouchableOpacity>
           </View>
-
           {/* Fullscreen Image Modal */}
           <Modal
             visible={visibleImageIndex !== null}
@@ -1080,34 +1039,31 @@ const ChatScreen: React.FC<ChatProps> = ({
               {visibleImageIndex !== null && (
                 <>
                   <Image
-                    source={{ uri: imageArray[visibleImageIndex] }}
+                    source={{ uri: imageArray[visibleImageIndex ?? 0] }}
                     style={styles.fullscreenImage}
                     resizeMode="contain"
                   />
-
                   <TouchableOpacity
                     style={styles.closeButton}
                     onPress={() => setVisibleImageIndex(null)}
                   >
                     <Text style={styles.buttonText}>✕</Text>
                   </TouchableOpacity>
-
-                  {visibleImageIndex > 0 && (
+                  {visibleImageIndex !== null && visibleImageIndex > 0 && (
                     <TouchableOpacity
                       style={styles.backButton}
                       onPress={() =>
-                        setVisibleImageIndex(visibleImageIndex - 1)
+                        setVisibleImageIndex((visibleImageIndex ?? 1) - 1)
                       }
                     >
                       <Text style={styles.buttonText}>‹</Text>
                     </TouchableOpacity>
                   )}
-
-                  {visibleImageIndex < imageArray.length - 1 && (
+                  {visibleImageIndex !== null && visibleImageIndex < imageArray.length - 1 && (
                     <TouchableOpacity
                       style={styles.nextButton}
                       onPress={() =>
-                        setVisibleImageIndex(visibleImageIndex + 1)
+                        setVisibleImageIndex((visibleImageIndex ?? 0) + 1)
                       }
                     >
                       <Text style={styles.buttonText}>›</Text>
@@ -1118,118 +1074,16 @@ const ChatScreen: React.FC<ChatProps> = ({
             </View>
           </Modal>
         </View>
-      ) : null;
-    }
-    if (item.messageType === "sent") item.messageType = "sent";
-    else if (item.messageType === "received") item.messageType = "received";
-
-    const isDeletedForEveryone =
-      item.deletedBySender === "yes" && item.deletedByReceiver === "yes";
-
-    const isVisibleToUser =
-      !shouldHideMessage(item, currentUserId) || isDeletedForEveryone;
-
-    return isVisibleToUser ? (
-      <View>
-        {showDateSeparator && (
-          <View style={styles.dateSeparator}>
-            <Text style={styles.dateText}>{messageDate}</Text>
-          </View>
-        )}
-
-        <View
-          style={[
-            styles.messageRow,
-            item.messageType === "sent"
-              ? styles.sentMessageRow
-              : styles.receivedMessageRow,
-          ]}
-        >
-          {item.messageType === "received" && recipientPic && (
-            <Image
-              source={{
-                uri: profileImage
-                  ? `http://${
-                      process.env.EXPO_PUBLIC_IP_ADDRESS
-                    }:3000/uploads/profiles/${
-                      (profileImage + "").split("profiles/")[1] || ""
-                    }`
-                  : undefined,
-              }}
-              style={styles.senderAvatar}
-              defaultSource={require("assets/images/client-user.png")}
-            />
-          )}
-
-          <View
-            style={[
-              styles.messageBubble,
-              item.messageType === "sent"
-                ? styles.sentBubble
-                : styles.receivedBubble,
-            ]}
-          >
-            <TouchableOpacity
-              onLongPress={
-                isDeletedForEveryone ? undefined : () => handleLongPress(item)
-              }
-              delayLongPress={300}
-              activeOpacity={1}
-              disabled={isDeletedForEveryone}
-            >
-              {isDeletedForEveryone ? (
-                <Text style={styles.deletedMessageText}>
-                  {item.senderId === currentUserId
-                    ? "You removed a message"
-                    : `${receiverName ?? "Someone"} removed a message`}
-                </Text>
-              ) : (
-                <>
-                  <Text
-                    style={[
-                      styles.messageText,
-                      item.messageType === "sent"
-                        ? styles.sentMessageText
-                        : styles.receivedMessageText,
-                    ]}
-                  >
-                    {item.messageContent}
-                  </Text>
-                  {/* {formatTime(item.sentAt)} */}
-
-                  <Text
-                    style={[
-                      styles.messageTime,
-                      item.messageType === "sent"
-                        ? styles.sentMessageTime
-                        : styles.receivedMessageTime,
-                    ]}
-                  >
-                    {formatTime(item.sentAt)}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-        </Modal>
-      </View>
-    ) : null;
-    
-      
-      
+      );
     }
 
-    if (item.messageType === 'file') {
+    // FILE MESSAGE
+    if (item.messageType === "file") {
       const fileUrl = `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/messages/${item.messageContent.split("messages_files/")[1]}`;
-      // Add null check for messageContent
       const fileName = item.messageContent ? item.messageContent.split("messages_files/")[1] : '';
-      // Add null check for fileName
       const fileExtension = fileName ? fileName.split('.').pop()?.toLowerCase() : '';
-      
       const isDeletedForEveryone = item.deletedBySender === 'yes' && item.deletedByReceiver === 'yes';
       const isVisibleToUser = !shouldHideMessage(item, currentUserId) || isDeletedForEveryone;
-
-      // Get file icon based on extension
       const getFileIcon = () => {
         switch (fileExtension) {
           case 'pdf':
@@ -1243,15 +1097,14 @@ const ChatScreen: React.FC<ChatProps> = ({
             return <Ionicons name="document" size={24} color="#8E8E93" />;
         }
       };
-
-      return isVisibleToUser ? (
+      if (!isVisibleToUser) return null;
+      return (
         <View>
           {showDateSeparator && (
             <View style={styles.dateSeparator}>
               <Text style={styles.dateText}>{messageDate}</Text>
             </View>
           )}
-
           <View
             style={[
               styles.messageRow,
@@ -1260,18 +1113,15 @@ const ChatScreen: React.FC<ChatProps> = ({
           >
             {!isCurrentUser && recipientPic && (
               <Image
-                source={{ 
-                  uri: profileImage 
-                    ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${
-                        (profileImage+'').split("profiles/")[1]|| ''
-                      }`
-                  : undefined 
+                source={{
+                  uri: profileImage
+                    ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${(profileImage+"").split("profiles/")[1]|| ''}`
+                    : undefined
                 }}
                 style={styles.senderAvatar}
                 defaultSource={require("assets/images/client-user.png")}
               />
             )}
-
             <TouchableOpacity
               onLongPress={
                 shouldHideMessage(item, currentUserId)
@@ -1283,7 +1133,6 @@ const ChatScreen: React.FC<ChatProps> = ({
               disabled={shouldHideMessage(item, currentUserId)}
               onPress={() => {
                 if (!shouldHideMessage(item, currentUserId)) {
-                  // Handle file preview/download
                   Linking.openURL(fileUrl).catch((err) => {
                     Alert.alert('Error', 'Could not open the file');
                   });
@@ -1304,9 +1153,7 @@ const ChatScreen: React.FC<ChatProps> = ({
                 </View>
               ) : (
                 <>
-                  <View style={styles.fileIconContainer}>
-                    {getFileIcon()}
-                  </View>
+                  <View style={styles.fileIconContainer}>{getFileIcon()}</View>
                   <View style={styles.fileInfoContainer}>
                     <Text style={styles.fileName} numberOfLines={1}>
                       {fileName}
@@ -1316,9 +1163,7 @@ const ChatScreen: React.FC<ChatProps> = ({
                     </Text>
                   </View>
                   {showStatus && (
-                    <Text style={styles.statusText}>
-                      {statusText}
-                    </Text>
+                    <Text style={styles.statusText}>{getStatusText(item)}</Text>
                   )}
                   <Text style={styles.fileTime}>{formatTime(item.sentAt)}</Text>
                 </>
@@ -1326,91 +1171,89 @@ const ChatScreen: React.FC<ChatProps> = ({
             </TouchableOpacity>
           </View>
         </View>
-      ) : null;
+      );
     }
 
-if (isCurrentUser) item.messageType = 'sent';
-else if(!isCurrentUser) item.messageType= 'received';
-    
-const isDeletedForEveryone =
-  item.deletedBySender === 'yes' && item.deletedByReceiver === 'yes';
-
-const isVisibleToUser = !shouldHideMessage(item, currentUserId) || isDeletedForEveryone;
-
-return isVisibleToUser ? (
-  <View>
-    {showDateSeparator && (
-      <View style={styles.dateSeparator}>
-        <Text style={styles.dateText}>{messageDate}</Text>
-      </View>
-    )}
-
-    <View
-      style={[
-        styles.messageRow,
-        item.messageType === 'sent' ? styles.sentMessageRow : styles.receivedMessageRow
-      ]}
-    >
-      {item.messageType === 'received' && recipientPic && (
-        <Image
-        source={{ 
-          uri: profileImage 
-            ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${
-                (profileImage+'').split("profiles/")[1]|| ''
-              }`
-    : undefined 
-    }}
-          style={styles.senderAvatar}
-          defaultSource={require('assets/images/client-user.png')}
-        />
-      )}
-
-      <View
-        style={[
-          styles.messageBubble,
-          item.messageType === 'sent' ? styles.sentBubble : styles.receivedBubble
-        ]}
-      >
-        <TouchableOpacity
-          onLongPress={
-            isDeletedForEveryone ? undefined : () => handleLongPress(item)
-          }
-          delayLongPress={300}
-          activeOpacity={1}
-          disabled={isDeletedForEveryone}
+    // TEXT MESSAGE (default)
+    if (isCurrentUser) item.messageType = 'sent';
+    else if (!isCurrentUser) item.messageType = 'received';
+    const isDeletedForEveryone = item.deletedBySender === 'yes' && item.deletedByReceiver === 'yes';
+    const isVisibleToUser = !shouldHideMessage(item, currentUserId) || isDeletedForEveryone;
+    if (!isVisibleToUser) return null;
+    return (
+      <View>
+        {showDateSeparator && (
+          <View style={styles.dateSeparator}>
+            <Text style={styles.dateText}>{messageDate}</Text>
+          </View>
+        )}
+        <View
+          style={[
+            styles.messageRow,
+            item.messageType === 'sent' ? styles.sentMessageRow : styles.receivedMessageRow
+          ]}
         >
-        {isDeletedForEveryone ? (
-          <Text style={styles.deletedMessageText}>
-            {item.senderId === currentUserId
-              ? 'You removed a message'
-              : `${receiverName ?? 'Someone'} removed a message`}
-          </Text>
-        ) : (
-          <>
-            <Text
-              style={[
-                styles.messageText,
-                item.messageType === 'sent'
-                  ? styles.sentMessageText
-                  : styles.receivedMessageText
-              ]}
+          {item.messageType === 'received' && recipientPic && (
+            <Image
+              source={{
+                uri: profileImage
+                  ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${(profileImage+'').split("profiles/")[1]|| ''}`
+                  : undefined
+              }}
+              style={styles.senderAvatar}
+              defaultSource={require('assets/images/client-user.png')}
+            />
+          )}
+          <View
+            style={[
+              styles.messageBubble,
+              item.messageType === 'sent' ? styles.sentBubble : styles.receivedBubble
+            ]}
+          >
+            <TouchableOpacity
+              onLongPress={
+                isDeletedForEveryone ? undefined : () => handleLongPress(item)
+              }
+              delayLongPress={300}
+              activeOpacity={1}
+              disabled={isDeletedForEveryone}
             >
-              {item.messageContent}
-            </Text>
-                    {/* {formatTime(item.sentAt)} */}
-
-
-          {/* {item.messageType === 'sent' && recipientPic && (
-        <Image
-          source={{ uri: recipientPic }}
-          style={styles.senderAvatar}
-          defaultSource={require('assets/images/client-user.png')}
-        />
-      )} */}
+              {isDeletedForEveryone ? (
+                <Text style={styles.deletedMessageText}>
+                  {item.senderId === currentUserId
+                    ? 'You removed a message'
+                    : `${receiverName ?? 'Someone'} removed a message`}
+                </Text>
+              ) : (
+                <>
+                  <Text
+                    style={[
+                      styles.messageText,
+                      item.messageType === 'sent'
+                        ? styles.sentMessageText
+                        : styles.receivedMessageText
+                    ]}
+                  >
+                    {item.messageContent}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.messageTime,
+                      item.messageType === 'sent'
+                        ? styles.sentMessageTime
+                        : styles.receivedMessageTime
+                    ]}
+                  >
+                    {formatTime(item.sentAt)}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
-        {showStatus && <Text style={styles.statusText}>{statusText}</Text>}
+        {showStatus && <Text style={styles.statusText}>{getStatusText(item)}</Text>}
       </View>
-    ) : null;
+    );
   };
 
   const renderEmptyChat = () => (
