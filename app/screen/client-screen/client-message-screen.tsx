@@ -85,6 +85,12 @@ type MenuOption = {
   onPress?: () => void;
 };
 
+// Add this function near the top of the file, after the type definitions
+const truncateName = (name: string, maxLength: number = 15) => {
+  if (!name) return '';
+  return name.length > maxLength ? `${name.substring(0, maxLength)}...` : name;
+};
+
 const ChatScreen: React.FC<ChatProps> = ({
   recipientId = "1",
   recipientName = "Ken Robbie Galapate",
@@ -110,6 +116,8 @@ const ChatScreen: React.FC<ChatProps> = ({
     offerStatus,
     otherParticipantId,
     profileImage,
+    callType,
+    receiverImage,
   } = useLocalSearchParams();
   const [offerAmount, setOfferAmount] = useState(offer); // Define the money offer amount
   const [currentOfferStatus, setOfferStatus] = useState(offerStatus);
@@ -1425,22 +1433,54 @@ const ChatScreen: React.FC<ChatProps> = ({
             <Image
               source={{
                 uri: profileImage
-                  ? `http://${
-                      process.env.EXPO_PUBLIC_IP_ADDRESS
-                    }:3000/uploads/profiles/${
-                      (profileImage + "").split("profiles/")[1] || ""
-                    }`
+                  ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${(profileImage + "").split("profiles/")[1] || ""}`
                   : undefined,
               }}
               style={styles.recipientAvatar}
             />
-            <Text style={styles.recipientName}>{receiverName}</Text>
+            <Text style={styles.recipientName} numberOfLines={1}>
+              {truncateName(receiverName as string)}
+            </Text>
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={toggleMenuModal} style={styles.moreButton}>
-          <MaterialIcons name="more-vert" size={24} color="#000" />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity 
+            style={styles.headerIconButton}
+            onPress={() => {
+              router.push({
+                pathname: "/screen/client-screen/call-screen",
+                params: { 
+                  callType: 'voice',
+                  receiverName: receiverName,
+                  receiverImage: profileImage
+                }
+              });
+            }}
+          >
+            <Ionicons name="call-outline" size={24} color="#0b216f" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.headerIconButton}
+            onPress={() => {
+              router.push({
+                pathname: "/screen/client-screen/call-screen",
+                params: { 
+                  callType: 'video',
+                  receiverName: receiverName,
+                  receiverImage: profileImage
+                }
+              });
+            }}
+          >
+            <Ionicons name="videocam-outline" size={24} color="#0b216f" />
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={toggleMenuModal} style={styles.headerIconButton}>
+            <Ionicons name="ellipsis-vertical" size={24} color="#000" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {currentChatStatus === "pending" && (
@@ -1901,6 +1941,7 @@ const styles = StyleSheet.create({
   headerUserInfo: {
     flexDirection: "row",
     alignItems: "center",
+    marginRight: 8,
   },
   recipientAvatar: {
     width: 40,
@@ -1911,6 +1952,8 @@ const styles = StyleSheet.create({
   recipientName: {
     fontSize: 16,
     fontWeight: "bold",
+    marginLeft: 10,
+    maxWidth: '60%',
   },
   moreButton: {
     padding: 8,
@@ -2614,6 +2657,16 @@ fileTime: {
 deletedFilePlaceholder: {
   padding: 10,
   alignItems: 'center',
+},
+
+headerActions: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  marginLeft: 'auto', // This will push the actions to the right
+},
+headerIconButton: {
+  padding: 8,
+  marginLeft: 4,
 },
 });
 

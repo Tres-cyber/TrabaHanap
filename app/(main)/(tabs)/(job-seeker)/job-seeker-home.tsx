@@ -488,7 +488,7 @@ export default function JobListingScreen() {
                       setShowReviewModal(true);
                     }}
                   >
-                    <Text style={styles.finishButtonText}>Mark as Finished</Text>
+                    <Text style={styles.finishButtonText}>Leave a Review</Text>
                   </TouchableOpacity>
                 )}
                
