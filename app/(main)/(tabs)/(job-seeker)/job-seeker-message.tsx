@@ -310,8 +310,8 @@ const ChatScreen: React.FC = () => {
               : `${item.participantName} removed a message`
           ) : item.lastMessage && item.lastMessage.includes('assets/messages_files/') ? (
             currentUserId === item.senderId 
-              ? 'You sent a photo' 
-              : `${item.participantName} sent a photo`
+              ? 'You sent an attachment' 
+              : `${item.participantName} sent an attachment`
           ) : (
             item.lastMessage ?? 'No messages yet'
           )}
