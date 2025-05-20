@@ -648,7 +648,7 @@ const styles = StyleSheet.create({
     marginRight: 24,
     paddingBottom: 8,
     position: "relative",
-    minWidth: 100,
+    minWidth:30,
   },
   tabText: {
     fontSize: 16,

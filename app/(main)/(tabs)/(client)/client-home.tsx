@@ -693,13 +693,15 @@ export default function JobListingScreen() {
               </Text>
             </View>
 
-            <View style={styles.detailsRow}>
-              <Feather name="dollar-sign" size={18} color="#0B153C" style={{ marginRight: 8 }} />
-              <Text style={styles.detailsLabel}>Final Offer:</Text>
-              <Text style={styles.detailsValue}>
-                {selectedJob?.offer ? `₱${selectedJob.offer}` : "Not specified"}
-              </Text>
-            </View>
+            {activeTab === "history" && (
+              <View style={styles.detailsRow}>
+                <Feather name="dollar-sign" size={18} color="#0B153C" style={{ marginRight: 8 }} />
+                <Text style={styles.detailsLabel}>Final Offer:</Text>
+                <Text style={styles.detailsValue}>
+                  {selectedJob?.offer ? `₱${selectedJob.offer}` : "Not specified"}
+                </Text>
+              </View>
+            )}
 
             <View style={styles.detailsRow}>
               <Feather name="calendar" size={18} color="#0B153C" style={{ marginRight: 8 }} />

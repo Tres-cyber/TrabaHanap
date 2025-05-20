@@ -853,6 +853,9 @@ const ChatScreen: React.FC<ChatProps> = ({
 
     setOfferStatus("accepted");
     setOfferModalVisible(false);
+    
+    // Add system message for offer acceptance
+    handleSystemMessage("The offer has been accepted", "system");
   };
 
   const handleRejectOffer = async () => {
@@ -860,6 +863,9 @@ const ChatScreen: React.FC<ChatProps> = ({
     socket.emit("reject_offer", { chatId }, () => {});
     setOfferStatus("declined");
     setOfferModalVisible(false);
+    
+    // Add system message for offer rejection
+    handleSystemMessage("The offer has been rejected", "system");
   };
 
   const formatTime = (dateString: string | number | Date) => {
@@ -1781,22 +1787,14 @@ const ChatScreen: React.FC<ChatProps> = ({
           )}
         </>
       )}
-      
-      {currentChatStatus === 'rejected' ? (
+
+      {currentChatStatus === 'rejected' && (
         <View style={styles.rejectedContainer}>
           <Ionicons name="close-circle" size={50} color="#ff3b30" />
           <Text style={styles.rejectedText}>
             You rejected {receiverName}'s chat request
           </Text>
         </View>
-      ) : (
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
-          style={styles.inputContainer}
-        >
-          {/* ... rest of the input container code ... */}
-        </KeyboardAvoidingView>
       )}
 
       <Modal
