@@ -20,32 +20,56 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams } from "expo-router";
 import decodeToken from "@/api/token-decoder";
+
 interface JobRequest {
   id: string;
   jobTitle: string;
-  jobSeekerId:string;
+  jobSeekerId: string;
   jobDescription: string;
   category: string;
   budget: string;
+  offer?:string |null;
   jobLocation: string;
   jobDuration: string;
   datePosted: string;
   jobImage: string[] | null;
-  client:Client;
-  jobStatus:string;
-  applicantCount:number;
+  client: Client;
+  jobStatus: string;
+  applicantCount: number;
+  reviews?: {
+    rating: number;
+    feedback: string;
+    reviewer: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      profileImage: string;
+    };
+  }[];
+  jobSeekerReview?: {
+    rating: number;
+    feedback: string;
+    reviewer: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      profileImage: string;
+    };
+  };
 }
-interface Client{
-  id:string;
-  firstName:string;
-  lastName:string;
-  profileImage:string;
+
+interface Client {
+  id: string;
+  firstName: string;
+  lastName: string;
+  profileImage: string;
 }
+
 interface JobSeeker {
   jobTags: string[];
 }
 
-type TabType = "bestMatch" | "otherJobs" | "pendingJobs";
+type TabType = "bestMatch" | "otherJobs" | "pendingJobs" | "history";
 
 export default function JobListingScreen() {
   const router = useRouter();
@@ -63,7 +87,7 @@ export default function JobListingScreen() {
   const [userType, setUserType] = useState<'client' | 'job-seeker' | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [hasUnread, setHasUnread] = useState<boolean>(false);
-  
+
   useEffect(() => {
     const fetchHasUnreadNotifications = async () => {
       setLoading(true);
@@ -91,6 +115,7 @@ export default function JobListingScreen() {
   
     fetchHasUnreadNotifications();
   }, []);
+
   const fetchData = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
@@ -106,14 +131,16 @@ export default function JobListingScreen() {
         },
       );
       const jobData = await jobResponse.json();
+      console.log(jobData);
       setJobRequests(jobData);
  
       const myJobsResponse = await fetch(
         `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/job-seeker/my-jobs`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      console.log(myJobsResponse);
+      
       const myJobsData = await myJobsResponse.json();
+      console.log(myJobsData);
       setMyJobs(myJobsData.sort((a: JobRequest, b: JobRequest) => new Date(b.datePosted).getTime() - new Date(a.datePosted).getTime()));
 
       const tagsResponse = await fetch(
@@ -167,6 +194,7 @@ export default function JobListingScreen() {
         postedDate: job.datePosted,
         description: job.jobDescription,
         rate: job.budget,
+        offer:job.offer,
         location: job.jobLocation,
         otherParticipant: job.client.id,
         jobImages: job.jobImage,
@@ -175,7 +203,27 @@ export default function JobListingScreen() {
         clientLastName: job.client.lastName,
         clientProfileImage: job.client.profileImage,
         isMyJob: activeTab === "pendingJobs" ? "true" : "false",
-        jobStatus: job.jobStatus
+        jobStatus: job.jobStatus,
+        review: job.reviews?.[0] ? JSON.stringify({
+          rating: job.reviews[0].rating,
+          feedback: job.reviews[0].feedback,
+          reviewer: {
+            id: job.reviews[0].reviewer.id,
+            firstName: job.reviews[0].reviewer.firstName,
+            lastName: job.reviews[0].reviewer.lastName,
+            profileImage: job.reviews[0].reviewer.profileImage
+          }
+        }) : undefined,
+        jobSeekerReview: job.reviews?.[1] ? JSON.stringify({
+          rating: job.reviews[1].rating,
+          feedback: job.reviews[1].feedback,
+          reviewer: {
+            id: job.reviews[1].reviewer.id,
+            firstName: job.reviews[1].reviewer.firstName,
+            lastName: job.reviews[1].reviewer.lastName,
+            profileImage: job.reviews[1].reviewer.profileImage
+          }
+        }) : undefined,
       },
     });
   };
@@ -241,9 +289,10 @@ export default function JobListingScreen() {
   };
 
   const displayedJobs = 
-  activeTab === "bestMatch" ? matchingJobs :
-  activeTab === "otherJobs" ? otherJobs :
-  myJobs1;
+    activeTab === "bestMatch" ? matchingJobs :
+    activeTab === "otherJobs" ? otherJobs :
+    activeTab === "history" ? myJobs1.filter(job => job.jobStatus === "completed" || job.jobStatus === "reviewed") :
+    myJobs1.filter(job => job.jobStatus !== "completed" && job.jobStatus !== "reviewed");
   
   return (
     <SafeAreaView style={styles.container}>
@@ -262,23 +311,24 @@ export default function JobListingScreen() {
           style={styles.notificationButton}
           onPress={handleNotificationPress}
         >
-        <View style={{ position: 'relative' }}>
-        <Ionicons name="notifications-outline" size={24} color="#000" />
-        {hasUnread && (
-          <View 
-            style={styles.notifIndicator}
-          />
-        )}
-      </View>
+          <View style={{ position: 'relative' }}>
+            <Ionicons name="notifications-outline" size={24} color="#000" />
+            {hasUnread && (
+              <View style={styles.notifIndicator} />
+            )}
+          </View>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.tabContainer}>
-
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        style={styles.tabScrollView}
+        contentContainerStyle={styles.tabScrollContent}
+      >
         <TouchableOpacity style={styles.tab} onPress={() => handleTabPress('bestMatch')}>
           <Text style={[styles.tabText, activeTab === 'bestMatch' && styles.activeTab]}>
             Best Matches
-
           </Text>
           {activeTab === "bestMatch" && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
@@ -287,22 +337,32 @@ export default function JobListingScreen() {
           style={styles.tab}
           onPress={() => handleTabPress("otherJobs")}
         >
-          <Text
-            style={[styles.tabText, activeTab === "otherJobs" && styles.activeTab]}
-          >
+          <Text style={[styles.tabText, activeTab === "otherJobs" && styles.activeTab]}>
             Other Jobs
           </Text>
           {activeTab === "otherJobs" && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.tab} onPress={() => handleTabPress("pendingJobs")}>
-                <Text style={[styles.tabText, activeTab === "pendingJobs" && styles.activeTab]}>
-                  My Jobs
-                </Text>
-                {activeTab === "pendingJobs" && <View style={styles.activeIndicator} />}
-              </TouchableOpacity>
-              
-      </View>
+        <TouchableOpacity 
+          style={styles.tab} 
+          onPress={() => handleTabPress("pendingJobs")}
+        >
+          <Text style={[styles.tabText, activeTab === "pendingJobs" && styles.activeTab]}>
+            My Jobs
+          </Text>
+          {activeTab === "pendingJobs" && <View style={styles.activeIndicator} />}
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.tab} 
+          onPress={() => handleTabPress("history")}
+        >
+          <Text style={[styles.tabText, activeTab === "history" && styles.activeTab]}>
+            Completed Jobs
+          </Text>
+          {activeTab === "history" && <View style={styles.activeIndicator} />}
+        </TouchableOpacity>
+      </ScrollView>
 
       {loading ? (
         <ActivityIndicator size="large" color="#000" />
@@ -419,7 +479,7 @@ export default function JobListingScreen() {
                   />
                   <View style={styles.imageOverlay} />
                 </View>
-                {activeTab === "pendingJobs" && job.jobStatus === "completed" && (
+                {((activeTab === "pendingJobs" || activeTab === "history") && job.jobStatus === "completed") && (
                   <TouchableOpacity
                     style={styles.finishButton}
                     onPress={(e) => {
@@ -577,15 +637,18 @@ const styles = StyleSheet.create({
   notificationButton: {
     padding: 4,
   },
-  tabContainer: {
-    flexDirection: "row",
+  tabScrollView: {
+    maxHeight: 50,
+  },
+  tabScrollContent: {
     paddingHorizontal: 16,
-    marginVertical: 10,
+    alignItems: 'center',
   },
   tab: {
     marginRight: 24,
     paddingBottom: 8,
     position: "relative",
+    minWidth: 100,
   },
   tabText: {
     fontSize: 16,

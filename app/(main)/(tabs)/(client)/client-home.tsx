@@ -20,6 +20,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { fetchJobListings, deleteJobListing } from "@/api/client-request";
 import decodeToken from "@/api/token-decoder";
+
+type TabType = "jobListings" | "history";
+
 interface JobDetails {
   id: string;
   jobTitle: string;
@@ -31,6 +34,25 @@ interface JobDetails {
   datePosted: string;
   jobSeekerId: string;
   applicantCount: number;
+  completedAt: string;
+  averageRating: number;
+  reviews: {
+    rating: number;
+    feedback: string;
+    reviewer: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      profileImage: string;
+    };
+  }[];
+  jobSeeker: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    profileImage: string;
+  };
+  offer: string;
 }
 
 function reverseCamelCase(str: string) {
@@ -46,6 +68,7 @@ function reverseCamelCase(str: string) {
 
 export default function JobListingScreen() {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<TabType>("jobListings");
   const [deleteJobId, setDeleteJobId] = useState<string | null>(null);
 
   const handleProfilePress = () => {
@@ -128,10 +151,36 @@ export default function JobListingScreen() {
     }
   };
 
+  const { data: completedJobs, isFetching: isCompletedJobsFetching } = useQuery({
+    queryKey: ["completed-jobs"],
+    queryFn: async () => {
+      const token = await AsyncStorage.getItem("token");
+      const { data: userData } = await decodeToken();
+      
+      const response = await fetch(
+        `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/client/completed-jobs/${userData.id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch completed jobs");
+      }
+      return response.json();
+    },
+    enabled: activeTab === "history",
+  });
+
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await refetch();
+      await Promise.all([
+        refetch(),
+        completedJobs?.refetch()
+      ]);
     } finally {
       setRefreshing(false);
     }
@@ -201,6 +250,10 @@ export default function JobListingScreen() {
     loadUserData();
   }, []);
 
+  const handleTabPress = (tab: TabType) => {
+    setActiveTab(tab);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -214,19 +267,40 @@ export default function JobListingScreen() {
           onPress={handleNotificationPress}
           style={styles.notificationButton}
         >
-           <View style={{ position: 'relative' }}>
-    <Ionicons name="notifications-outline" size={24} color="#000" />
-    {hasUnread && (
-      <View 
-        style={styles.notifIndicator}
-      />
-    )}
-  </View>
+          <View style={{ position: 'relative' }}>
+            <Ionicons name="notifications-outline" size={24} color="#000" />
+            {hasUnread && (
+              <View style={styles.notifIndicator} />
+            )}
+          </View>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.titleContainer}>
-        <Text style={styles.title}>Your Job Listing</Text>
+      
+
+      <View style={styles.tabContainer}>
+        <View style={styles.tabSection}>
+          <TouchableOpacity 
+            style={styles.tab} 
+            onPress={() => handleTabPress('jobListings')}
+          >
+            <Text style={[styles.tabText, activeTab === 'jobListings' && styles.activeTab]}>
+              Job Listings
+            </Text>
+            {activeTab === "jobListings" && <View style={styles.activeIndicator} />}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.tab}
+            onPress={() => handleTabPress("history")}
+          >
+            <Text style={[styles.tabText, activeTab === "history" && styles.activeTab]}>
+              History
+            </Text>
+            {activeTab === "history" && <View style={styles.activeIndicator} />}
+          </TouchableOpacity>
+        </View>
+
         <TouchableOpacity style={styles.addButton} onPress={handleAddJobPress}>
           <Feather name="plus" size={20} color="#000" />
         </TouchableOpacity>
@@ -245,25 +319,97 @@ export default function JobListingScreen() {
       >
         {isFetching ? (
           <ActivityIndicator size="large" />
-        ) : data &&
-          data.filter(
-            (job: JobDetails) =>
-              job.jobStatus !== "completed" && job.jobStatus !== "reviewed"
-          ).length > 0 ? (
+        ) : activeTab === "history" ? (
+          completedJobs && completedJobs.length > 0 ? (
+            completedJobs.map((job: JobDetails) => (
+              <TouchableOpacity
+                key={job.id}
+                style={styles.jobCard}
+                onPress={() => {
+                  setSelectedJob(job);
+                  setViewModalVisible(true);
+                }}
+              >
+                <View style={styles.jobHeader}>
+                  <Text style={styles.jobTitle} numberOfLines={1} ellipsizeMode="tail">
+                    {job.jobTitle}
+                  </Text>
+                </View>
+
+                <Text style={styles.jobDescription}>{job.jobDescription}</Text>
+
+                {job.jobSeeker && (
+                  <View style={styles.historyFooter}>
+                    <View style={styles.jobSeekerInfo}>
+                      <Image
+                        source={
+                          job.jobSeeker.profileImage
+                            ? { uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${job.jobSeeker.profileImage}` }
+                            : require("assets/images/default-user.png")
+                        }
+                        style={styles.jobSeekerImage}
+                      />
+                      <Text style={styles.jobSeekerName}>
+                        {job.jobSeeker.firstName} {job.jobSeeker.lastName}
+                      </Text>
+                    </View>
+                    {job.averageRating > 0 && (
+                      <View style={styles.ratingContainer}>
+                        <Text style={styles.ratingStars}>
+                          {"⭐".repeat(Math.round(job.averageRating))}
+                        </Text>
+                        <Text style={styles.reviewCount}>
+                          ({job.reviews.length} {job.reviews.length === 1 ? 'review' : 'reviews'})
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                <View style={[styles.jobFooter, { marginTop: 12, borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 12 }]}>
+                  <View style={[styles.categoryBadge, {
+                    backgroundColor: job.category === "plumbing" ? "#9b59b6" : "#3498db"
+                  }]}>
+                    <Text style={styles.categoryText}>
+                      {reverseCamelCase(job.category)}
+                    </Text>
+                  </View>
+
+                  <Text style={[styles.statusText, {
+                    color: "#2ecc71"
+                  }]}>
+                    {job.jobStatus.charAt(0).toUpperCase() + job.jobStatus.slice(1)}
+                  </Text>
+
+                  <Text style={styles.dateText}>
+                    {new Date(job.completedAt).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <View style={styles.emptyStateContainer}>
+              <Text style={styles.emptyStateText}>No completed jobs yet</Text>
+            </View>
+          )
+        ) : data && data.filter((job: JobDetails) => 
+          job.jobStatus !== "completed" && job.jobStatus !== "reviewed"
+        ).length > 0 ? (
           data
-            .filter(
-              (job: JobDetails) =>
-                job.jobStatus !== "completed" && job.jobStatus !== "reviewed"
+            .filter((job: JobDetails) => 
+              job.jobStatus !== "completed" && job.jobStatus !== "reviewed"
             )
             .sort((a: JobDetails, b: JobDetails) => {
-              // First, prioritize pending jobs
               if (a.jobStatus.toLowerCase() === "pending" && b.jobStatus.toLowerCase() !== "pending") {
                 return -1;
               }
               if (a.jobStatus.toLowerCase() !== "pending" && b.jobStatus.toLowerCase() === "pending") {
                 return 1;
               }
-              // If both jobs have the same status, sort by date
               return new Date(b.datePosted).getTime() - new Date(a.datePosted).getTime();
             })
             .map((job: JobDetails) => (
@@ -276,11 +422,7 @@ export default function JobListingScreen() {
                 }}
               >
                 <View style={styles.jobHeader}>
-                  <Text
-                    style={styles.jobTitle}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                  >
+                  <Text style={styles.jobTitle} numberOfLines={1} ellipsizeMode="tail">
                     {job.jobTitle}
                   </Text>
 
@@ -309,11 +451,7 @@ export default function JobListingScreen() {
                         }}
                         style={styles.actionButton}
                       >
-                        <Feather
-                          name="check-circle"
-                          size={22}
-                          color="#2ecc71"
-                        />
+                        <Feather name="check-circle" size={22} color="#2ecc71" />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -322,30 +460,18 @@ export default function JobListingScreen() {
                 <Text style={styles.jobDescription}>{job.jobDescription}</Text>
 
                 <View style={styles.jobFooter}>
-                  <View
-                    style={[
-                      styles.categoryBadge,
-                      {
-                        backgroundColor:
-                          job.category === "plumbing" ? "#9b59b6" : "#3498db",
-                      },
-                    ]}
-                  >
+                  <View style={[styles.categoryBadge, {
+                    backgroundColor: job.category === "plumbing" ? "#9b59b6" : "#3498db"
+                  }]}>
                     <Text style={styles.categoryText}>
                       {reverseCamelCase(job.category)}
                     </Text>
                   </View>
 
-                  <Text
-                    style={[
-                      styles.statusText,
-                      {
-                        color: job.jobStatus === "Open" ? "#f39c12" : "#2ecc71",
-                      },
-                    ]}
-                  >
-                    {job.jobStatus.charAt(0).toUpperCase() +
-                      job.jobStatus.slice(1)}
+                  <Text style={[styles.statusText, {
+                    color: job.jobStatus === "Open" ? "#f39c12" : "#2ecc71"
+                  }]}>
+                    {job.jobStatus.charAt(0).toUpperCase() + job.jobStatus.slice(1)}
                   </Text>
 
                   <Text style={styles.dateText}>
@@ -568,6 +694,14 @@ export default function JobListingScreen() {
             </View>
 
             <View style={styles.detailsRow}>
+              <Feather name="dollar-sign" size={18} color="#0B153C" style={{ marginRight: 8 }} />
+              <Text style={styles.detailsLabel}>Final Offer:</Text>
+              <Text style={styles.detailsValue}>
+                {selectedJob?.offer ? `₱${selectedJob.offer}` : "Not specified"}
+              </Text>
+            </View>
+
+            <View style={styles.detailsRow}>
               <Feather name="calendar" size={18} color="#0B153C" style={{ marginRight: 8 }} />
               <Text style={styles.detailsLabel}>Date Posted:</Text>
               <Text style={styles.detailsValue}>
@@ -608,6 +742,38 @@ export default function JobListingScreen() {
                 {selectedJob?.applicantCount || 0}
               </Text>
             </View>
+
+            {/* Add this section for reviews without the subtitle */}
+            {selectedJob?.reviews && selectedJob.reviews.length > 0 && (
+              <View style={styles.reviewsSection}>
+                {selectedJob.reviews.map((review, index) => (
+                  <View key={index} style={styles.reviewItem}>
+                    <Text style={styles.reviewTitle}>
+                      {index === 0 ? "Your Review" : "Job-Seeker's Review"}
+                    </Text>
+                    <View style={styles.reviewHeader}>
+                      <Image
+                        source={
+                          review.reviewer.profileImage
+                            ? { uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${review.reviewer.profileImage}` }
+                            : require("assets/images/default-user.png")
+                        }
+                        style={styles.reviewerImage}
+                      />
+                      <View style={styles.reviewerInfo}>
+                        <Text style={styles.reviewerName}>
+                          {`${review.reviewer.firstName} ${review.reviewer.lastName}`}
+                        </Text>
+                        <Text style={styles.ratingStars}>
+                          {"⭐".repeat(Math.round(review.rating))}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.reviewFeedback}>{review.feedback}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         </View>
       </Modal>
@@ -660,18 +826,10 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#000",
   },
-  addButton: {
-    width: 28,
-    height: 28,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 14,
-  },
   scrollView: {
     flex: 1,
     paddingHorizontal: 16,
+    paddingTop: 16,
   },
   jobCard: {
     backgroundColor: "#f1f1f1",
@@ -888,5 +1046,124 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: 'red',
+  },
+  tabContainer: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    marginVertical: 10,
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  tabSection: {
+    flexDirection: "row",
+  },
+  tab: {
+    marginRight: 24,
+    paddingBottom: 8,
+    position: "relative",
+  },
+  addButton: {
+    width: 28,
+    height: 28,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 14,
+  },
+  tabText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#666",
+  },
+  activeTab: {
+    color: "#000",
+    fontWeight: "700",
+  },
+  activeIndicator: {
+    height: 3,
+    backgroundColor: "#000",
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  historyFooter: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
+  },
+  jobSeekerInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  jobSeekerImage: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginRight: 8,
+  },
+  jobSeekerName: {
+    fontSize: 14,
+    color: "#333",
+    fontWeight: "500",
+  },
+  ratingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  ratingStars: {
+    fontSize: 14,
+  },
+  reviewCount: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 4,
+  },
+  reviewsSection: {
+    marginTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    paddingTop: 20,
+  },
+  reviewItem: {
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+  },
+  reviewTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0B153C',
+    marginBottom: 12,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  reviewerImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 12,
+  },
+  reviewerInfo: {
+    flex: 1,
+  },
+  reviewerName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 4,
+  },
+  reviewFeedback: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
   },
 });

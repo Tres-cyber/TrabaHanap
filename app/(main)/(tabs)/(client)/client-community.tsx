@@ -369,11 +369,38 @@ const SocialFeedScreen = () => {
       />
       <View style={styles.commentContent}>
         <View style={styles.commentBubble}>
-          <Text style={styles.commentUsername}>{comment.username}</Text>
+          <View style={styles.commentHeader}>
+            <Text style={styles.commentUsername}>{comment.username}</Text>
+            {comment.username === username && (
+              <View style={styles.commentActions}>
+                <TouchableOpacity style={styles.commentActionButton}>
+                  <Ionicons name="create-outline" size={16} color="#666" />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.commentActionButton}>
+                  <Ionicons name="trash-outline" size={16} color="#666" />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
           <Text style={styles.commentText}>{comment.text}</Text>
         </View>
         <View style={styles.commentActions}>
           <Text style={styles.commentTime}>{comment.time}</Text>
+          {isReply && (
+            <TouchableOpacity style={styles.replyLikeButton}>
+              <Ionicons 
+                name={comment.isUpvoted ? "heart" : "heart-outline"} 
+                size={14} 
+                color={comment.isUpvoted ? "#0077B5" : "#666"} 
+              />
+              <Text style={[
+                styles.replyLikeText,
+                comment.isUpvoted && styles.replyLikeTextActive
+              ]}>
+                Like
+              </Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             onPress={() => startReply(comment.id, comment.username)}
           >
@@ -424,7 +451,7 @@ const SocialFeedScreen = () => {
             }
             style={styles.avatar}
           />
-          <View>
+          <View style={styles.postHeaderContent}>
             <Text style={styles.username}>{item.username}</Text>
             <Text style={styles.time}>
               {new Date(item.createdAt).toLocaleDateString("en-US", {
@@ -434,6 +461,16 @@ const SocialFeedScreen = () => {
               })}
             </Text>
           </View>
+          {item.clientId === data?.id && (
+            <View style={styles.postActions}>
+              <TouchableOpacity style={styles.postActionButton}>
+                <Ionicons name="create-outline" size={20} color="#666" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.postActionButton}>
+                <Ionicons name="trash-outline" size={20} color="#666" />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         <Text style={styles.content}>{item.postContent}</Text>
@@ -1177,6 +1214,41 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     textAlign: 'center',
+  },
+  postHeaderContent: {
+    flex: 1,
+  },
+  postActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  postActionButton: {
+    padding: 5,
+    marginLeft: 10,
+  },
+  commentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  commentActionButton: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  replyLikeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  replyLikeText: {
+    fontSize: 12,
+    color: '#65676B',
+    marginLeft: 4,
+  },
+  replyLikeTextActive: {
+    color: '#0077B5',
+    fontWeight: '500',
   },
 });
 

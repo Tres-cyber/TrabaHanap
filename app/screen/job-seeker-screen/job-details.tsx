@@ -26,6 +26,7 @@ export default function JobDetailsScreen() {
     postedDate: params.postedDate as string,
     description: params.description as string,
     rate: params.rate as string,
+    offer: params.offer as string,
     location: params.location as string,
     jobDuration: params.jobDuration as string,
     clientId: params.otherParticipant as string,
@@ -37,8 +38,10 @@ export default function JobDetailsScreen() {
           uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/${imgPath.split('job_request_files/')[1]}`,
         }))
       : [],
-      isMyJob: params.isMyJob as string,
-      jobStatus: params.jobStatus as string,
+    isMyJob: params.isMyJob as string,
+    jobStatus: params.jobStatus as string,
+    review: params.review ? JSON.parse(params.review as string) : null,
+    jobSeekerReview: params.jobSeekerReview ? JSON.parse(params.jobSeekerReview as string) : null,
   };
 
   const [activeSlide, setActiveSlide] = useState<number>(0);
@@ -56,7 +59,7 @@ export default function JobDetailsScreen() {
         router.push("/sign_in");
         return;
       }
-
+      
       const response = await fetch(`http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/api/chat/create`, {
         method: "POST",
         headers: {
@@ -91,7 +94,7 @@ export default function JobDetailsScreen() {
           profileImage: jobData.clientProfileImage,
         },
       });
-  
+      
     } catch (error) {
       console.error("Error creating chat:", error);
     }
@@ -116,6 +119,81 @@ export default function JobDetailsScreen() {
     </View>
   );
 
+  const renderClientReviewCard = () => {
+    if (!jobData.review || (jobData.jobStatus !== "completed" && jobData.jobStatus !== "reviewed")) {
+      return null;
+    }
+
+    return (
+      <View style={styles.reviewCard}>
+        <Text style={styles.reviewTitle}>Client's Review</Text>
+        <View style={styles.reviewHeader}>
+          <Image
+            source={
+              jobData.review.reviewer.profileImage
+                ? { uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${jobData.review.reviewer.profileImage}` }
+                : require("assets/images/default-user.png")
+            }
+            style={styles.reviewerImage}
+          />
+          <View style={styles.reviewerInfo}>
+            <Text style={styles.reviewerName}>
+              {`${jobData.review.reviewer.firstName} ${jobData.review.reviewer.lastName}`}
+            </Text>
+            <View style={styles.ratingContainer}>
+              {[...Array(5)].map((_, index) => (
+                <Ionicons
+                  key={index}
+                  name={index < jobData.review.rating ? "star" : "star-outline"}
+                  size={16}
+                  color="#FFD700"
+                />
+              ))}
+            </View>
+          </View>
+        </View>
+        <Text style={styles.reviewFeedback}>{jobData.review.feedback}</Text>
+      </View>
+    );
+  };
+
+  const renderJobSeekerReviewCard = () => {
+    if (!jobData.jobSeekerReview || (jobData.jobStatus !== "completed" && jobData.jobStatus !== "reviewed")) {
+      return null;
+    }
+
+    return (
+      <View style={styles.reviewCard}>
+        <Text style={styles.reviewTitle}>Your Review</Text>
+        <View style={styles.reviewHeader}>
+          <Image
+            source={
+              jobData.jobSeekerReview.reviewer.profileImage
+                ? { uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${jobData.jobSeekerReview.reviewer.profileImage}` }
+                : require("assets/images/default-user.png")
+            }
+            style={styles.reviewerImage}
+          />
+          <View style={styles.reviewerInfo}>
+            <Text style={styles.reviewerName}>
+              {`${jobData.jobSeekerReview.reviewer.firstName} ${jobData.jobSeekerReview.reviewer.lastName}`}
+            </Text>
+            <View style={styles.ratingContainer}>
+              {[...Array(5)].map((_, index) => (
+                <Ionicons
+                  key={index}
+                  name={index < jobData.jobSeekerReview.rating ? "star" : "star-outline"}
+                  size={16}
+                  color="#FFD700"
+                />
+              ))}
+            </View>
+          </View>
+        </View>
+        <Text style={styles.reviewFeedback}>{jobData.jobSeekerReview.feedback}</Text>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -182,6 +260,17 @@ export default function JobDetailsScreen() {
                   </View>
                 </View>
               </View>
+              {(jobData.jobStatus === "completed" || jobData.jobStatus === "reviewed") && (
+                <View style={styles.detailRow}>
+                  <View style={styles.detailItem}>
+                    <Ionicons name="wallet-outline" size={24} color="#0D2040" />
+                    <View style={styles.detailTextContainer}>
+                      <Text style={styles.detailLabel}>Final Offer</Text>
+                      <Text style={styles.detailValue}>₱ {jobData.offer}</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
               <View style={styles.locationContainer}>
                 <Ionicons name="location-outline" size={24} color="#0D2040" />
                 <Text style={styles.locationText}>{jobData.location}</Text>
@@ -218,13 +307,17 @@ export default function JobDetailsScreen() {
               </View>
             </View>
           )}
+
+          {renderClientReviewCard()}
+          {renderJobSeekerReviewCard()}
         </View>
       </ScrollView>
 
       <View style={styles.footer}>
         {jobData.isMyJob !== "true" && 
          jobData.jobStatus !== "pending" && 
-         jobData.jobStatus !== "completed" && (
+         jobData.jobStatus !== "completed" && 
+         jobData.jobStatus !== "reviewed" &&(
           <TouchableOpacity style={styles.applyButton} onPress={handleApplyNow}>
             <Text style={styles.applyButtonText}>Apply Now</Text>
           </TouchableOpacity>
@@ -416,5 +509,52 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  reviewCard: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    marginTop: 16,
+  },
+  reviewTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#0D2040',
+    marginBottom: 16,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  reviewerImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  reviewerInfo: {
+    flex: 1,
+  },
+  reviewerName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#0D2040',
+    marginBottom: 4,
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  reviewFeedback: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#495057',
+    marginTop: 8,
   },
 });
