@@ -15,6 +15,16 @@ import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Camera, CameraPermissionStatus, useCameraDevice } from 'react-native-vision-camera';
 import { Video, ResizeMode } from 'expo-av';
+import {
+  RTCPeerConnection,
+  RTCIceCandidate,
+  RTCSessionDescription,
+  mediaDevices,
+} from 'react-native-webrtc';
+import io, { Socket } from 'socket.io-client';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { RTCView } from 'react-native-webrtc';
+import { MediaStream as RTCMediaStream } from 'react-native-webrtc';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 type CallType = 'video' | 'voice';

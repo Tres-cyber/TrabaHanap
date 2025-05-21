@@ -41,6 +41,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { submitReport } from "../../../api/reportService.ts";
+import { Audio } from 'expo-av';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type Message = {
@@ -1453,7 +1454,8 @@ const ChatScreen: React.FC<ChatProps> = ({
                 params: { 
                   callType: 'voice',
                   receiverName: receiverName,
-                  receiverImage: profileImage
+                  receiverImage: profileImage,
+                  chatId:chatId
                 }
               });
             }}
@@ -1469,7 +1471,8 @@ const ChatScreen: React.FC<ChatProps> = ({
                 params: { 
                   callType: 'video',
                   receiverName: receiverName,
-                  receiverImage: profileImage
+                  receiverImage: profileImage,
+                  chatId:chatId
                 }
               });
             }}

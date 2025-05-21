@@ -20,8 +20,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.neuromint.eDiskarte",
-      "googleServicesFile": "./google-services.json"
+      "package": "com.neuromint.eDiskarte"
     },
     "web": {
       "bundler": "metro",
@@ -37,6 +36,7 @@
         
         }
       ],
+   
       [
         "expo-splash-screen",
         {
@@ -46,8 +46,13 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "@react-native-firebase/app",
-      "@react-native-firebase/messaging"
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "Allow TrabaHanap to access your camera",
+          "enableFrameProcessors": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
