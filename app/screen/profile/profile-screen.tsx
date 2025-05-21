@@ -326,12 +326,9 @@ const UtilityWorkerProfile: React.FC = () => {
   };
 
   // Navigation handlers
-  const handleEditPress = () => {
-    router.push("./");
-  };
 
   const handleSettingsPress = () => {
-    router.push("../settings");
+    router.push("../../settings");
   };
 
   const toggleEditSkills = () => {
@@ -339,12 +336,9 @@ const UtilityWorkerProfile: React.FC = () => {
   };
 
   const handleAboutInfoPress = () => {
-    router.push("./about-info");
+    router.push("../../about-info");
   };
 
-  const handleGoBack = () => {
-    router.back();
-  };
 
   // --- Loading and Error States ---
   if (isLoading) {
@@ -372,14 +366,6 @@ const UtilityWorkerProfile: React.FC = () => {
 
   return (
     <ScrollView style={styles.container}>
-      {/* Back Button */}
-      <TouchableOpacity 
-        style={styles.backButton} 
-        onPress={handleGoBack}
-      >
-        <Ionicons name="arrow-back-outline" size={24} color="#333" />
-      </TouchableOpacity>
-
       <View style={styles.actionsHeader}>
         <TouchableOpacity
           style={styles.actionButton}
