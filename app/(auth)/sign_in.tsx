@@ -181,7 +181,12 @@ export default function SignInScreen() {
         </View>
 
         {message ? (
-          <Text style={[styles.errorMessage, message === "Login successful!" ? styles.successMessage : null]}>
+          <Text
+            style={[
+              styles.errorMessage,
+              message === "Login successful!" ? styles.successMessage : null,
+            ]}
+          >
             {message}
           </Text>
         ) : null}

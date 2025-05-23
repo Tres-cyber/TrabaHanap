@@ -31,6 +31,13 @@ import {
   checkIfLiked,
   addComment,
   fetchPostComments,
+  deleteCommunityPost,
+  editCommunityPost,
+  editCommunityCommentOrReply,
+  deleteCommunityCommentOrReply,
+  likeCommentOrReply,
+  unlikeCommentOrReply,
+  checkCommentLiked,
 } from "@/api/community-request";
 import decodeToken from "@/api/token-decoder";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -44,6 +51,8 @@ type Comment = {
   time: string;
   replies?: Comment[];
   isUpvoted?: boolean;
+  userId?: string;
+  likeCount?: number;
 };
 
 type Post = {
@@ -152,6 +161,10 @@ type Styles = {
   successModalOverlay: ViewStyle;
   successModalContainer: ViewStyle;
   successModalText: TextStyle;
+  modalContainer: ViewStyle;
+  modalScrollView: ViewStyle;
+  editingCommentInput: TextStyle;
+  commentActionGroup: ViewStyle;
 };
 
 const SocialFeedScreen = () => {
@@ -175,6 +188,36 @@ const SocialFeedScreen = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
+  const [isEditModalVisible, setIsEditModalVisible] = useState<boolean>(false);
+  const [editingPostDetails, setEditingPostDetails] = useState<Post | null>(
+    null
+  );
+  const [editedContentText, setEditedContentText] = useState<string>("");
+  const [editedImageDisplayUri, setEditedImageDisplayUri] = useState<
+    string | null
+  >(null);
+  const [newLocalImageForEditUri, setNewLocalImageForEditUri] = useState<
+    string | null
+  >(null);
+
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentTextForComment, setEditingCommentTextForComment] =
+    useState<string>("");
+
+  // State to track which comments are liked by the current user
+  const [likedCommentIds, setLikedCommentIds] = useState<Set<string>>(
+    new Set()
+  );
+
+  // State to track explicitly unliked comments - this will override any other state
+  const [explicitlyUnlikedCommentIds, setExplicitlyUnlikedCommentIds] =
+    useState<Set<string>>(new Set());
+
+  // Track last toggle time to prevent too rapid toggling
+  const [lastToggleTime, setLastToggleTime] = useState<Record<string, number>>(
+    {}
+  );
+
   const {
     data: fetchedPosts = [],
     isLoading,
@@ -189,13 +232,31 @@ const SocialFeedScreen = () => {
     data: comments,
     isLoading: commentsLoading,
     error: commentsError,
+    refetch: refetchComments
   } = useQuery({
     queryKey: ["post-comments", selectedPost?.id],
     queryFn: async () => {
       if (!selectedPost) return [];
-      const formattedComments = await fetchPostComments(selectedPost.id);
-      return formattedComments;
+      const comments = await fetchPostComments(selectedPost.id);
+      
+      // Log to verify the server response has like counts
+      console.log("Job Seeker - Server response for comments:", 
+        comments.map((c: any) => ({ 
+          id: c.id, 
+          likeCount: c.likeCount || 0, 
+          isUpvoted: !!c.isUpvoted,
+          username: c.username
+        }))
+      );
+      
+      // Make sure we preserve the server-provided like counts
+      return comments.map((comment: any) => ({
+        ...comment,
+        likeCount: comment.likeCount || 0,  // Ensure we have a likeCount
+        isUpvoted: !!comment.isUpvoted      // Convert to boolean
+      }));
     },
+    staleTime: Infinity, // Managed by mutations and manual refetching
     enabled: !!selectedPost,
   });
 
@@ -206,6 +267,153 @@ const SocialFeedScreen = () => {
     onSuccess: (_, { postId }) => {
       queryClient.invalidateQueries({ queryKey: ["post-comments", postId] });
       queryClient.invalidateQueries({ queryKey: ["community-posts"] });
+    },
+  });
+
+  const editPostMutation = useMutation({
+    mutationFn: async (data: { postId: string; updatedData: any }) => {
+      return editCommunityPost(data.postId, data.updatedData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["community-posts"] });
+      setIsEditModalVisible(false);
+      setEditingPostDetails(null);
+      setNewLocalImageForEditUri(null);
+      setEditedImageDisplayUri(null);
+      Alert.alert("Success", "Post updated successfully.");
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error.message || "Failed to update post.");
+    },
+  });
+
+  const deletePostMutation = useMutation({
+    mutationFn: deleteCommunityPost,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["community-posts"] });
+      Alert.alert("Success", "Post deleted successfully.");
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error.message || "Failed to delete post.");
+    },
+  });
+
+  const editCommentMutation = useMutation({
+    mutationFn: async (data: {
+      postId: string;
+      commentId: string;
+      newText: string;
+    }) => {
+      return editCommunityCommentOrReply(
+        data.postId,
+        data.commentId,
+        data.newText
+      );
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["post-comments", variables.postId],
+      });
+      setEditingCommentId(null);
+      Alert.alert("Success", "Comment updated.");
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error.message || "Failed to update comment.");
+    },
+  });
+
+  const deleteCommentMutation = useMutation({
+    mutationFn: async (data: { postId: string; commentId: string }) => {
+      return deleteCommunityCommentOrReply(data.postId, data.commentId);
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["post-comments", variables.postId],
+      });
+      Alert.alert("Success", "Comment deleted.");
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error.message || "Failed to delete comment.");
+    },
+  });
+
+  const likeCommentMutation = useMutation({
+    mutationFn: async (data: { postId: string; commentId: string }) => {
+      return likeCommentOrReply(data.postId, data.commentId);
+    },
+    onSuccess: (data, variables) => {
+      // Update our local tracking of liked comments
+      setLikedCommentIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.add(variables.commentId);
+        return newSet;
+      });
+
+      // Remove from explicitly unliked set
+      setExplicitlyUnlikedCommentIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(variables.commentId);
+        return newSet;
+      });
+
+      // Update the cache to reflect this like
+      queryClient.setQueryData(
+        ["post-comments", variables.postId],
+        (oldData: Comment[] | undefined) => {
+          if (!oldData) return [];
+          return oldData.map((comment) =>
+            updateCommentLikeStatus(comment, variables.commentId, true)
+          );
+        }
+      );
+
+      // Optional: Update community posts for other screens
+      queryClient.invalidateQueries({ queryKey: ["community-posts"] });
+    },
+    onError: (error: any) => {
+      console.error("Error liking comment:", error.message);
+      // Even on error, keep the UI consistent with what the user expects
+      // This ensures the UI doesn't flicker back to the previous state
+    },
+  });
+
+  const unlikeCommentMutation = useMutation({
+    mutationFn: async (data: { postId: string; commentId: string }) => {
+      return unlikeCommentOrReply(data.postId, data.commentId);
+    },
+    onSuccess: (data, variables) => {
+      // Update our local tracking of liked comments
+      setLikedCommentIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(variables.commentId);
+        return newSet;
+      });
+
+      // Add to explicitly unliked set
+      setExplicitlyUnlikedCommentIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.add(variables.commentId);
+        return newSet;
+      });
+
+      // Update the cache to reflect this unlike
+      queryClient.setQueryData(
+        ["post-comments", variables.postId],
+        (oldData: Comment[] | undefined) => {
+          if (!oldData) return [];
+          return oldData.map((comment) =>
+            updateCommentLikeStatus(comment, variables.commentId, false)
+          );
+        }
+      );
+
+      // Optional: Update community posts for other screens
+      queryClient.invalidateQueries({ queryKey: ["community-posts"] });
+    },
+    onError: (error: any) => {
+      console.error("Error unliking comment:", error.message);
+      // Even on error, update the UI as if it succeeded
+      // This ensures better UX by keeping the UI consistent with what the user expects
     },
   });
 
@@ -389,6 +597,204 @@ const SocialFeedScreen = () => {
     }
   };
 
+  // Helper function to check if a comment is liked (using local state)
+  const hasCommentLike = (commentId: string): boolean => {
+    // If it's in the explicitly unliked set, it's definitely not liked
+    if (explicitlyUnlikedCommentIds.has(commentId)) {
+      return false;
+    }
+    // Otherwise check if it's in the liked set
+    return likedCommentIds.has(commentId) || false;
+  };
+
+  // Simple function to check if a comment is liked (for compatibility)
+  const checkCommentLikeStatus = (commentId: string): boolean => {
+    return hasCommentLike(commentId) || false;
+  };
+  
+  // Function to check like status with backend and update local state
+  const checkAndUpdateLikeStatus = async (
+    postId: string,
+    commentId: string
+  ): Promise<boolean> => {
+    try {
+      console.log(`JobSeeker: Checking like status for comment ${commentId} with API`);
+      const isLiked = await checkCommentLiked(postId, commentId);
+      console.log(`JobSeeker: API response for comment ${commentId} like status: ${isLiked}`);
+      
+      if (isLiked) {
+        setLikedCommentIds((prev) => new Set([...prev, commentId]));
+        console.log(`JobSeeker: Adding ${commentId} to likedCommentIds from API check`);
+      } else {
+        setLikedCommentIds((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(commentId);
+          return newSet;
+        });
+      }
+      return isLiked;
+    } catch (error) {
+      console.error(`Error checking like status for ${commentId}:`, error);
+      // In case of error, rely on local state
+      return likedCommentIds.has(commentId) || false;
+    }
+  };
+
+  // Helper function to update like status recursively in comment tree
+  const updateCommentLikeStatus = (
+    comment: Comment,
+    targetId: string,
+    isLiked: boolean
+  ): Comment => {
+    if (comment.id === targetId) {
+      // If comment is already in desired state, don't change the count to avoid double counting
+      if (comment.isUpvoted === isLiked) {
+        return comment; // Already in desired state, don't modify
+      }
+
+      // Otherwise, update like status and count properly
+      return {
+        ...comment,
+        isUpvoted: isLiked,
+        // For likes: if not already liked, increment by 1
+        // For unlikes: if currently liked, decrement by 1
+        likeCount: isLiked
+          ? comment.isUpvoted
+            ? comment.likeCount || 0
+            : (comment.likeCount || 0) + 1
+          : comment.isUpvoted
+          ? Math.max(0, (comment.likeCount || 1) - 1)
+          : comment.likeCount || 0,
+      };
+    }
+
+    if (comment.replies && comment.replies.length > 0) {
+      return {
+        ...comment,
+        replies: comment.replies.map((reply) =>
+          updateCommentLikeStatus(reply, targetId, isLiked)
+        ),
+      };
+    }
+
+    return comment;
+  };
+  
+  // Populate likedCommentIds when comments load
+  useEffect(() => {
+    const initializeLikes = async () => {
+      if (!comments || comments.length === 0 || !selectedPost) return;
+
+      const likedIds = new Set<string>();
+
+      // Recursive function to check comments and replies
+      const processComment = async (comment: Comment) => {
+        // Check if comment is already marked as liked by the server
+        if (comment.isUpvoted) {
+          likedIds.add(comment.id);
+          console.log(`JobSeeker: Adding ${comment.id} to likedCommentIds because isUpvoted is true`);
+        } else {
+          // Double check with the API if needed
+          try {
+            const isLiked = await checkCommentLiked(selectedPost.id, comment.id);
+            if (isLiked) {
+              likedIds.add(comment.id);
+              console.log(`JobSeeker: Adding ${comment.id} to likedCommentIds after API check`);
+            }
+          } catch (error) {
+            console.error(`JobSeeker: Error checking like status for comment ${comment.id}:`, error);
+          }
+        }
+
+        // Process any replies
+        if (comment.replies && comment.replies.length > 0) {
+          for (const reply of comment.replies) {
+            await processComment(reply);
+          }
+        }
+      };
+
+      // Process all comments
+      for (const comment of comments) {
+        await processComment(comment);
+      }
+
+      // Update state with liked comments
+      console.log("JobSeeker: Setting likedCommentIds to:", [...likedIds]);
+      setLikedCommentIds(likedIds);
+    };
+    
+    initializeLikes();
+  }, [comments, selectedPost]);
+
+  const toggleCommentLike = (
+    postId: string,
+    commentId: string,
+    isCurrentlyLiked: boolean
+  ) => {
+    // Prevent rapid toggling (debounce)
+    const now = Date.now();
+    const lastToggle = lastToggleTime[commentId] || 0;
+    if (now - lastToggle < 500) {
+      // 500ms debounce
+      return; // Ignore rapid clicks
+    }
+
+    // Update last toggle time
+    setLastToggleTime((prev) => ({
+      ...prev,
+      [commentId]: now,
+    }));
+
+    // First, update the UI optimistically for immediate feedback
+    queryClient.setQueryData<Comment[]>(
+      ["post-comments", postId],
+      (oldData) => {
+        if (!oldData) return [];
+        return oldData.map((comment) =>
+          updateCommentLikeStatus(comment, commentId, !isCurrentlyLiked)
+        );
+      }
+    );
+
+    // Now, handle the state updates and API calls
+    if (isCurrentlyLiked) {
+      // UNLIKE ACTION
+      // Update UI state immediately
+      setLikedCommentIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(commentId);
+        return newSet;
+      });
+
+      setExplicitlyUnlikedCommentIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.add(commentId);
+        return newSet;
+      });
+
+      // Then call API (which will check if the comment is actually liked first)
+      unlikeCommentMutation.mutate({ postId, commentId });
+    } else {
+      // LIKE ACTION
+      // Update UI state immediately
+      setLikedCommentIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.add(commentId);
+        return newSet;
+      });
+
+      setExplicitlyUnlikedCommentIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(commentId);
+        return newSet;
+      });
+
+      // Then call API (which will check if the comment is already liked first)
+      likeCommentMutation.mutate({ postId, commentId });
+    }
+  };
+
   const openCommentModal = (post: Post) => {
     setSelectedPost(post);
     setCommentModalVisible(true);
@@ -412,7 +818,8 @@ const SocialFeedScreen = () => {
       text: newCommentText,
       time: "Just now",
       isUpvoted: false,
-      replies: [],
+      userId: data.id,
+      likeCount: 0,
     };
 
     try {
@@ -444,69 +851,287 @@ const SocialFeedScreen = () => {
     setReplyingToUsername(null);
   };
 
-  // Rendering functions - modified to remove upvote from comments and reply button from replies
-  const renderComment = (comment: Comment, isReply = false, postId: string) => (
-    <View
-      key={comment.id}
-      style={[styles.commentContainer, isReply && styles.replyContainer]}
-    >
-      <Image
-        source={
-          comment.avatar
-            ? { uri: comment.avatar }
-            : require("assets/images/default-user.png")
-        }
-        style={styles.commentAvatar}
-      />
-      <View style={styles.commentContent}>
-        <View style={styles.commentBubble}>
-          <View style={styles.commentHeader}>
-            <Text style={styles.commentUsername}>{comment.username}</Text>
-            {comment.username === username && (
-              <View style={styles.commentActions}>
-                <TouchableOpacity style={styles.commentActionButton}>
-                  <Ionicons name="create-outline" size={16} color="#666" />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.commentActionButton}>
-                  <Ionicons name="trash-outline" size={16} color="#666" />
-                </TouchableOpacity>
+  const handleDeletePost = (postId: string) => {
+    Alert.alert(
+      "Confirm Delete",
+      "Are you sure you want to delete this post?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          onPress: () => deletePostMutation.mutate(postId),
+          style: "destructive",
+        },
+      ],
+      { cancelable: false }
+    );
+  };
+
+  const handleOpenEditModal = (post: Post) => {
+    setEditingPostDetails(post);
+    setEditedContentText(post.postContent);
+    const existingImageUrl = post.postImage
+      ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${post.postImage}`
+      : null;
+    setEditedImageDisplayUri(existingImageUrl);
+    setNewLocalImageForEditUri(null);
+    setIsEditModalVisible(true);
+  };
+
+  const handlePickEditImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setEditedImageDisplayUri(result.assets[0].uri);
+      setNewLocalImageForEditUri(result.assets[0].uri);
+    }
+  };
+
+  const handleRemoveEditImage = () => {
+    setEditedImageDisplayUri(null);
+    setNewLocalImageForEditUri(null);
+  };
+
+  const handleSaveEditedPost = () => {
+    if (!editingPostDetails) return;
+
+    const { id: postId, postImage: originalPostImageUrlPart } =
+      editingPostDetails;
+
+    const updatedData: { postContent: string; newPostImage?: string | null } = {
+      postContent: editedContentText,
+    };
+
+    if (newLocalImageForEditUri) {
+      updatedData.newPostImage = newLocalImageForEditUri;
+    } else if (editedImageDisplayUri === null && originalPostImageUrlPart) {
+      updatedData.newPostImage = null;
+    }
+
+    editPostMutation.mutate({ postId, updatedData });
+  };
+
+  const handleEditComment = (comment: Comment) => {
+    setEditingCommentId(comment.id);
+    setEditingCommentTextForComment(comment.text);
+  };
+
+  const handleSaveComment = (postId: string, commentId: string) => {
+    if (!editingCommentTextForComment.trim()) {
+      Alert.alert("Error", "Comment cannot be empty.");
+      return;
+    }
+    editCommentMutation.mutate({
+      postId,
+      commentId,
+      newText: editingCommentTextForComment,
+    });
+  };
+
+  const handleCancelEditComment = () => {
+    setEditingCommentId(null);
+    setEditingCommentTextForComment("");
+  };
+
+  const handleDeleteComment = (postId: string, commentId: string) => {
+    Alert.alert(
+      "Delete Comment",
+      "Are you sure you want to delete this comment? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deleteCommentMutation.mutate({ postId, commentId }),
+        },
+      ]
+    );
+  };
+
+  const renderComment = (comment: Comment, isReply = false, postId: string) => {
+    return (
+      <View
+        key={comment.id}
+        style={[styles.commentContainer, isReply && styles.replyContainer]}
+      >
+        <Image
+          source={
+            comment.avatar
+              ? { uri: comment.avatar }
+              : require("assets/images/default-user.png")
+          }
+          style={styles.commentAvatar}
+        />
+        <View style={styles.commentContent}>
+          <View style={styles.commentBubble}>
+            <View style={styles.commentHeader}>
+              <Text style={styles.commentUsername}>{comment.username}</Text>
+              {data &&
+                comment.userId === data.id &&
+                editingCommentId !== comment.id && (
+                  <View style={styles.commentActions}>
+                    <TouchableOpacity
+                      onPress={() => handleEditComment(comment)}
+                      style={styles.commentActionButton}
+                    >
+                      <MaterialIcons name="edit" size={16} color="#666" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleDeleteComment(postId, comment.id)}
+                      style={styles.commentActionButton}
+                    >
+                      <MaterialIcons name="delete" size={16} color="#666" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+            </View>
+            {editingCommentId === comment.id ? (
+              <View>
+                <TextInput
+                  value={editingCommentTextForComment}
+                  onChangeText={setEditingCommentTextForComment}
+                  style={styles.editingCommentInput || styles.commentInput}
+                  autoFocus
+                  multiline
+                />
+                <View
+                  style={
+                    styles.commentActionGroup || {
+                      flexDirection: "row",
+                      justifyContent: "flex-end",
+                      marginTop: 5,
+                    }
+                  }
+                >
+                  <TouchableOpacity
+                    onPress={() => handleSaveComment(postId, comment.id)}
+                    style={{ marginRight: 10 }}
+                  >
+                    <Text style={{ color: "#0077B5" }}>Save</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleCancelEditComment}>
+                    <Text style={{ color: "#666" }}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
+            ) : (
+              <Text style={styles.commentText}>{comment.text}</Text>
             )}
           </View>
-          <Text style={styles.commentText}>{comment.text}</Text>
-        </View>
-        <View style={styles.commentActions}>
-          <Text style={styles.commentTime}>{comment.time}</Text>
-          {isReply && (
-            <TouchableOpacity style={styles.replyLikeButton}>
-              <Ionicons 
-                name={comment.isUpvoted ? "heart" : "heart-outline"} 
-                size={14} 
-                color={comment.isUpvoted ? "#0077B5" : "#666"} 
-              />
-              <Text style={[
-                styles.replyLikeText,
-                comment.isUpvoted && styles.replyLikeTextActive
-              ]}>
-                Like
-              </Text>
-            </TouchableOpacity>
+          {editingCommentId !== comment.id && (
+            <View style={styles.commentActions}>
+              <Text style={styles.commentTime}>{comment.time}</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  toggleCommentLike(
+                    postId,
+                    comment.id,
+                    explicitlyUnlikedCommentIds.has(comment.id)
+                      ? false
+                      : !!comment.isUpvoted
+                  );
+                }}
+                style={styles.commentActionButton}
+              >
+                <Ionicons
+                  name={
+                    // Explicitly unliked comments override everything else
+                    explicitlyUnlikedCommentIds.has(comment.id)
+                      ? "heart-outline"
+                      : comment.isUpvoted || hasCommentLike(comment.id)
+                      ? "heart"
+                      : "heart-outline"
+                  }
+                  size={16}
+                  color={
+                    // Explicitly unliked comments override everything else
+                    explicitlyUnlikedCommentIds.has(comment.id)
+                      ? "#666"
+                      : comment.isUpvoted || hasCommentLike(comment.id)
+                      ? "#0077B5"
+                      : "#666"
+                  }
+                />
+                <Text
+                  style={[
+                    styles.commentAction,
+                    {
+                      marginLeft: 3,
+                      color: explicitlyUnlikedCommentIds.has(comment.id)
+                        ? "#666"
+                        : comment.isUpvoted || hasCommentLike(comment.id)
+                        ? "#0077B5"
+                        : "#666",
+                    },
+                  ]}
+                >
+                  {/* Display the like count with optimistic UI adjustments */}
+                  {(() => {
+                    // Start with the server's like count - this ensures we show existing likes from other users
+                    const serverCount = comment.likeCount !== undefined ? comment.likeCount : 0;
+                    
+                    // Apply adjustments based on the current user's actions
+                    let displayCount = serverCount;
+                    
+                    // If the user liked it locally but it's not reflected in server data yet
+                    if (hasCommentLike(comment.id) && !comment.isUpvoted) {
+                      displayCount += 1;
+                    }
+                    
+                    // If the user unliked it locally but it's not reflected in server data yet
+                    if (explicitlyUnlikedCommentIds.has(comment.id) && comment.isUpvoted) {
+                      displayCount = Math.max(0, displayCount - 1);
+                    }
+                    
+                    return displayCount;
+                  })()}
+                  {" "}
+                  {/* Pluralization logic */}
+                  {(() => {
+                    // Get the display count using the same logic as above
+                    const serverCount = comment.likeCount !== undefined ? comment.likeCount : 0;
+                    let displayCount = serverCount;
+                    
+                    if (hasCommentLike(comment.id) && !comment.isUpvoted) {
+                      displayCount += 1;
+                    }
+                    if (explicitlyUnlikedCommentIds.has(comment.id) && comment.isUpvoted) {
+                      displayCount = Math.max(0, displayCount - 1);
+                    }
+                    
+                    return displayCount === 1 ? "Like" : "Likes";
+                  })()}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  setReplyToComment(comment.id);
+                  setReplyingToUsername(comment.username);
+                }}
+              >
+                <Text style={styles.commentAction}>Reply</Text>
+              </TouchableOpacity>
+            </View>
           )}
-          <TouchableOpacity
-            onPress={() => startReply(comment.id, comment.username)}
-          >
-            <Text style={styles.commentAction}>Reply</Text>
-          </TouchableOpacity>
+          {comment.replies && comment.replies.length > 0 && !isReply && (
+            <View style={styles.repliesContainer}>
+              {comment.replies.map((reply) =>
+                renderComment(reply, true, postId)
+              )}
+            </View>
+          )}
         </View>
-
-        {comment.replies && comment.replies.length > 0 && (
-          <View style={styles.repliesContainer}>
-            {comment.replies.map((reply) => renderComment(reply, true, postId))}
-          </View>
-        )}
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderPost = ({ item }: { item: Post }) => {
     const imageUrl = item.postImage
@@ -538,13 +1163,19 @@ const SocialFeedScreen = () => {
               })}
             </Text>
           </View>
-          {item.jobSeekerId === data?.id && (
+          {data && item.jobSeekerId === data.id && (
             <View style={styles.postActions}>
-              <TouchableOpacity style={styles.postActionButton}>
+              <TouchableOpacity
+                style={styles.postActionButton}
+                onPress={() => handleOpenEditModal(item)}
+              >
                 <Ionicons name="create-outline" size={20} color="#666" />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.postActionButton}>
-                <Ionicons name="trash-outline" size={20} color="#666" />
+              <TouchableOpacity
+                style={styles.postActionButton}
+                onPress={() => handleDeletePost(item.id)}
+              >
+                <MaterialIcons name="delete" size={20} color="#555" />
               </TouchableOpacity>
             </View>
           )}
@@ -776,6 +1407,102 @@ const SocialFeedScreen = () => {
       <Modal
         animationType="slide"
         transparent={false}
+        visible={isEditModalVisible}
+        onRequestClose={() => {
+          setIsEditModalVisible(false);
+          setEditingPostDetails(null);
+          setNewLocalImageForEditUri(null);
+          setEditedImageDisplayUri(null);
+        }}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              onPress={() => {
+                setIsEditModalVisible(false);
+                setEditingPostDetails(null);
+                setNewLocalImageForEditUri(null);
+                setEditedImageDisplayUri(null);
+              }}
+            >
+              <Ionicons name="close" size={28} color="#333" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Edit Post</Text>
+            <TouchableOpacity
+              style={[
+                styles.postButton,
+                (!editedContentText && !editedImageDisplayUri) ||
+                editPostMutation.isPending
+                  ? styles.disabledButton
+                  : {},
+              ]}
+              onPress={handleSaveEditedPost}
+              disabled={
+                (!editedContentText && !editedImageDisplayUri) ||
+                editPostMutation.isPending
+              }
+            >
+              {editPostMutation.isPending ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.postButtonText}>Save</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.modalScrollView}>
+            <View style={styles.userInfoContainer}>
+              <Image
+                source={{
+                  uri: userProfileImage || "https://via.placeholder.com/150",
+                }}
+                style={styles.userAvatar}
+              />
+              <View>
+                <Text style={styles.username}>{username}</Text>
+                <Text style={styles.jobTitle}>
+                  {data?.userType || "Job Seeker"}
+                </Text>
+              </View>
+            </View>
+            <TextInput
+              style={styles.postInputFull}
+              placeholder={`Edit your post...`}
+              multiline
+              value={editedContentText}
+              onChangeText={setEditedContentText}
+            />
+            {editedImageDisplayUri && (
+              <View style={styles.selectedImageContainer}>
+                <Image
+                  source={{ uri: editedImageDisplayUri }}
+                  style={styles.selectedImage}
+                />
+                <TouchableOpacity
+                  style={styles.removeImageButton}
+                  onPress={handleRemoveEditImage}
+                >
+                  <Ionicons name="close-circle" size={24} color="#000" />
+                </TouchableOpacity>
+              </View>
+            )}
+          </ScrollView>
+          <View style={styles.postOptions}>
+            <Text style={styles.addToYourPost}>Add to your post</Text>
+            <View style={styles.postOptionsButtons}>
+              <TouchableOpacity
+                style={styles.optionButton}
+                onPress={handlePickEditImage}
+              >
+                <Ionicons name="images" size={24} color="#4CAF50" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      <Modal
+        animationType="slide"
+        transparent={false}
         visible={commentModalVisible}
         onRequestClose={closeCommentModal}
       >
@@ -918,7 +1645,9 @@ const SocialFeedScreen = () => {
         <View style={styles.successModalOverlay}>
           <View style={styles.successModalContainer}>
             <Ionicons name="checkmark-circle" size={50} color="#0b8043" />
-            <Text style={styles.successModalText}>Post uploaded successfully!</Text>
+            <Text style={styles.successModalText}>
+              Post uploaded successfully!
+            </Text>
           </View>
         </View>
       </Modal>
@@ -1007,6 +1736,17 @@ const styles = StyleSheet.create<Styles>({
     flexDirection: "row",
     alignItems: "flex-start",
     marginBottom: 10,
+  },
+  postHeaderContent: {
+    flex: 1,
+  },
+  postActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  postActionButton: {
+    padding: 5,
+    marginLeft: 10,
   },
   avatar: {
     width: 40,
@@ -1129,6 +1869,18 @@ const styles = StyleSheet.create<Styles>({
     borderRadius: 15,
     borderTopLeftRadius: 0,
   },
+  commentHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 2,
+  },
+  commentActionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 6,
+    paddingVertical: 2,
+  },
   commentUsername: {
     fontWeight: "bold",
     fontSize: 14,
@@ -1157,6 +1909,20 @@ const styles = StyleSheet.create<Styles>({
   },
   repliesContainer: {
     marginTop: 8,
+  },
+  replyLikeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  replyLikeText: {
+    fontSize: 12,
+    color: "#65676B",
+    marginLeft: 4,
+  },
+  replyLikeTextActive: {
+    color: "#0077B5",
+    fontWeight: "500",
   },
   modalHeader: {
     flexDirection: "row",
@@ -1291,62 +2057,50 @@ const styles = StyleSheet.create<Styles>({
   noCommentsText: {
     color: "#666",
   },
-
   successModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   successModalContainer: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     padding: 20,
     borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '80%',
+    alignItems: "center",
+    justifyContent: "center",
+    width: "80%",
     maxWidth: 300,
   },
   successModalText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#333',
-    textAlign: 'center',
+    color: "#333",
+    textAlign: "center",
   },
-  postHeaderContent: {
+  modalContainer: {
     flex: 1,
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
-  postActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  modalScrollView: {
+    flex: 1,
+    paddingHorizontal: 15,
   },
-  postActionButton: {
-    padding: 5,
-    marginLeft: 10,
+  editingCommentInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#e1e9ee",
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    marginRight: 10,
+    backgroundColor: "#f5f5f5",
+    fontSize: 14,
   },
-  commentHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  commentActionButton: {
-    padding: 4,
-    marginLeft: 8,
-  },
-  replyLikeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  replyLikeText: {
-    fontSize: 12,
-    color: '#65676B',
-    marginLeft: 4,
-  },
-  replyLikeTextActive: {
-    color: '#0077B5',
-    fontWeight: '500',
+  commentActionGroup: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginTop: 5,
   },
 });
 

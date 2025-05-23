@@ -191,12 +191,37 @@ export async function unlikePost(postId) {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-        data: requestData,
+        data: requestData, // Axios delete requests pass data in the 'data' field
       }
     );
     return response.data;
   } catch (error) {
     console.error("Error unliking post:", error);
+    throw error;
+  }
+}
+
+export async function deleteCommunityPost(postId) {
+  try {
+    const token = await AsyncStorage.getItem("token");
+    // We might not need to decode the token if the backend only needs the token for auth
+    // and postId to identify the resource to delete and verify ownership on the backend.
+
+    const response = await axios.delete(
+      `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/community/posts/${postId}/delete`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    console.log("Successfully deleted community post!", response.data);
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Error deleting community post:",
+      error.response ? error.response.data : error.message
+    );
     throw error;
   }
 }
@@ -256,7 +281,9 @@ function transformCommentData(comment) {
       day: "numeric",
     }),
     replies: (comment.replies || []).map(transformCommentData),
-    isUpvoted: false,
+    isUpvoted: comment.isUpvoted || false,
+    likeCount: comment.likeCount || 0,
+    userId: comment.client?.id || comment.jobSeeker?.id,
   };
 }
 
@@ -300,5 +327,180 @@ export async function fetchPostComments(postId) {
   } catch (error) {
     // console.error("Error fetching comments:", error);
     throw error;
+  }
+}
+
+export async function editCommunityPost(postId, updatedData) {
+  try {
+    const token = await AsyncStorage.getItem("token");
+    const formData = new FormData();
+
+    // Append postContent if it's provided
+    if (updatedData.postContent !== undefined) {
+      formData.append("postContent", updatedData.postContent);
+    }
+
+    // Handle new image upload or image removal
+    // If newPostImage is a string, it's a new image URI
+    // If newPostImage is null, it signals to remove the image
+    // If newPostImage is undefined, the image is not being changed
+    if (updatedData.newPostImage) {
+      formData.append("postImage", {
+        uri: updatedData.newPostImage,
+        name: updatedData.newPostImage.split("/").pop(),
+        type: mime.lookup(updatedData.newPostImage),
+      });
+    } else if (updatedData.newPostImage === null) {
+      // Signal to backend to remove the image. Backend needs to handle this.
+      formData.append("removePostImage", "true");
+    }
+
+    const response = await axios.put(
+      `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/community/posts/${postId}/edit`,
+      formData,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+    console.log("Successfully updated community post!", response.data);
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Error updating community post:",
+      error.response ? error.response.data : error.message
+    );
+    throw error;
+  }
+}
+
+export async function editCommunityCommentOrReply(postId, commentId, newText) {
+  try {
+    const token = await AsyncStorage.getItem("token");
+    const response = await axios.put(
+      `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/community/posts/${postId}/comments/${commentId}/edit`,
+      { text: newText }, // Payload containing the new text
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    console.log("Successfully edited comment/reply!", response.data);
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Error editing comment/reply:",
+      error.response ? error.response.data : error.message
+    );
+    throw error;
+  }
+}
+
+export async function deleteCommunityCommentOrReply(postId, commentId) {
+  try {
+    const token = await AsyncStorage.getItem("token");
+    const response = await axios.delete(
+      `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/community/posts/${postId}/comments/${commentId}/delete`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    console.log("Successfully deleted comment/reply!", response.data);
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Error deleting comment/reply:",
+      error.response ? error.response.data : error.message
+    );
+    throw error;
+  }
+}
+
+export async function likeCommentOrReply(postId, commentId) {
+  try {
+    const token = await AsyncStorage.getItem("token");
+    console.log("[likeCommentOrReply] Token being used:", token); // Debug log
+    const response = await axios.post(
+      `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/community/posts/${postId}/comments/${commentId}/like`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    console.log("Successfully liked comment/reply:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Error liking comment/reply:",
+      error.response ? error.response.data : error.message
+    );
+    throw error;
+  }
+}
+
+export async function unlikeCommentOrReply(postId, commentId) {
+  try {
+    const token = await AsyncStorage.getItem("token");
+    console.log("[unlikeCommentOrReply] Token being used:", token); // Debug log
+    const response = await axios.post(
+      `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/community/posts/${postId}/comments/${commentId}/unlike`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    console.log("Successfully unliked comment/reply:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Error unliking comment/reply:",
+      error.response ? error.response.data : error.message
+    );
+    throw error;
+  }
+}
+
+/**
+ * Check if a comment/reply is already liked by the current user
+ * @param {string} postId - The ID of the post containing the comment
+ * @param {string} commentId - The ID of the comment to check
+ * @returns {Promise<boolean>} True if the comment is liked, false otherwise
+ */
+export async function checkCommentLiked(postId, commentId) {
+  try {
+    const token = await AsyncStorage.getItem("token");
+    if (!token) {
+      console.warn("No authentication token found");
+      return false;
+    }
+    
+    const response = await axios.get(
+      `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/community/posts/${postId}/comments/${commentId}/check-like`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    
+    console.log(`Check if comment ${commentId} is liked:`, response.data);
+    return response.data.isLiked || false;
+  } catch (error) {
+    console.error(
+      "Error checking comment like status:",
+      error.response ? error.response.data : error.message
+    );
+    // Default to not liked if we encounter an error
+    return false;
   }
 }
