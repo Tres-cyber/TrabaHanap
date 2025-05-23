@@ -22,6 +22,7 @@ import {
 import { useRouter } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchUserProfile, updateUserJobTags } from "@/api/profile-request";
+import * as ImagePicker from 'expo-image-picker';
 
 // Import local achievement data
 import achievementsData from "./achievements";
@@ -214,6 +215,7 @@ const UtilityWorkerProfile: React.FC = () => {
     [key: string]: boolean;
   }>({});
   const [displayedSkills, setDisplayedSkills] = useState<string[]>([]);
+  const [editingCredentials, setEditingCredentials] = useState(false);
 
   const {
     data: worker,
@@ -326,12 +328,9 @@ const UtilityWorkerProfile: React.FC = () => {
   };
 
   // Navigation handlers
-  const handleEditPress = () => {
-    router.push("./");
-  };
 
   const handleSettingsPress = () => {
-    router.push("../settings");
+    router.push("../../settings");
   };
 
   const toggleEditSkills = () => {
@@ -339,11 +338,25 @@ const UtilityWorkerProfile: React.FC = () => {
   };
 
   const handleAboutInfoPress = () => {
-    router.push("./about-info");
+    router.push("../../about-info");
   };
 
-  const handleGoBack = () => {
-    router.back();
+  const handleUploadCredential = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 1,
+      });
+
+      if (!result.canceled) {
+        Alert.alert('Success', 'Image selected successfully. Upload functionality will be implemented soon.');
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
+    }
   };
 
   // --- Loading and Error States ---
@@ -372,14 +385,6 @@ const UtilityWorkerProfile: React.FC = () => {
 
   return (
     <ScrollView style={styles.container}>
-      {/* Back Button */}
-      <TouchableOpacity 
-        style={styles.backButton} 
-        onPress={handleGoBack}
-      >
-        <Ionicons name="arrow-back-outline" size={24} color="#333" />
-      </TouchableOpacity>
-
       <View style={styles.actionsHeader}>
         <TouchableOpacity
           style={styles.actionButton}
@@ -585,6 +590,72 @@ const UtilityWorkerProfile: React.FC = () => {
                 <Text style={styles.noDataText}>
                   No achievements earned yet.
                 </Text>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Credentials</Text>
+              <TouchableOpacity
+                style={styles.sectionEditButton}
+                onPress={() => setEditingCredentials(!editingCredentials)}
+              >
+                {editingCredentials ? (
+                  <>
+                    <AntDesign name="check" size={16} color="#0B153C" />
+                    <Text style={styles.sectionEditButtonText}>Save</Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.sectionEditButtonText}>Edit</Text>
+                    <AntDesign name="edit" size={16} color="#0B153C" />
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.credentialsContainer}>
+              {editingCredentials ? (
+                worker.credentials && worker.credentials.length >= 5 ? (
+                  <View style={styles.maxCredentialsMessage}>
+                    <MaterialCommunityIcons name="alert-circle-outline" size={24} color="#FF3B30" />
+                    <Text style={styles.maxCredentialsText}>Maximum of 5 credentials reached</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.uploadCredentialButton}
+                    onPress={handleUploadCredential}
+                  >
+                    <AntDesign name="plus" size={24} color="#0B153C" />
+                    <Text style={styles.uploadCredentialText}>Upload Credential</Text>
+                  </TouchableOpacity>
+                )
+              ) : null}
+
+              {worker.credentials && worker.credentials.length > 0 ? (
+                <View style={styles.credentialsList}>
+                  {worker.credentials.map((credential: any, index: number) => (
+                    <View key={index} style={styles.credentialItem}>
+                      <Image
+                        source={{
+                          uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${credential.imageUrl}`,
+                        }}
+                        style={styles.credentialImage}
+                      />
+                      {editingCredentials && (
+                        <TouchableOpacity
+                          style={styles.deleteCredentialButton}
+                          onPress={() => Alert.alert('Delete Credential', 'This feature will be implemented soon.')}
+                        >
+                          <AntDesign name="delete" size={20} color="#FF3B30" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={styles.noDataText}>No credentials uploaded yet.</Text>
               )}
             </View>
           </View>
@@ -976,6 +1047,67 @@ const styles = StyleSheet.create({
   },
   unverifiedBadge: {
     backgroundColor: '#F5F5F5',
+  },
+  credentialsContainer: {
+    marginTop: 8,
+  },
+  uploadCredentialButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#0B153C',
+    borderStyle: 'dashed',
+  },
+  uploadCredentialText: {
+    color: '#0B153C',
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  credentialsList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  credentialItem: {
+    position: 'relative',
+    width: '48%',
+    aspectRatio: 4/3,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  credentialImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+  },
+  deleteCredentialButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 12,
+    padding: 4,
+  },
+  maxCredentialsMessage: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFE5E5',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#FF3B30',
+  },
+  maxCredentialsText: {
+    color: '#FF3B30',
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });
 

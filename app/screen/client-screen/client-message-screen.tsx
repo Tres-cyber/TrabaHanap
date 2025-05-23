@@ -41,6 +41,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { submitReport } from "../../../api/reportService.ts";
+import { Audio } from 'expo-av';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type Message = {
@@ -85,6 +86,12 @@ type MenuOption = {
   onPress?: () => void;
 };
 
+// Add this function near the top of the file, after the type definitions
+const truncateName = (name: string, maxLength: number = 15) => {
+  if (!name) return '';
+  return name.length > maxLength ? `${name.substring(0, maxLength)}...` : name;
+};
+
 const ChatScreen: React.FC<ChatProps> = ({
   recipientId = "1",
   recipientName = "Ken Robbie Galapate",
@@ -110,6 +117,8 @@ const ChatScreen: React.FC<ChatProps> = ({
     offerStatus,
     otherParticipantId,
     profileImage,
+    callType,
+    receiverImage,
   } = useLocalSearchParams();
   const [offerAmount, setOfferAmount] = useState(offer); // Define the money offer amount
   const [currentOfferStatus, setOfferStatus] = useState(offerStatus);
@@ -853,6 +862,9 @@ const ChatScreen: React.FC<ChatProps> = ({
 
     setOfferStatus("accepted");
     setOfferModalVisible(false);
+    
+    // Add system message for offer acceptance
+    handleSystemMessage("The offer has been accepted", "system");
   };
 
   const handleRejectOffer = async () => {
@@ -860,6 +872,9 @@ const ChatScreen: React.FC<ChatProps> = ({
     socket.emit("reject_offer", { chatId }, () => {});
     setOfferStatus("declined");
     setOfferModalVisible(false);
+    
+    // Add system message for offer rejection
+    handleSystemMessage("The offer has been rejected", "system");
   };
 
   const formatTime = (dateString: string | number | Date) => {
@@ -1419,22 +1434,56 @@ const ChatScreen: React.FC<ChatProps> = ({
             <Image
               source={{
                 uri: profileImage
-                  ? `http://${
-                      process.env.EXPO_PUBLIC_IP_ADDRESS
-                    }:3000/uploads/profiles/${
-                      (profileImage + "").split("profiles/")[1] || ""
-                    }`
+                  ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${(profileImage + "").split("profiles/")[1] || ""}`
                   : undefined,
               }}
               style={styles.recipientAvatar}
             />
-            <Text style={styles.recipientName}>{receiverName}</Text>
+            <Text style={styles.recipientName} numberOfLines={1}>
+              {truncateName(receiverName as string)}
+            </Text>
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={toggleMenuModal} style={styles.moreButton}>
-          <MaterialIcons name="more-vert" size={24} color="#000" />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity 
+            style={styles.headerIconButton}
+            onPress={() => {
+              router.push({
+                pathname: "/screen/client-screen/call-screen",
+                params: { 
+                  callType: 'voice',
+                  receiverName: receiverName,
+                  receiverImage: profileImage,
+                  chatId:chatId
+                }
+              });
+            }}
+          >
+            <Ionicons name="call-outline" size={24} color="#0b216f" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.headerIconButton}
+            onPress={() => {
+              router.push({
+                pathname: "/screen/client-screen/call-screen",
+                params: { 
+                  callType: 'video',
+                  receiverName: receiverName,
+                  receiverImage: profileImage,
+                  chatId:chatId
+                }
+              });
+            }}
+          >
+            <Ionicons name="videocam-outline" size={24} color="#0b216f" />
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={toggleMenuModal} style={styles.headerIconButton}>
+            <Ionicons name="ellipsis-vertical" size={24} color="#000" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {currentChatStatus === "pending" && (
@@ -1781,22 +1830,14 @@ const ChatScreen: React.FC<ChatProps> = ({
           )}
         </>
       )}
-      
-      {currentChatStatus === 'rejected' ? (
+
+      {currentChatStatus === 'rejected' && (
         <View style={styles.rejectedContainer}>
           <Ionicons name="close-circle" size={50} color="#ff3b30" />
           <Text style={styles.rejectedText}>
             You rejected {receiverName}'s chat request
           </Text>
         </View>
-      ) : (
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
-          style={styles.inputContainer}
-        >
-          {/* ... rest of the input container code ... */}
-        </KeyboardAvoidingView>
       )}
 
       <Modal
@@ -1903,6 +1944,7 @@ const styles = StyleSheet.create({
   headerUserInfo: {
     flexDirection: "row",
     alignItems: "center",
+    marginRight: 8,
   },
   recipientAvatar: {
     width: 40,
@@ -1913,6 +1955,8 @@ const styles = StyleSheet.create({
   recipientName: {
     fontSize: 16,
     fontWeight: "bold",
+    marginLeft: 10,
+    maxWidth: '60%',
   },
   moreButton: {
     padding: 8,
@@ -2616,6 +2660,16 @@ fileTime: {
 deletedFilePlaceholder: {
   padding: 10,
   alignItems: 'center',
+},
+
+headerActions: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  marginLeft: 'auto', // This will push the actions to the right
+},
+headerIconButton: {
+  padding: 8,
+  marginLeft: 4,
 },
 });
 

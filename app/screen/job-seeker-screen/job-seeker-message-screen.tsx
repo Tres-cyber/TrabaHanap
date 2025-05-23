@@ -34,7 +34,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { submitReport } from "../../../api/reportService.ts";
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
+import { Audio } from 'expo-av';
 type Message = {
   id: string;
   chatId: string;
@@ -78,6 +78,11 @@ type Offer = {
   offerAmount: string;
   offerStatus: "pending" | "accepted" | "declined";
 } | null;
+
+const truncateName = (name: string, maxLength: number = 15) => {
+  if (!name) return '';
+  return name.length > maxLength ? `${name.substring(0, maxLength)}...` : name;
+};
 
 const ChatScreen: React.FC<ChatProps> = ({
   recipientId = "1",
@@ -1256,13 +1261,51 @@ const ChatScreen: React.FC<ChatProps> = ({
               }}
               style={styles.recipientAvatar}
             />
-            <Text style={styles.recipientName}>{receiverName}</Text>
+            <Text style={styles.recipientName} numberOfLines={1}>
+              {truncateName(receiverName as string)}
+            </Text>
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity onPress={toggleModal} style={styles.moreButton}>
-          <Ionicons name="ellipsis-vertical" size={24} color="#000" />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity 
+            style={styles.headerIconButton}
+            onPress={() => {
+              router.push({
+                pathname: "/screen/job-seeker-screen/call-screen",
+                params: {
+                  callType: 'voice',
+                  receiverName: receiverName,
+                  receiverImage: profileImage,
+                  chatId:chatId
+                }
+              });
+            }}
+          >
+            <Ionicons name="call-outline" size={24} color="#0b216f" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.headerIconButton}
+            onPress={() => {
+              router.push({
+                pathname: "/screen/job-seeker-screen/call-screen",
+                params: {
+                  callType: 'video',
+                  receiverName: receiverName,
+                  receiverImage: profileImage,
+                  chatId:chatId
+                }
+              });
+            }}
+          >
+            <Ionicons name="videocam-outline" size={24} color="#0b216f" />
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={toggleModal} style={styles.headerIconButton}>
+            <Ionicons name="ellipsis-vertical" size={24} color="#000" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {currentOffer && currentOfferStatus == "pending" && showOfferBanner && (
@@ -1605,8 +1648,10 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
   headerUserInfo: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    marginHorizontal: 8,
   },
   recipientAvatar: {
     width: 40,
@@ -1617,6 +1662,17 @@ const styles = StyleSheet.create({
   recipientName: {
     fontSize: 16,
     fontWeight: "bold",
+    flex: 1,
+    marginRight: 8,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 'auto',
+  },
+  headerIconButton: {
+    padding: 8,
+    marginLeft: 4,
   },
   moreButton: {
     padding: 8,

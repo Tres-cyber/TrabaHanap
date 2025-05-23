@@ -50,6 +50,7 @@ interface WorkerData {
   dateJoined?: string;
   rate?: number;
   isVerified: boolean;
+  credentials?: any[];
 }
 
 interface Achievement {
@@ -159,6 +160,7 @@ const UtilityWorkerProfile: React.FC = () => {
         dateJoined: profileData.joinedAt,
         rate: profileData.rate,
         isVerified: profileData.isVerified,
+        credentials: profileData.credentials || [],
       };
 
       setWorker(combinedData);
@@ -457,6 +459,31 @@ const UtilityWorkerProfile: React.FC = () => {
             </View>
           ))}
         </ScrollView>
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Credentials</Text>
+        </View>
+
+        <View style={styles.credentialsContainer}>
+          {worker.credentials && worker.credentials.length > 0 ? (
+            <View style={styles.credentialsList}>
+              {worker.credentials.map((credential: any, index: number) => (
+                <View key={index} style={styles.credentialItem}>
+                  <Image
+                    source={{
+                      uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${credential.imageUrl}`,
+                    }}
+                    style={styles.credentialImage}
+                  />
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.noDataText}>No credentials uploaded yet.</Text>
+          )}
+        </View>
       </View>
 
       <View style={styles.section}>
@@ -927,6 +954,32 @@ const styles = StyleSheet.create({
   },
   unverifiedBadge: {
     backgroundColor: "#F5F5F5",
+  },
+  credentialsContainer: {
+    marginTop: 8,
+  },
+  credentialsList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  credentialItem: {
+    position: 'relative',
+    width: '48%',
+    aspectRatio: 4/3,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#f0f0f0',
+  },
+  credentialImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+  },
+  noDataText: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
   },
 });
 

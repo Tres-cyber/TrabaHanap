@@ -488,7 +488,7 @@ export default function JobListingScreen() {
                       setShowReviewModal(true);
                     }}
                   >
-                    <Text style={styles.finishButtonText}>Mark as Finished</Text>
+                    <Text style={styles.finishButtonText}>Leave a Review</Text>
                   </TouchableOpacity>
                 )}
                
@@ -648,7 +648,7 @@ const styles = StyleSheet.create({
     marginRight: 24,
     paddingBottom: 8,
     position: "relative",
-    minWidth: 100,
+    minWidth:30,
   },
   tabText: {
     fontSize: 16,
