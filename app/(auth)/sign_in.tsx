@@ -95,9 +95,8 @@ export default function SignInScreen() {
         }
       );
 
-      newSocket.on("connect", () => {
         newSocket.emit("register_user", data.user.id);
-      });
+      
 
       setSocket(newSocket);
 

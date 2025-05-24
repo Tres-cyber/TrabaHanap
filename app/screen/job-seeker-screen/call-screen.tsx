@@ -31,7 +31,7 @@ type CallType = 'video' | 'voice';
 
 const CallScreen = () => {
   const router = useRouter();
-  const { callType, receiverName, receiverImage } = useLocalSearchParams();
+  const { callType, receiverName, receiverImage,chatId, isCaller,callerId,calleeId } = useLocalSearchParams();
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [isCameraOn, setIsCameraOn] = useState(callType === 'video');

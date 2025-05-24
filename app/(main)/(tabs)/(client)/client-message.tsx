@@ -176,7 +176,9 @@ const ChatScreen: React.FC = () => {
         // newSocket.onAny((event, ...args) => {
         //   console.log(`📡 Socket event: ${event}`, args);
         // });
-  
+        if (currentUserId) {
+          newSocket.emit("register_user", currentUserId);
+        }
         newSocket.on("new_chat", (data) => {
           setChats(prev => {
             return [data, ...prev];
