@@ -131,6 +131,13 @@ const ChatScreen: React.FC<ChatProps> = ({
 
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [reportReason, setReportReason] = useState("");
+  const [callInfo, setCallInfo] = useState<{ calleeId: string; calleeInfo: any } | null>(null);
+
+  const [incomingCall, setIncomingCall] = useState<{
+    chatId: string;
+    callerId: string;
+    callerInfo: any;
+  } | null>(null);
 
   const handleDeleteChat = (chatId: string) => {
     if (!socket) return;
@@ -443,6 +450,15 @@ const ChatScreen: React.FC<ChatProps> = ({
         }
       );
 
+      if (currentUserId) {
+        console.log('Re-registering user:', currentUserId);
+        newSocket.emit("register_user", currentUserId);
+      }
+
+      newSocket.on("connect", () => {
+        console.log('Socket connected with ID:', newSocket.id);
+      });
+
       newSocket.on("receive_message", (message: Message) => {
         setMessages((prevMessages) => {
           const isDuplicate = prevMessages.some((msg) => msg.id === message.id);
@@ -472,7 +488,7 @@ const ChatScreen: React.FC<ChatProps> = ({
 
     getCurrentUser();
     initSocket();
-  }, [chatId]);
+  }, [chatId, currentUserId]);
 
   useEffect(() => {
     if (!socket) {
@@ -573,6 +589,73 @@ const ChatScreen: React.FC<ChatProps> = ({
       socket.emit("leave_chat", { chatId });
     };
   }, [socket, chatId]);
+
+
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on('call_initiated', ({ chatId, calleeId, calleeInfo }) => {
+      console.log('Call initiated to j:', calleeInfo);
+      setCallInfo({ calleeId: calleeInfo.id, calleeInfo });
+    });
+    
+    socket.on('incoming_call', ({ chatId, callerId, callerInfo }) => {
+      console.log('Incoming call from j:', callerInfo);
+      setIncomingCall({ chatId, callerId, callerInfo });
+    });
+
+    socket.on('call_accepted', ({ chatId, calleeId, calleeInfo }) => {
+      console.log('Call accepted by callee:', calleeInfo);
+      router.push({
+        pathname: "/screen/job-seeker-screen/call-screen",
+        params: {
+          callType: 'video',
+          receiverName: calleeInfo.name,
+          receiverImage: calleeInfo.profileImage,
+          chatId: chatId,
+          isCaller: "false",
+          calleeId: currentUserId,
+          callerId:otherParticipantId
+        }
+      });
+    });
+
+    socket.on('call_rejected', ({ chatId, calleeId, reason, calleeInfo }) => {
+      console.log('Call rejected by callee:', reason);
+      Alert.alert('Call Rejected', reason || 'Call was rejected');
+      setCallInfo(null);
+    });
+
+    socket.on('call_accepted_confirmation', ({ chatId, callerId, callerInfo }) => {
+      console.log('Call acceptance confirmed:', callerInfo);
+    router.push({
+      pathname: "/screen/job-seeker-screen/call-screen",
+      params: {
+        callType: 'video',
+          receiverName: callerInfo.name,
+          receiverImage: callerInfo.profileImage,
+        chatId: chatId,
+        isCaller: "false",
+        callerId: currentUserId,
+        calleeId:otherParticipantId
+      }
+    });
+    });
+
+    socket.on('call_rejected_confirmation', ({ chatId, callerId, callerInfo }) => {
+      console.log('Call rejection confirmed:', callerInfo);
+    setIncomingCall(null);
+    });
+
+    return () => {
+      socket.off('call_initiated');
+      socket.off('incoming_call');
+      socket.off('call_accepted');
+      socket.off('call_rejected');
+      socket.off('call_accepted_confirmation');
+      socket.off('call_rejected_confirmation');
+    };
+  }, [socket]);
 
   const renderMessageItem = ({
     item,
@@ -1223,6 +1306,64 @@ const ChatScreen: React.FC<ChatProps> = ({
     };
   }, [socket]);
 
+  const handleVoiceCall = () => {
+    router.push({
+      pathname: "/screen/job-seeker-screen/call-screen",
+      params: {
+        callType: 'voice',
+        receiverName: receiverName,
+        receiverImage: profileImage,
+        chatId: chatId
+      }
+    });
+  };
+
+  const handleVideoCall = () => {
+    if (!socket) return;
+    socket.emit('initiate_call', { 
+      chatId, 
+      callerId: currentUserId,
+      calleeId: otherParticipantId 
+    });
+    router.push({
+      pathname: "/screen/job-seeker-screen/call-screen",
+      params: {
+        callType: 'video',
+        receiverName: receiverName,
+        receiverImage: profileImage,
+        chatId: chatId,
+        isCaller: "true",
+        callerId: currentUserId,
+        calleeId:otherParticipantId
+      }
+    });
+  };
+
+  const handleAcceptCall = () => {
+    if (!socket || !incomingCall) return;
+    
+    socket.emit('accept_call', {
+      chatId: incomingCall.chatId,
+      callerId: incomingCall.callerId,
+      calleeId: currentUserId
+    });
+
+    setIncomingCall(null);
+  };
+
+  const handleRejectCall = () => {
+    if (!socket || !incomingCall) return;
+    
+    socket.emit('reject_call', {
+      chatId: incomingCall.chatId,
+      callerId: incomingCall.callerId,
+      calleeId: currentUserId,
+      reason: 'Call rejected by user'
+    });
+
+    setIncomingCall(null);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -1270,34 +1411,14 @@ const ChatScreen: React.FC<ChatProps> = ({
         <View style={styles.headerActions}>
           <TouchableOpacity 
             style={styles.headerIconButton}
-            onPress={() => {
-              router.push({
-                pathname: "/screen/job-seeker-screen/call-screen",
-                params: {
-                  callType: 'voice',
-                  receiverName: receiverName,
-                  receiverImage: profileImage,
-                  chatId:chatId
-                }
-              });
-            }}
+            onPress={handleVoiceCall}
           >
             <Ionicons name="call-outline" size={24} color="#0b216f" />
           </TouchableOpacity>
           
           <TouchableOpacity 
             style={styles.headerIconButton}
-            onPress={() => {
-              router.push({
-                pathname: "/screen/job-seeker-screen/call-screen",
-                params: {
-                  callType: 'video',
-                  receiverName: receiverName,
-                  receiverImage: profileImage,
-                  chatId:chatId
-                }
-              });
-            }}
+            onPress={handleVideoCall}
           >
             <Ionicons name="videocam-outline" size={24} color="#0b216f" />
           </TouchableOpacity>
@@ -1620,6 +1741,48 @@ const ChatScreen: React.FC<ChatProps> = ({
           </View>
         </View>
       </Modal>
+
+      {incomingCall && (
+        <View style={styles.incomingCallContainer}>
+          <View style={styles.incomingCallCard}>
+            <View style={styles.incomingCallHeader}>
+              <Image
+                source={{
+                  uri: incomingCall.callerInfo.profileImage
+                    ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${
+                        (incomingCall.callerInfo.profileImage + "").split("profiles/")[1] || ""
+                      }`
+                    : undefined,
+                }}
+                style={styles.incomingCallAvatar}
+                defaultSource={require("assets/images/client-user.png")}
+              />
+              <View style={styles.incomingCallInfo}>
+                <Text style={styles.incomingCallName}>
+                  {incomingCall.callerInfo.name || 'Incoming Call'}
+                </Text>
+                <Text style={styles.incomingCallType}>Video Call</Text>
+              </View>
+            </View>
+            
+            <View style={styles.incomingCallActions}>
+              <TouchableOpacity 
+                style={[styles.callButton, styles.rejectButton]} 
+                onPress={handleRejectCall}
+              >
+                <Ionicons name="call" size={24} color="#fff" style={styles.rejectIcon} />
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.callButton, styles.acceptButton]} 
+                onPress={handleAcceptCall}
+              >
+                <Ionicons name="videocam" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -2312,6 +2475,73 @@ const styles = StyleSheet.create({
   deletedFilePlaceholder: {
     padding: 10,
     alignItems: 'center',
+  },
+  incomingCallContainer: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 60 : 20,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  incomingCallCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    width: '90%',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  incomingCallHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  incomingCallAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 12,
+  },
+  incomingCallInfo: {
+    flex: 1,
+  },
+  incomingCallName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 4,
+  },
+  incomingCallType: {
+    fontSize: 14,
+    color: '#666',
+  },
+  incomingCallActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 8,
+  },
+  callButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  acceptButton: {
+    backgroundColor: '#4CAF50',
+  },
+  rejectButton: {
+    backgroundColor: '#FF3B30',
+  },
+  rejectIcon: {
+    transform: [{ rotate: '135deg' }],
   },
 });
 

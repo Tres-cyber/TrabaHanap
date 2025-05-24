@@ -161,6 +161,9 @@ const ChatScreen: React.FC = () => {
         const newSocket = io(`http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000`, {
           auth: { token }
         });
+        if (currentUserId) {
+          newSocket.emit("register_user", currentUserId);
+        }
         newSocket.onAny((event, ...args) => {
           console.log(`📡 Socket event: ${event}`, args);
         });

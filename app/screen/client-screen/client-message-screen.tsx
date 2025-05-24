@@ -86,6 +86,7 @@ type MenuOption = {
   onPress?: () => void;
 };
 
+
 // Add this function near the top of the file, after the type definitions
 const truncateName = (name: string, maxLength: number = 15) => {
   if (!name) return '';
@@ -146,6 +147,13 @@ const ChatScreen: React.FC<ChatProps> = ({
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [callInfo, setCallInfo] = useState<{ calleeId: string; calleeInfo: any } | null>(null);
+  const [incomingCallModalVisible, setIncomingCallModalVisible] = useState(false);
+  const [incomingCallInfo, setIncomingCallInfo] = useState<{
+    callerId: string;
+    callerInfo: any;
+  } | null>(null);
+  const [incomingCall, setIncomingCall] = useState<{ chatId: string; callerId: string; callerInfo: any } | null>(null);
 
 
   const getStatusText = (item: any) => {
@@ -387,7 +395,14 @@ const ChatScreen: React.FC<ChatProps> = ({
           },
         }
       );
+      if (currentUserId) {
+        console.log('Re-registering user:', currentUserId);
+        newSocket.emit("register_user", currentUserId);
+      }
 
+      newSocket.on("connect", () => {
+        console.log('Socket connected with ID:', newSocket.id);
+      });
       newSocket.on("client_offer_notification", (data) => {
         console.log("📩 Offer Receiveds :", data);
         setOfferAmount(data.offerAmount);
@@ -428,7 +443,7 @@ const ChatScreen: React.FC<ChatProps> = ({
 
     getCurrentUser();
     initSocket();
-  }, [chatId]);
+  }, [chatId, currentUserId]);
 
   useEffect(() => {
     if (!socket) return;
@@ -650,6 +665,67 @@ const ChatScreen: React.FC<ChatProps> = ({
     socket.on("messages_read", handleMessagesRead);
     return () => {
       socket.off("messages_read", handleMessagesRead);
+    };
+  }, [socket]);
+
+  useEffect(() => {
+    if (!socket) return;
+  
+    socket.on('call_initiated', ({ chatId, calleeId, calleeInfo }) => {
+      console.log('Call initiated to:', calleeInfo);
+      setCallInfo({ calleeId: calleeInfo.id, calleeInfo });
+    });
+    
+    socket.on('incoming_call', ({ chatId, callerId, callerInfo }) => {
+      console.log('Incoming call from:', callerInfo);
+      setIncomingCallInfo({ callerId, callerInfo });
+      setIncomingCall({ chatId, callerId, callerInfo }); // Add this line to store the full call info
+      setIncomingCallModalVisible(true);
+    });
+
+    socket.on('call_accepted', ({ chatId, calleeId, calleeInfo }) => {
+      console.log('Call accepted by callee:', calleeInfo);
+      setIncomingCallModalVisible(false);
+      // Navigate to call screen since call was accepted
+      router.push({
+        pathname: "/screen/client-screen/call-screen",
+        params: {
+          callType: 'video',
+          receiverName: calleeInfo.firstName + " " + calleeInfo.lastName,
+          receiverImage: calleeInfo.profileImage,
+          chatId: chatId,
+          isCaller: "false",
+          calleeId: currentUserId,
+          callerId:otherParticipantId
+        }
+      });
+    });
+
+    socket.on('call_rejected', ({ chatId, calleeId, reason, calleeInfo }) => {
+      console.log('Call rejected by callee:', reason);
+      Alert.alert('Call Rejected', reason || 'Call was rejected');
+      setIncomingCallModalVisible(false);
+      setCallInfo(null);
+      setIncomingCall(null);
+    });
+
+    socket.on('call_accepted_confirmation', ({ chatId, callerId, callerInfo }) => {
+      console.log('Call acceptance confirmed:', callerInfo);
+      // Handle successful call acceptance confirmation
+    });
+
+    socket.on('call_rejected_confirmation', ({ chatId, callerId, callerInfo }) => {
+      console.log('Call rejection confirmed:', callerInfo);
+      // Handle call rejection confirmation
+    });
+  
+    return () => {
+      socket.off('call_initiated');
+      socket.off('incoming_call');
+      socket.off('call_accepted');
+      socket.off('call_rejected');
+      socket.off('call_accepted_confirmation');
+      socket.off('call_rejected_confirmation');
     };
   }, [socket]);
 
@@ -1408,6 +1484,65 @@ const ChatScreen: React.FC<ChatProps> = ({
     }
   };
 
+  // Add these functions before the return statement
+  const handleVoiceCall = () => {
+    router.push({
+      pathname: "/screen/client-screen/call-screen",
+      params: { 
+        callType: 'voice',
+        receiverName: receiverName,
+        receiverImage: profileImage,
+        chatId: chatId
+      }
+    });
+  };
+
+  const handleVideoCall = () => {
+    if(!socket) return;
+    socket.emit('initiate_call', { chatId, callerId: currentUserId,calleeId:otherParticipantId });
+    router.push({
+      pathname: "/screen/client-screen/call-screen",
+      params: { 
+        callType: 'video',
+        receiverName: receiverName,
+        receiverImage: profileImage,
+        chatId: chatId,
+        isCaller: "true",
+        callerId: currentUserId,
+        calleeId:otherParticipantId
+      }
+    });
+  };
+
+  const handleAcceptCall = () => {
+    if (!socket || !incomingCall) return;
+    
+    socket.emit('accept_call', {
+      chatId: incomingCall.chatId,
+      callerId: incomingCall.callerId,
+      calleeId: currentUserId,
+
+    });
+
+    setIncomingCall(null);
+    setIncomingCallInfo(null);
+  };
+
+  const handleRejectCall = () => {
+    if (!socket || !incomingCall) return;
+    
+    socket.emit('reject_call', {
+      chatId: incomingCall.chatId,
+      callerId: incomingCall.callerId,
+      calleeId: currentUserId,
+      reason: 'Call rejected by user',
+
+    });
+
+    setIncomingCall(null);
+    setIncomingCallInfo(null);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -1448,34 +1583,14 @@ const ChatScreen: React.FC<ChatProps> = ({
         <View style={styles.headerActions}>
           <TouchableOpacity 
             style={styles.headerIconButton}
-            onPress={() => {
-              router.push({
-                pathname: "/screen/client-screen/call-screen",
-                params: { 
-                  callType: 'voice',
-                  receiverName: receiverName,
-                  receiverImage: profileImage,
-                  chatId:chatId
-                }
-              });
-            }}
+            onPress={handleVoiceCall}
           >
             <Ionicons name="call-outline" size={24} color="#0b216f" />
           </TouchableOpacity>
           
           <TouchableOpacity 
             style={styles.headerIconButton}
-            onPress={() => {
-              router.push({
-                pathname: "/screen/client-screen/call-screen",
-                params: { 
-                  callType: 'video',
-                  receiverName: receiverName,
-                  receiverImage: profileImage,
-                  chatId:chatId
-                }
-              });
-            }}
+            onPress={handleVideoCall}
           >
             <Ionicons name="videocam-outline" size={24} color="#0b216f" />
           </TouchableOpacity>
@@ -1910,6 +2025,115 @@ const ChatScreen: React.FC<ChatProps> = ({
                 onPress={handleReportSubmit}
                 color="#ff3b30"
               />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        transparent
+        visible={modalVisible}
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.floatingCardContainer}>
+          <View style={styles.floatingCard}>
+            <View style={styles.floatingCardContent}>
+              <Image
+                source={{
+                  uri: profileImage
+                    ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${(profileImage + "").split("profiles/")[1] || ""}`
+                    : undefined
+                }}
+                style={styles.floatingCardAvatar}
+              />
+              <View style={styles.floatingCardTextContainer}>
+                <Text style={styles.floatingCardTitle}>Incoming Call</Text>
+                <Text style={styles.floatingCardName}>
+                  {receiverName}
+                </Text>
+              </View>
+            </View>
+            
+            <View style={styles.floatingCardButtons}>
+              <TouchableOpacity
+                style={[styles.floatingCardButton, styles.declineButton]}
+                onPress={() => setModalVisible(false)}
+              >
+                <Ionicons name="call" size={24} color="#fff" style={styles.rotateIcon} />
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.floatingCardButton, styles.acceptButton]}
+                onPress={() => setModalVisible(false)}
+              >
+                <Ionicons name="call" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Incoming Call Floating Card */}
+      <Modal
+        transparent
+        visible={incomingCallModalVisible}
+        animationType="slide"
+        onRequestClose={() => setIncomingCallModalVisible(false)}
+      >
+        <View style={styles.floatingCardContainer}>
+          <View style={styles.floatingCard}>
+            <View style={styles.floatingCardContent}>
+              <Image
+                source={{
+                  uri: incomingCallInfo?.callerInfo?.profileImage
+                    ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${(incomingCallInfo.callerInfo.profileImage + "").split("profiles/")[1] || ""}`
+                    : undefined
+                }}
+                style={styles.floatingCardAvatar}
+                defaultSource={require("assets/images/client-user.png")}
+              />
+              <View style={styles.floatingCardTextContainer}>
+                <Text style={styles.floatingCardTitle}>Incoming Call</Text>
+                <Text style={styles.floatingCardName}>
+                  {(incomingCallInfo?.callerInfo?.firstName + " " + incomingCallInfo?.callerInfo?.lastName) || 'Unknown Caller'}
+                </Text>
+              </View>
+            </View>
+            
+            <View style={styles.floatingCardButtons}>
+              <TouchableOpacity
+                style={[styles.floatingCardButton, styles.declineButton]}
+                onPress={() => {
+                  handleRejectCall();
+                  setIncomingCallModalVisible(false);
+                }}
+              >
+                <Ionicons name="call" size={24} color="#fff" style={styles.rotateIcon} />
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.floatingCardButton, styles.acceptButton]}
+                onPress={() => {
+                  handleAcceptCall();
+                  setIncomingCallModalVisible(false);
+                  // Navigate to call screen after accepting
+                  router.push({
+                    pathname: "/screen/client-screen/call-screen",
+                    params: {
+                      callType: 'video',
+                      receiverName: incomingCallInfo?.callerInfo?.firstName + " " + incomingCallInfo?.callerInfo?.lastName,
+                      receiverImage: incomingCallInfo?.callerInfo?.profileImage,
+                      chatId: chatId,
+                      isCaller: "true",
+                      callerId: currentUserId,
+                      calleeId:otherParticipantId
+                    }
+                  });
+                }}
+              >
+                <Ionicons name="videocam" size={24} color="#fff" />
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -2670,6 +2894,74 @@ headerActions: {
 headerIconButton: {
   padding: 8,
   marginLeft: 4,
+},
+
+floatingCardContainer: {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  justifyContent: 'flex-start',
+  paddingTop: Platform.OS === 'ios' ? 50 : 30,
+},
+floatingCard: {
+  backgroundColor: '#fff',
+  marginHorizontal: 20,
+  borderRadius: 15,
+  padding: 15,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.25,
+  shadowRadius: 3.84,
+  elevation: 5,
+},
+floatingCardContent: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  marginBottom: 15,
+},
+floatingCardAvatar: {
+  width: 50,
+  height: 50,
+  borderRadius: 25,
+  marginRight: 15,
+},
+floatingCardTextContainer: {
+  flex: 1,
+},
+floatingCardTitle: {
+  fontSize: 16,
+  color: '#666',
+  marginBottom: 4,
+},
+floatingCardName: {
+  fontSize: 18,
+  fontWeight: 'bold',
+  color: '#333',
+},
+floatingCardButtons: {
+  flexDirection: 'row',
+  justifyContent: 'space-around',
+  paddingTop: 10,
+  borderTopWidth: 1,
+  borderTopColor: '#eee',
+},
+floatingCardButton: {
+  width: 50,
+  height: 50,
+  borderRadius: 25,
+  justifyContent: 'center',
+  alignItems: 'center',
+  marginHorizontal: 20,
+},
+
+declineButton: {
+  backgroundColor: '#ff3b30',
+},
+rotateIcon: {
+  transform: [{ rotate: '135deg' }],
 },
 });
 
