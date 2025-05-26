@@ -25,13 +25,339 @@ import io, { Socket } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { RTCView } from 'react-native-webrtc';
 import { MediaStream as RTCMediaStream } from 'react-native-webrtc';
+
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 type CallType = 'video' | 'voice';
 
+class WebRTCHandler {
+  private peerConnection: RTCPeerConnection | null = null;
+  private localStream: RTCMediaStream | null = null;
+  private socket: Socket;
+  private currentChatId: string = '';
+  private currentUserId: string = '';
+  private otherUserId: string = '';
+  private socketConnected: boolean = false;
+
+  constructor(socket: Socket) {
+    this.socket = socket;
+    this.setupSocketListeners();
+  }
+
+  private setupSocketListeners() {
+    // Handle socket connection
+    this.socket.on('connect', () => {
+      console.log('Socket connected with ID:', this.socket.id);
+      this.socketConnected = true;
+      
+      // If we have a current chat ID, rejoin the room
+      if (this.currentChatId) {
+        this.socket.emit('join_room', this.currentChatId);
+      }
+    });
+
+    this.socket.on('disconnect', () => {
+      console.log('Socket disconnected');
+      this.socketConnected = false;
+    });
+
+    this.socket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
+      this.socketConnected = false;
+    });
+
+    // Log all socket events for debugging
+    this.socket.onAny((eventName, ...args) => {
+      console.log(`Socket event received: ${eventName}`, args);
+    });
+  }
+
+  async initializeCall(chatId: string, callerId: string, calleeId: string, isCaller: string) {
+    try {
+      console.log('Initializing call...', { isCaller, callerId, calleeId });
+      
+      // Store the IDs for reconnection handling
+      this.currentChatId = chatId;
+      this.currentUserId = callerId;
+      this.otherUserId = calleeId;
+
+      // Join the room
+      this.socket.emit('join_room', chatId);
+      
+      // Get user media with explicit video constraints
+      this.localStream = await mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'user',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: true
+      });
+      console.log('Local stream obtained:', this.localStream.getTracks().length, 'tracks');
+
+      // Create peer connection with proper configuration
+      this.peerConnection = new RTCPeerConnection({
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' }
+        ],
+        iceCandidatePoolSize: 10,
+      });
+      console.log('Peer connection created');
+
+      // Add connection state change listener
+      this.peerConnection.addEventListener('connectionstatechange', () => {
+        console.log('Connection state changed:', this.peerConnection?.connectionState);
+      });
+
+      // Add ICE connection state change listener
+      this.peerConnection.addEventListener('iceconnectionstatechange', () => {
+        console.log('ICE connection state:', this.peerConnection?.iceConnectionState);
+      });
+
+      // Add local stream tracks to peer connection
+      this.localStream.getTracks().forEach(track => {
+        console.log('Adding track to peer connection:', track.kind);
+        if (this.peerConnection) {
+          this.peerConnection.addTrack(track, this.localStream!);
+        }
+      });
+
+      // Handle incoming stream
+      this.peerConnection.addEventListener('track', (event: any) => {
+        console.log('Received remote track:', event.streams[0].getTracks().length, 'tracks');
+        if (event.streams && event.streams[0]) {
+          this.socket.emit('remote_stream_ready', { chatId });
+        }
+      });
+
+      // Handle ICE candidates
+      this.peerConnection.addEventListener('icecandidate', (event: any) => {
+        console.log('ICE candidate:', event.candidate ? 'New candidate' : 'All candidates sent');
+        if (event.candidate) {
+          this.socket.emit('ice_candidate', {
+            chatId,
+            candidate: event.candidate,
+            fromUserId: callerId,
+            toUserId: calleeId
+          });
+        }
+      });
+
+      // Create and send offer if caller
+      if (isCaller == "true") {
+        try {
+          console.log('Starting offer creation process...');
+          
+          const offer = await this.peerConnection.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: true,
+            iceRestart: true
+          });
+          
+          await this.peerConnection.setLocalDescription(offer);
+          
+          // Send offer
+          this.socket.emit('create_offer', {
+            chatId,
+            callerId,
+            calleeId,
+            offer: {
+              type: offer.type,
+              sdp: offer.sdp
+            }
+          });
+
+          // Listen for answer with new event name
+          this.socket.on('receive_answer', async ({ signal, fromUserId,chatId }) => {
+            console.log('Caller received answer:', { type: signal.type, fromUserId });
+            if (signal.type === 'answer') {
+              try {
+                await this.peerConnection?.setRemoteDescription(new RTCSessionDescription(signal));
+                console.log('Remote description (answer) set successfully');
+              } catch (error) {
+                console.error('Error setting remote description:', error);
+              }
+            }
+          });
+        } catch (error) {
+          console.error('Error in offer creation process:', error);
+          throw error;
+        }
+      }
+
+      return { localStream: this.localStream };
+    } catch (error) {
+      console.error('Error initializing call:', error);
+      throw error;
+    }
+  }
+
+  private initializePeerConnection() {
+    const configuration = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' }
+      ],
+      iceCandidatePoolSize: 10
+    };
+
+    this.peerConnection = new RTCPeerConnection(configuration);
+
+    // Set up peer connection event handlers
+    if (this.peerConnection) {
+      // Replace onicecandidate with addEventListener
+      this.peerConnection.addEventListener('icecandidate', (event) => {
+        if (event.candidate) {
+          this.socket.emit('ice_candidate', {
+            chatId: this.currentChatId,
+            candidate: event.candidate,
+            fromUserId: this.currentUserId,
+            toUserId: this.otherUserId
+          });
+        }
+      });
+    
+      // Replace onconnectionstatechange with addEventListener
+      this.peerConnection.addEventListener('connectionstatechange', () => {
+        console.log('Connection state:', this.peerConnection?.connectionState);
+      });
+    
+      // Replace ontrack with addEventListener
+      this.peerConnection.addEventListener('track', (event) => {
+        console.log('Received remote track');
+        if (event.streams && event.streams[0]) {
+          this.socket.emit('remote_stream_ready', { chatId: this.currentChatId });
+        }
+      });
+    }
+  }
+  async handleIncomingCall(chatId: string, callerId: string, calleeId: string) {
+    try {
+      console.log('Setting up incoming call handler...', { chatId, callerId, calleeId });
+      
+      // Store the IDs for reconnection handling
+      this.currentChatId = chatId;
+      this.currentUserId = calleeId;
+      this.otherUserId = callerId;
+
+      // Join the room
+      this.socket.emit('join_room', chatId);
+      console.log('Joined room:', chatId);
+
+
+      // Listen for offer through the room
+      this.socket.on('receive_offer', async ({ signal, fromUserId, chatId }) => {
+        console.log('Received offer in room:', { 
+          type: signal.type, 
+          fromUserId,
+          chatId,
+          socketId: this.socket.id
+        });
+
+        try {
+          if (signal.type === 'offer') {
+            console.log('Processing offer...');
+            
+            await this.peerConnection?.setRemoteDescription(new RTCSessionDescription(signal));
+            console.log('Remote description set');
+            
+            const answer = await this.peerConnection?.createAnswer();
+            console.log('Answer created:', answer);
+            
+            await this.peerConnection?.setLocalDescription(answer);
+            console.log('Local description set:', this.peerConnection?.localDescription);
+            
+            // Send answer through the room
+            this.socket.emit('create_answer', {
+              chatId,
+              callerId,
+              calleeId,
+              answer: this.peerConnection?.localDescription
+            });
+          }
+        } catch (error) {
+          console.error('Error processing offer:', error);
+        }
+      });
+
+      // ICE candidate handling through the room
+      this.socket.on('ice_candidate', async ({ candidate, fromUserId, chatId: candidateChatId }) => {
+        if (candidateChatId !== chatId) return;
+        
+        try {
+          if (this.peerConnection && candidate) {
+            await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            console.log('Added ICE candidate from:', fromUserId);
+          }
+        } catch (error) {
+          console.error('Error adding ICE candidate:', error);
+        }
+      });
+
+    } catch (error) {
+      console.error('Error handling incoming call:', error);
+      throw error;
+    }
+  }
+
+  endCall() {
+    // Leave the room
+    if (this.currentChatId) {
+      this.socket.emit('leave_room', this.currentChatId);
+    }
+
+    // Clear stored IDs
+    this.currentChatId = '';
+    this.currentUserId = '';
+    this.otherUserId = '';
+
+    // Update cleanup to include new event names
+    this.socket.off('receive_offer');
+    this.socket.off('receive_answer');
+    this.socket.off('ice_candidate');
+    this.socket.off('remote_stream_ready');
+    this.socket.off('call_ended');
+
+    // Stop and cleanup local stream
+    if (this.localStream) {
+      this.localStream.getTracks().forEach(track => {
+        track.stop();
+        track.enabled = false;
+      });
+    }
+
+    // Close and cleanup peer connection
+    if (this.peerConnection) {
+      // Remove all event listeners
+      this.peerConnection.removeEventListener('connectionstatechange', () => {});
+      this.peerConnection.removeEventListener('iceconnectionstatechange', () => {});
+      this.peerConnection.removeEventListener('track', () => {});
+      this.peerConnection.removeEventListener('icecandidate', () => {});
+      
+      // Close all data channels if they exist
+      this.peerConnection.getSenders().forEach(sender => {
+        if (sender.track) {
+          sender.track.stop();
+        }
+      });
+      
+      // Close the peer connection
+      this.peerConnection.close();
+    }
+
+    // Reset all state
+    this.localStream = null;
+    this.peerConnection = null;
+  }
+}
+
 const CallScreen = () => {
   const router = useRouter();
-  const { callType, receiverName, receiverImage,chatId, isCaller,callerId,calleeId } = useLocalSearchParams();
+  const { callType, receiverName, receiverImage, chatId, isCaller, callerId, calleeId } = useLocalSearchParams();
+  // console.log('Call parameters from client :', { isCaller});
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [isCameraOn, setIsCameraOn] = useState(callType === 'video');
@@ -40,11 +366,114 @@ const CallScreen = () => {
   const [isCallActive, setIsCallActive] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(callType === 'video');
   const [hasPermission, setHasPermission] = useState<CameraPermissionStatus>('not-determined');
+  const [localStream, setLocalStream] = useState<RTCMediaStream | null>(null);
+  
   const cameraRef = useRef<Camera>(null);
   const device = useCameraDevice('front');
+  const webrtcHandler = useRef<WebRTCHandler | null>(null);
+  const socket = useRef<Socket | null>(null);
 
   // Animation value for pulsing effect
   const pulseAnim = new Animated.Value(1);
+
+  useEffect(() => {
+    const initializeWebRTC = async () => {
+      try {
+        console.log('Initializing WebRTC...');
+        const token = await AsyncStorage.getItem("token");
+        if (!token) {
+          console.error('No authentication token found');
+          setCallStatus('ended');
+          return;
+        }
+
+        // Clean up any existing socket connection first
+        if (socket.current) {
+          socket.current.disconnect();
+          socket.current = null;
+        }
+
+        // Initialize socket connection with authentication
+        socket.current = io(`http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000`, {
+          auth: { token },
+          transports: ['websocket'],
+          reconnection: true,
+          reconnectionAttempts: 5,
+          reconnectionDelay: 1000
+        });
+        
+        // Wait for socket connection before proceeding
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Socket connection timeout'));
+          }, 5000);
+
+          socket.current?.on('connect', () => {
+            clearTimeout(timeout);
+            console.log('Socket connected with ID:', socket.current?.id);
+            resolve(true);
+          });
+          
+          socket.current?.on('connect_error', (error) => {
+            clearTimeout(timeout);
+            console.error('Socket connection error:', error);
+            reject(error);
+          });
+        });
+
+        // Initialize WebRTC handler only after socket is connected
+        webrtcHandler.current = new WebRTCHandler(socket.current);
+        
+        // Initialize call
+        const { localStream } = await webrtcHandler.current.initializeCall(
+          chatId as string,
+          callerId as string,
+          calleeId as string,
+          isCaller as string,
+        );
+        
+        // Add this block for callee
+        if (isCaller != "true") {
+          await webrtcHandler.current.handleIncomingCall(
+            chatId as string,
+            callerId as string,
+            calleeId as string
+          );
+        }
+        
+        console.log('Local stream received:', localStream?.getTracks().length);
+        setLocalStream(localStream);
+        
+        setCallStatus('connected');
+        setIsCallActive(true);
+        startPulseAnimation();
+
+        // Add call_ended event listener
+        socket.current?.on('call_ended', ({ chatId, reason }) => {
+          console.log('Call ended by other party:', reason);
+          handleEndCall();
+        });
+      } catch (error) {
+        console.error('Error initializing WebRTC:', error);
+        setCallStatus('ended');
+      }
+    };
+
+    initializeWebRTC();
+
+    // Cleanup function
+    return () => {
+      console.log('Cleaning up WebRTC...');
+      if (webrtcHandler.current) {
+        webrtcHandler.current.endCall();
+      }
+      if (socket.current) {
+        socket.current.off('call_ended');
+        socket.current.disconnect();
+        socket.current = null;
+      }
+    };
+  }, []); // Empty dependency array to run only once on mount
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -100,7 +529,41 @@ const CallScreen = () => {
   };
 
   const handleEndCall = () => {
+    // Emit end_call event to server
+    if (socket.current) {
+      socket.current.emit('end_call', {
+        chatId,
+        callerId,
+        calleeId
+      });
+    }
+
+    // Cleanup WebRTC
+    if (webrtcHandler.current) {
+      webrtcHandler.current.endCall();
+    }
+
+    // Cleanup socket
+    if (socket.current) {
+      // Remove all call-related event listeners
+      socket.current.off('receive_offer');
+      socket.current.off('receive_answer');
+      socket.current.off('ice_candidate');
+      socket.current.off('remote_stream_ready');
+      socket.current.off('call_ended');
+      socket.current.off('connect');
+      socket.current.off('connect_error');
+      socket.current.disconnect();
+      socket.current = null;
+    }
+
+    // Reset state
     setCallStatus('ended');
+    setCallDuration(0);
+    setIsCallActive(false);
+    setLocalStream(null);
+    
+    // Navigate back
     router.back();
   };
 
@@ -176,16 +639,12 @@ const CallScreen = () => {
       )}
 
       {/* Self View Video Preview - Small overlay */}
-      {callType === 'video' && isCameraOn && hasPermission === 'granted' && device && (
+      {callType === 'video' && isCameraOn && localStream && (
         <View style={styles.selfViewContainer}>
-          <Camera
-            ref={cameraRef}
+          <RTCView
+            streamURL={localStream.toURL()}
             style={styles.selfViewVideo}
-            device={device}
-            isActive={isCameraOn}
-            video={true}
-            audio={true}
-
+            objectFit="cover"
           />
         </View>
       )}

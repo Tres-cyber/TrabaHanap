@@ -433,6 +433,7 @@ const ChatScreen: React.FC<ChatProps> = ({
   useEffect(() => {
     const initSocket = async () => {
       const token = await AsyncStorage.getItem("token");
+      const userId = await AsyncStorage.getItem("currentUserId");
       if (!token) {
         console.warn("No token found, redirecting to sign-in...");
         router.push("/sign_in");
@@ -450,9 +451,9 @@ const ChatScreen: React.FC<ChatProps> = ({
         }
       );
 
-      if (currentUserId) {
-        console.log('Re-registering user:', currentUserId);
-        newSocket.emit("register_user", currentUserId);
+      if (userId) {
+        console.log('Re-registering user:', userId);
+        newSocket.emit("register_user", userId);
       }
 
       newSocket.on("connect", () => {
@@ -606,18 +607,18 @@ const ChatScreen: React.FC<ChatProps> = ({
 
     socket.on('call_accepted', ({ chatId, calleeId, calleeInfo }) => {
       console.log('Call accepted by callee:', calleeInfo);
-      router.push({
-        pathname: "/screen/job-seeker-screen/call-screen",
-        params: {
-          callType: 'video',
-          receiverName: calleeInfo.name,
-          receiverImage: calleeInfo.profileImage,
-          chatId: chatId,
-          isCaller: "false",
-          calleeId: currentUserId,
-          callerId:otherParticipantId
-        }
-      });
+      // router.push({
+      //   pathname: "/screen/job-seeker-screen/call-screen",
+      //   params: {
+      //     callType: 'video',
+      //     receiverName: calleeInfo.name,
+      //     receiverImage: calleeInfo.profileImage,
+      //     chatId: chatId,
+      //     isCaller: "false",
+      //     calleeId: currentUserId,
+      //     callerId:otherParticipantId
+      //   }
+      // });
     });
 
     socket.on('call_rejected', ({ chatId, calleeId, reason, calleeInfo }) => {
@@ -632,12 +633,12 @@ const ChatScreen: React.FC<ChatProps> = ({
       pathname: "/screen/job-seeker-screen/call-screen",
       params: {
         callType: 'video',
-          receiverName: callerInfo.name,
-          receiverImage: callerInfo.profileImage,
+        receiverName: callerInfo?.firstName + " " + callerInfo?.lastName,
+        receiverImage: callerInfo.profileImage,
         chatId: chatId,
         isCaller: "false",
-        callerId: currentUserId,
-        calleeId:otherParticipantId
+        callerId:otherParticipantId,
+        calleeId: currentUserId
       }
     });
     });
