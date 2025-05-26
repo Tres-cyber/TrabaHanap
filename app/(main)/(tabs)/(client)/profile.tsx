@@ -331,7 +331,7 @@ const UtilityWorkerProfile: React.FC = () => {
   };
 
   const handleSettingsPress = () => {
-    router.push("../settings");
+    router.push("../../screen/settings");
   };
 
   const toggleEditSkills = () => {
@@ -339,7 +339,7 @@ const UtilityWorkerProfile: React.FC = () => {
   };
 
   const handleAboutInfoPress = () => {
-    router.push("./about-info");
+    router.push("../../screen/profile/view-profile/about-info");
   };
 
   const handleGoBack = () => {
