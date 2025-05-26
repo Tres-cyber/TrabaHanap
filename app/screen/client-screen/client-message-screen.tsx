@@ -687,18 +687,18 @@ const ChatScreen: React.FC<ChatProps> = ({
       console.log('Call accepted by callee:', calleeInfo);
       setIncomingCallModalVisible(false);
       // Navigate to call screen since call was accepted
-      router.push({
-        pathname: "/screen/client-screen/call-screen",
-        params: {
-          callType: 'video',
-          receiverName: calleeInfo.firstName + " " + calleeInfo.lastName,
-          receiverImage: calleeInfo.profileImage,
-          chatId: chatId,
-          isCaller: "false",
-          calleeId: currentUserId,
-          callerId:otherParticipantId
-        }
-      });
+      // router.push({
+      //   pathname: "/screen/client-screen/call-screen",
+      //   params: {
+      //     callType: 'video',
+      //     receiverName: calleeInfo.firstName + " " + calleeInfo.lastName,
+      //     receiverImage: calleeInfo.profileImage,
+      //     chatId: chatId,
+      //     isCaller: "false",
+      //     calleeId: currentUserId,
+      //     callerId:otherParticipantId
+      //   }
+      // });
     });
 
     socket.on('call_rejected', ({ chatId, calleeId, reason, calleeInfo }) => {
@@ -711,7 +711,18 @@ const ChatScreen: React.FC<ChatProps> = ({
 
     socket.on('call_accepted_confirmation', ({ chatId, callerId, callerInfo }) => {
       console.log('Call acceptance confirmed:', callerInfo);
-      // Handle successful call acceptance confirmation
+      router.push({
+        pathname: "/screen/client-screen/call-screen",
+        params: {
+          callType: 'video',
+          receiverName: callerInfo?.firstName + " " + incomingCallInfo?.callerInfo?.lastName,
+          receiverImage: callerInfo?.profileImage,
+          chatId: chatId,
+          isCaller: "false",
+          callerId: otherParticipantId,
+          calleeId:currentUserId
+        }
+      });
     });
 
     socket.on('call_rejected_confirmation', ({ chatId, callerId, callerInfo }) => {
@@ -1499,7 +1510,15 @@ const ChatScreen: React.FC<ChatProps> = ({
 
   const handleVideoCall = () => {
     if(!socket) return;
-    socket.emit('initiate_call', { chatId, callerId: currentUserId,calleeId:otherParticipantId });
+    
+    // Emit initiate_call event
+    socket.emit('initiate_call', { 
+      chatId, 
+      callerId: currentUserId,
+      calleeId: otherParticipantId 
+    });
+
+    // Navigate to call screen
     router.push({
       pathname: "/screen/client-screen/call-screen",
       params: { 
@@ -1509,7 +1528,7 @@ const ChatScreen: React.FC<ChatProps> = ({
         chatId: chatId,
         isCaller: "true",
         callerId: currentUserId,
-        calleeId:otherParticipantId
+        calleeId: otherParticipantId
       }
     });
   };
@@ -2118,18 +2137,7 @@ const ChatScreen: React.FC<ChatProps> = ({
                   handleAcceptCall();
                   setIncomingCallModalVisible(false);
                   // Navigate to call screen after accepting
-                  router.push({
-                    pathname: "/screen/client-screen/call-screen",
-                    params: {
-                      callType: 'video',
-                      receiverName: incomingCallInfo?.callerInfo?.firstName + " " + incomingCallInfo?.callerInfo?.lastName,
-                      receiverImage: incomingCallInfo?.callerInfo?.profileImage,
-                      chatId: chatId,
-                      isCaller: "true",
-                      callerId: currentUserId,
-                      calleeId:otherParticipantId
-                    }
-                  });
+
                 }}
               >
                 <Ionicons name="videocam" size={24} color="#fff" />
