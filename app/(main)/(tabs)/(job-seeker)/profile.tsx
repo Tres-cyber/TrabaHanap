@@ -223,6 +223,9 @@ const UtilityWorkerProfile: React.FC = () => {
   const [editingCredentials, setEditingCredentials] = useState(false);
   const [selectedCredentialImages, setSelectedCredentialImages] = useState<any[]>([]);
   const [currentCredentials, setCurrentCredentials] = useState<string[]>([]);
+  const [previewImage, setPreviewImage] = useState<{ uri: string } | null>(null);
+  const [selectedImageToReplace, setSelectedImageToReplace] = useState<{ index: number; uri: string } | null>(null);
+  const [hasReplacedImage, setHasReplacedImage] = useState(false);
 
   const {
     data: worker,
@@ -411,6 +414,45 @@ const UtilityWorkerProfile: React.FC = () => {
   const [uploadFeedback, setUploadFeedback] = useState<{visible: boolean; message: string; type: 'success' | 'info'}>(
     {visible: false, message: '', type: 'info'}
   );
+
+  // Add this function to handle image preview
+  const handleImagePreview = (imageUri: string) => {
+    setPreviewImage({ uri: imageUri });
+  };
+
+  // Update handleReplaceImage function
+  const handleReplaceImage = async (index: number) => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.3,
+        exif: false,
+      });
+
+      if (!result.canceled) {
+        const newImages = [...selectedCredentialImages];
+        newImages[index] = result.assets[0];
+        setSelectedCredentialImages(newImages);
+        setHasReplacedImage(true);
+      }
+    } catch (error) {
+      setUploadFeedback({
+        visible: true,
+        message: "We couldn't access your photo library. Please check your permissions and try again.",
+        type: 'info'
+      });
+    }
+  };
+
+  // Add save changes function
+  const handleSaveChanges = () => {
+    // TODO: Add API call to save changes
+    console.log("Saving changes:", selectedCredentialImages);
+    setHasReplacedImage(false);
+    setEditingCredentials(false);
+  };
 
   // --- Loading and Error States ---
   if (isLoading) {
@@ -669,18 +711,10 @@ const UtilityWorkerProfile: React.FC = () => {
                 <TouchableOpacity
                   style={styles.editCredentialButton}
                   onPress={() => {
-                    if (editingCredentials) {
-                      handleSaveCredentials();
-                    } else {
-                      setEditingCredentials(true);
-                    }
+                    setEditingCredentials(!editingCredentials);
                   }}
                 >
-                  {editingCredentials ? (
-                    <AntDesign name="check" size={16} color="#0B153C" />
-                  ) : (
-                    <AntDesign name="edit" size={16} color="#0B153C" />
-                  )}
+                  <AntDesign name="edit" size={16} color="#0B153C" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -708,7 +742,11 @@ const UtilityWorkerProfile: React.FC = () => {
                       </Text>
                       <View style={styles.currentCredentialsGrid}>
                         {currentCredentials.map((credential, index) => (
-                          <View key={index} style={styles.currentCredentialItem}>
+                          <TouchableOpacity 
+                            key={index} 
+                            style={styles.currentCredentialItem}
+                            onPress={() => handleImagePreview(`http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${credential}`)}
+                          >
                             <Image
                               source={{
                                 uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${credential}`,
@@ -716,7 +754,7 @@ const UtilityWorkerProfile: React.FC = () => {
                               style={styles.currentCredentialImage}
                               resizeMode="contain"
                             />
-                          </View>
+                          </TouchableOpacity>
                         ))}
                       </View>
                     </View>
@@ -730,11 +768,27 @@ const UtilityWorkerProfile: React.FC = () => {
                       <View style={styles.selectedImagesGrid}>
                         {selectedCredentialImages.map((image, index) => (
                           <View key={index} style={styles.selectedImageItem}>
-                            <Image
-                              source={{ uri: image.uri }}
+                            <TouchableOpacity
+                              onPress={() => {
+                                if (editingCredentials) {
+                                  handleReplaceImage(index);
+                                } else {
+                                  handleImagePreview(image.uri);
+                                }
+                              }}
                               style={styles.selectedImagePreview}
-                              resizeMode="contain"
-                            />
+                            >
+                              <Image
+                                source={{ uri: image.uri }}
+                                style={styles.selectedImagePreview}
+                                resizeMode="contain"
+                              />
+                              {editingCredentials && (
+                                <View style={styles.imageOverlay}>
+                                  <Text style={styles.replaceText}>Tap to replace</Text>
+                                </View>
+                              )}
+                            </TouchableOpacity>
                             <TouchableOpacity
                               style={styles.removeImageButton}
                               onPress={() => removeSelectedImage(index)}
@@ -748,11 +802,18 @@ const UtilityWorkerProfile: React.FC = () => {
                   )}
 
                   <TouchableOpacity
-                    style={styles.uploadCredentialButton}
+                    style={[
+                      styles.uploadCredentialButton,
+                      !selectedCredentialImages.length && styles.disabledButton
+                    ]}
                     onPress={handleUploadCredential}
+                    disabled={!selectedCredentialImages.length}
                   >
-                    <AntDesign name="plus" size={24} color="#0B153C" />
-                    <Text style={styles.uploadCredentialText}>
+                    <AntDesign name="plus" size={24} color={selectedCredentialImages.length ? "#0B153C" : "#999"} />
+                    <Text style={[
+                      styles.uploadCredentialText,
+                      !selectedCredentialImages.length && styles.disabledButtonText
+                    ]}>
                       {selectedCredentialImages.length > 0
                         ? "Add More Images"
                         : "Select Images"}
@@ -777,6 +838,16 @@ const UtilityWorkerProfile: React.FC = () => {
                 <Text style={styles.noDataText}>
                   No credentials uploaded yet.
                 </Text>
+              )}
+
+              {editingCredentials && hasReplacedImage && (
+                <TouchableOpacity
+                  style={styles.saveChangesButton}
+                  onPress={handleSaveChanges}
+                >
+                  <AntDesign name="check" size={20} color="white" />
+                  <Text style={styles.saveChangesText}>Save Changes</Text>
+                </TouchableOpacity>
               )}
             </View>
           </View>
@@ -859,6 +930,29 @@ const UtilityWorkerProfile: React.FC = () => {
                   </TouchableOpacity>
                 </View>
               </View>
+            </View>
+          </Modal>
+
+          <Modal
+            animationType="fade"
+            transparent={true}
+            visible={!!previewImage}
+            onRequestClose={() => setPreviewImage(null)}
+          >
+            <View style={styles.imagePreviewModal}>
+              <TouchableOpacity 
+                style={styles.closePreviewButton}
+                onPress={() => setPreviewImage(null)}
+              >
+                <AntDesign name="close" size={24} color="white" />
+              </TouchableOpacity>
+              {previewImage && (
+                <Image
+                  source={previewImage}
+                  style={styles.fullSizeImage}
+                  resizeMode="contain"
+                />
+              )}
             </View>
           </Modal>
         </>
@@ -1512,6 +1606,61 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
+  },
+  disabledButton: {
+    borderColor: '#999',
+    backgroundColor: '#f5f5f5',
+  },
+  disabledButtonText: {
+    color: '#999',
+  },
+  imagePreviewModal: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closePreviewButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 1,
+    padding: 8,
+  },
+  fullSizeImage: {
+    width: '100%',
+    height: '100%',
+  },
+  imageOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  replaceText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  saveChangesButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0B153C',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 16,
+  },
+  saveChangesText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 16,
+    marginLeft: 8,
   },
 });
 
