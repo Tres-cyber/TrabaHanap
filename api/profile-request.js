@@ -78,3 +78,101 @@ export async function updateUserJobTags(data) {
   );
   return response.data;
 }
+
+export async function uploadCredential(userId, credentialImage) {
+  const token = await AsyncStorage.getItem("token");
+
+  if (!token) {
+    // Silent failure without console errors
+    throw new Error("Authentication token not found.");
+  }
+
+  // Helper function to create FormData
+  const createFormData = () => {
+    const formData = new FormData();
+
+    // Add the image to the FormData
+    const fileInfo = {
+      uri: credentialImage.uri,
+      type: credentialImage.mimeType || credentialImage.type || "image/jpeg", // Default to jpeg if no type is provided
+      name:
+        credentialImage.fileName ||
+        credentialImage.uri.split("/").pop() ||
+        "credential.jpg", // Default filename if none provided
+    };
+
+    // Make sure we're using the key name expected by the backend
+    formData.append("credentialFile", fileInfo);
+    return formData;
+  };
+
+  // Setup for the upload request
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "multipart/form-data",
+    Accept: "application/json",
+  };
+
+  const url = `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/user/profile/upload-credential/${userId}`;
+  // No need to log the URL to keep console clean
+  
+  // Function to attempt the upload with exponential backoff (up to 5 retries)
+  const attemptUpload = async (retryCount = 0, delay = 300) => {
+    try {
+      // Create a fresh FormData object for each attempt
+      const formData = createFormData();
+      
+      console.log(`----- UPLOAD ATTEMPT ${retryCount + 1} -----`);
+      console.log(`UserId: ${userId}`);
+      console.log(`Image URI: ${credentialImage.uri}`);
+      console.log(`Image type: ${credentialImage.type || 'unknown'}`);
+      console.log(`FormData fields:`, Object.fromEntries(formData._parts || []));
+      
+      // Add a small delay before the first attempt to ensure FormData is ready
+      if (retryCount === 0) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+      
+      const response = await axios.post(url, formData, { headers });
+      
+      // Log successful response
+      console.log(`----- UPLOAD SUCCESS -----`);
+      console.log(`Response status: ${response.status}`);
+      console.log(`Response data:`, JSON.stringify(response.data, null, 2));
+      
+      return response.data;
+    } catch (error) {
+      // Log detailed error information to help diagnose issues
+      console.log(`----- UPLOAD ATTEMPT ${retryCount + 1} FAILED -----`);
+      
+      if (error.response) {
+        // The server responded with a status code outside the 2xx range
+        console.log(`Response status: ${error.response.status}`);
+        console.log(`Response headers:`, error.response.headers);
+        console.log(`Response data:`, error.response.data);
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.log(`No response received:`, error.request);
+      } else {
+        // Something happened in setting up the request
+        console.log(`Request setup error:`, error.message);
+      }
+      
+      // Retry logic - max 5 retries with exponential backoff
+      if (retryCount < 5) {
+        console.log(`Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return attemptUpload(retryCount + 1, delay * 2);
+      }
+      
+      // Log final failure after all retries
+      console.log(`----- UPLOAD FAILED AFTER ${retryCount + 1} ATTEMPTS -----`);
+      
+      // If we've exhausted all retries, throw the error
+      throw error;
+    }
+  };
+
+  // Start the upload process with retry logic
+  return attemptUpload();
+}

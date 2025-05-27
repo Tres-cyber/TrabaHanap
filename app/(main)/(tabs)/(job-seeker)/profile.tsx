@@ -21,8 +21,12 @@ import {
 } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchUserProfile, updateUserJobTags } from "@/api/profile-request";
-import * as ImagePicker from 'expo-image-picker';
+import {
+  fetchUserProfile,
+  updateUserJobTags,
+  uploadCredential,
+} from "@/api/profile-request";
+import * as ImagePicker from "expo-image-picker";
 
 // Import local achievement data
 import achievementsData from "../../../screen/profile/achievements";
@@ -216,6 +220,8 @@ const UtilityWorkerProfile: React.FC = () => {
   }>({});
   const [displayedSkills, setDisplayedSkills] = useState<string[]>([]);
   const [editingCredentials, setEditingCredentials] = useState(false);
+  const [selectedCredentialImage, setSelectedCredentialImage] =
+    useState<any>(null);
 
   const {
     data: worker,
@@ -227,6 +233,8 @@ const UtilityWorkerProfile: React.FC = () => {
   });
 
   console.log("Worker Data:", worker);
+  // Log user ID specifically to help with debugging
+  console.log("User ID for credential upload:", worker?.id, worker?.userId);
   // Mutation for updating Job Tags
   const updateTagsMutation = useMutation({
     mutationFn: updateUserJobTags,
@@ -341,21 +349,106 @@ const UtilityWorkerProfile: React.FC = () => {
     router.push("../../screen/profile/view-profile/about-info");
   };
 
+  // Mutation for uploading credential images
+  const uploadCredentialMutation = useMutation({
+    mutationFn: (credentialImage: any) => {
+      // Using userId instead of id - this should match the userId in your JobSeeker table
+      const userIdForUpload = worker.userId || worker.id;
+      
+      // No need for console.log here - keeping the UI clean
+      return uploadCredential(userIdForUpload, credentialImage);
+    },
+    onSuccess: () => {
+      // Reset loading state
+      setIsUploading(false);
+      
+      // Show success feedback
+      setUploadFeedback({
+        visible: true,
+        message: "Credential uploaded successfully!",
+        type: 'success'
+      });
+      
+      // Auto-hide the feedback after 3 seconds
+      setTimeout(() => {
+        setUploadFeedback(prev => ({ ...prev, visible: false }));
+      }, 3000);
+      
+      // Update UI and data
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      setSelectedCredentialImage(null);
+      setEditingCredentials(false);
+    },
+    onError: () => {
+      // Reset loading state
+      setIsUploading(false);
+      
+      // Show friendly feedback - no error language
+      setUploadFeedback({
+        visible: true,
+        message: "We couldn't upload your credential. The image might be too large or in an unsupported format. Please try a different image.",
+        type: 'info'
+      });
+      
+      // Keep feedback visible a bit longer for error cases
+      setTimeout(() => {
+        setUploadFeedback(prev => ({ ...prev, visible: false }));
+      }, 5000);
+    },
+  });
+
+  // We've removed the file size check in favor of robust connection handling in the API
+
   const handleUploadCredential = async () => {
     try {
+      // Set options to optimize for smaller file size
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 1,
+        quality: 0.3, // Significantly reduced quality to ensure files are small enough to upload
+        exif: false,  // Exclude EXIF data to further reduce file size
       });
 
       if (!result.canceled) {
-        Alert.alert('Success', 'Image selected successfully. Upload functionality will be implemented soon.');
+        // Extract the first selected asset
+        const selectedImage = result.assets[0];
+        
+        // Store the selected image in state instead of uploading immediately
+        setSelectedCredentialImage(selectedImage);
       }
     } catch (error) {
-      console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image. Please try again.');
+      // Show friendly message instead of an error
+      setUploadFeedback({
+        visible: true,
+        message: "We couldn't access your photo library. Please check your permissions and try again.",
+        type: 'info'
+      });
+      
+      // Auto-hide the feedback after 4 seconds
+      setTimeout(() => {
+        setUploadFeedback(prev => ({ ...prev, visible: false }));
+      }, 4000);
+    }
+  };
+
+  // State to track loading and feedback during upload
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadFeedback, setUploadFeedback] = useState<{visible: boolean; message: string; type: 'success' | 'info'}>(
+    {visible: false, message: '', type: 'info'}
+  );
+
+  // Handle saving credentials when the save button is clicked
+  const handleSaveCredentials = () => {
+    if (selectedCredentialImage) {
+      // Set loading state instead of showing an alert
+      setIsUploading(true);
+      
+      // Now upload the credential
+      uploadCredentialMutation.mutate(selectedCredentialImage);
+    } else {
+      // Just exit edit mode if no image was selected
+      setEditingCredentials(false);
     }
   };
 
@@ -408,11 +501,16 @@ const UtilityWorkerProfile: React.FC = () => {
           <Text style={styles.name}>
             {worker.firstName} {worker.middleName} {worker.lastName}{" "}
             {worker.suffixName}
-            <View style={[styles.verifiedBadge, !worker.isVerified && styles.unverifiedBadge]}>
-              <Ionicons 
-                name="checkmark-circle" 
-                size={20} 
-                color={worker.isVerified ? "#4CAF50" : "#9E9E9E"} 
+            <View
+              style={[
+                styles.verifiedBadge,
+                !worker.isVerified && styles.unverifiedBadge,
+              ]}
+            >
+              <Ionicons
+                name="checkmark-circle"
+                size={20}
+                color={worker.isVerified ? "#4CAF50" : "#9E9E9E"}
               />
             </View>
           </Text>
@@ -599,7 +697,15 @@ const UtilityWorkerProfile: React.FC = () => {
               <Text style={styles.sectionTitle}>Credentials</Text>
               <TouchableOpacity
                 style={styles.sectionEditButton}
-                onPress={() => setEditingCredentials(!editingCredentials)}
+                onPress={() => {
+                  if (editingCredentials) {
+                    // If we're in edit mode and clicking the button, save changes
+                    handleSaveCredentials();
+                  } else {
+                    // Otherwise, enter edit mode
+                    setEditingCredentials(true);
+                  }
+                }}
               >
                 {editingCredentials ? (
                   <>
@@ -616,46 +722,118 @@ const UtilityWorkerProfile: React.FC = () => {
             </View>
 
             <View style={styles.credentialsContainer}>
+              {/* Loading indicator while uploading */}
+              {isUploading && (
+                <View style={styles.uploadingOverlay}>
+                  <ActivityIndicator size="large" color="#0B153C" />
+                  <Text style={styles.uploadingText}>Uploading credential...</Text>
+                </View>
+              )}
+              
+              {/* Feedback message (success or friendly error) */}
+              {uploadFeedback.visible && (
+                <View style={[styles.feedbackOverlay, uploadFeedback.type === 'success' ? styles.successOverlay : styles.infoOverlay]}>
+                  <Text style={styles.feedbackText}>{uploadFeedback.message}</Text>
+                </View>
+              )}
+              
               {editingCredentials ? (
-                worker.credentials && worker.credentials.length >= 5 ? (
-                  <View style={styles.maxCredentialsMessage}>
-                    <MaterialCommunityIcons name="alert-circle-outline" size={24} color="#FF3B30" />
-                    <Text style={styles.maxCredentialsText}>Maximum of 5 credentials reached</Text>
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.uploadCredentialButton}
-                    onPress={handleUploadCredential}
-                  >
-                    <AntDesign name="plus" size={24} color="#0B153C" />
-                    <Text style={styles.uploadCredentialText}>Upload Credential</Text>
-                  </TouchableOpacity>
-                )
-              ) : null}
-
-              {worker.credentials && worker.credentials.length > 0 ? (
-                <View style={styles.credentialsList}>
-                  {worker.credentials.map((credential: any, index: number) => (
-                    <View key={index} style={styles.credentialItem}>
-                      <Image
-                        source={{
-                          uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${credential.imageUrl}`,
-                        }}
-                        style={styles.credentialImage}
-                      />
-                      {editingCredentials && (
+                worker.credentials ? (
+                  <>
+                    {/* Show selected image preview if available */}
+                    {selectedCredentialImage ? (
+                      <View style={styles.selectedImagePreview}>
+                        <Image
+                          source={{ uri: selectedCredentialImage.uri }}
+                          style={styles.previewImage}
+                        />
                         <TouchableOpacity
-                          style={styles.deleteCredentialButton}
-                          onPress={() => Alert.alert('Delete Credential', 'This feature will be implemented soon.')}
+                          style={styles.removeImageButton}
+                          onPress={() => setSelectedCredentialImage(null)}
                         >
-                          <AntDesign name="delete" size={20} color="#FF3B30" />
+                          <AntDesign name="close" size={16} color="white" />
                         </TouchableOpacity>
-                      )}
-                    </View>
-                  ))}
+                        <Text style={styles.credentialReplaceText}>
+                          This will replace your existing credential
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={styles.currentCredentialContainer}>
+                        <Text style={styles.currentCredentialLabel}>
+                          Current Credential:
+                        </Text>
+                        <Image
+                          source={{
+                            uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${worker.credentials}`,
+                          }}
+                          style={styles.currentCredentialImage}
+                          resizeMode="contain"
+                        />
+                      </View>
+                    )}
+
+                    {/* Button to change credential */}
+                    <TouchableOpacity
+                      style={styles.uploadCredentialButton}
+                      onPress={handleUploadCredential}
+                    >
+                      <AntDesign name="edit" size={20} color="#0B153C" />
+                      <Text style={styles.uploadCredentialText}>
+                        {selectedCredentialImage
+                          ? "Change Selection"
+                          : "Replace Credential"}
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    {/* Show selected image preview if available */}
+                    {selectedCredentialImage && (
+                      <View style={styles.selectedImagePreview}>
+                        <Image
+                          source={{ uri: selectedCredentialImage.uri }}
+                          style={styles.previewImage}
+                        />
+                        <TouchableOpacity
+                          style={styles.removeImageButton}
+                          onPress={() => setSelectedCredentialImage(null)}
+                        >
+                          <AntDesign name="close" size={16} color="white" />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+
+                    {/* Always show the upload button if not at max credentials */}
+                    <TouchableOpacity
+                      style={styles.uploadCredentialButton}
+                      onPress={handleUploadCredential}
+                    >
+                      <AntDesign name="plus" size={24} color="#0B153C" />
+                      <Text style={styles.uploadCredentialText}>
+                        {selectedCredentialImage
+                          ? "Change Image"
+                          : "Upload Credential"}
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                )
+              ) : worker.credentials ? (
+                <View style={styles.credentialsList}>
+                  {/* Render the credential image */}
+                  <View style={styles.credentialItem}>
+                    <Image
+                      source={{
+                        uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${worker.credentials}`,
+                      }}
+                      style={styles.credentialImage}
+                      resizeMode="contain"
+                    />
+                  </View>
                 </View>
               ) : (
-                <Text style={styles.noDataText}>No credentials uploaded yet.</Text>
+                <Text style={styles.noDataText}>
+                  No credentials uploaded yet.
+                </Text>
               )}
             </View>
           </View>
@@ -703,6 +881,97 @@ const UtilityWorkerProfile: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  uploadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    zIndex: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 8,
+  },
+  uploadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: "#0B153C",
+    fontWeight: "600",
+  },
+  feedbackOverlay: {
+    position: "absolute",
+    bottom: 10,
+    left: 10,
+    right: 10,
+    padding: 15,
+    borderRadius: 8,
+    zIndex: 15,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  successOverlay: {
+    backgroundColor: "rgba(76, 175, 80, 0.9)", // Green with opacity
+  },
+  infoOverlay: {
+    backgroundColor: "rgba(33, 150, 243, 0.9)", // Blue with opacity
+  },
+  feedbackText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+  selectedImagePreview: {
+    position: "relative",
+    marginBottom: 15,
+    borderRadius: 8,
+    overflow: "hidden",
+    alignSelf: "center",
+  },
+  previewImage: {
+    width: 250,
+    height: 180,
+    borderRadius: 8,
+  },
+  removeImageButton: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  credentialReplaceText: {
+    textAlign: "center",
+    marginTop: 8,
+    color: "#FF3B30",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  currentCredentialContainer: {
+    marginBottom: 15,
+    alignItems: "center",
+  },
+  currentCredentialLabel: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 8,
+  },
+  currentCredentialImage: {
+    width: 250,
+    height: 180,
+    borderRadius: 8,
+  },
+  credentialThumbnail: {
+    width: 100,
+    height: 80,
+    borderRadius: 8,
+    margin: 5,
+  },
   container: {
     flex: 1,
     backgroundColor: "#f8f9fa",
@@ -714,11 +983,11 @@ const styles = StyleSheet.create({
     padding: 4,
     width: 40,
     height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderRadius: 20,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
+    backgroundColor: "#fff",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
@@ -1039,74 +1308,74 @@ const styles = StyleSheet.create({
   },
   verifiedBadge: {
     marginLeft: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#E8F5E9',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#E8F5E9",
     borderRadius: 12,
     padding: 2,
   },
   unverifiedBadge: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: "#F5F5F5",
   },
   credentialsContainer: {
     marginTop: 8,
   },
   uploadCredentialButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f0f0f0',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f0f0f0",
     borderRadius: 8,
     padding: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#0B153C',
-    borderStyle: 'dashed',
+    borderColor: "#0B153C",
+    borderStyle: "dashed",
   },
   uploadCredentialText: {
-    color: '#0B153C',
-    fontWeight: '600',
+    color: "#0B153C",
+    fontWeight: "600",
     marginLeft: 8,
   },
   credentialsList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 12,
   },
   credentialItem: {
-    position: 'relative',
-    width: '48%',
-    aspectRatio: 4/3,
+    position: "relative",
+    width: "48%",
+    aspectRatio: 4 / 3,
     borderRadius: 8,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   credentialImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
     borderRadius: 8,
   },
   deleteCredentialButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 8,
     right: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
     borderRadius: 12,
     padding: 4,
   },
   maxCredentialsMessage: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFE5E5',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFE5E5",
     borderRadius: 8,
     padding: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#FF3B30',
+    borderColor: "#FF3B30",
   },
   maxCredentialsText: {
-    color: '#FF3B30',
-    fontWeight: '600',
+    color: "#FF3B30",
+    fontWeight: "600",
     marginLeft: 8,
   },
 });
