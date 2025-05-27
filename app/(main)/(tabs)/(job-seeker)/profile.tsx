@@ -214,17 +214,25 @@ const UtilityWorkerProfile: React.FC = () => {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [modalVisible, setModalVisible] = useState(false);
-  const [deleteConfirmModalVisible, setDeleteConfirmModalVisible] = useState(false);
+  const [deleteConfirmModalVisible, setDeleteConfirmModalVisible] =
+    useState(false);
   const [editingSkills, setEditingSkills] = useState(false);
   const [selectedSkills, setSelectedSkills] = useState<{
     [key: string]: boolean;
   }>({});
   const [displayedSkills, setDisplayedSkills] = useState<string[]>([]);
   const [editingCredentials, setEditingCredentials] = useState(false);
-  const [selectedCredentialImages, setSelectedCredentialImages] = useState<any[]>([]);
+  const [selectedCredentialImages, setSelectedCredentialImages] = useState<
+    any[]
+  >([]);
   const [currentCredentials, setCurrentCredentials] = useState<string[]>([]);
-  const [previewImage, setPreviewImage] = useState<{ uri: string } | null>(null);
-  const [selectedImageToReplace, setSelectedImageToReplace] = useState<{ index: number; uri: string } | null>(null);
+  const [previewImage, setPreviewImage] = useState<{ uri: string } | null>(
+    null
+  );
+  const [selectedImageToReplace, setSelectedImageToReplace] = useState<{
+    index: number;
+    uri: string;
+  } | null>(null);
   const [hasReplacedImage, setHasReplacedImage] = useState(false);
 
   const {
@@ -275,10 +283,22 @@ const UtilityWorkerProfile: React.FC = () => {
 
   // Update useEffect to handle multiple credentials
   useEffect(() => {
-    if (worker?.credentials) {
-      // Split credentials string into array if it contains multiple credentials
-      const credentialsArray = worker.credentials.split(',').filter(Boolean);
-      setCurrentCredentials(credentialsArray);
+    if (worker) {
+      // Handle credentials based on the response format
+      if (Array.isArray(worker.credentials)) {
+        // Backend is returning an array format (preferred)
+        setCurrentCredentials(worker.credentials.filter(Boolean));
+      } else if (typeof worker.credentials === "string" && worker.credentials.trim()) {
+        // Legacy format - comma-separated string
+        const credentialsArray = worker.credentials.split(",").filter(Boolean);
+        setCurrentCredentials(credentialsArray);
+      } else {
+        // Default to empty array if credentials doesn't exist or is invalid
+        setCurrentCredentials([]);
+      }
+    } else {
+      // Initialize with empty array if worker doesn't exist
+      setCurrentCredentials([]);
     }
   }, [worker]);
 
@@ -362,76 +382,176 @@ const UtilityWorkerProfile: React.FC = () => {
     router.push("../../screen/profile/view-profile/about-info");
   };
 
-  // Update handleUploadCredential to handle multiple images
+  // Image picker function for credential upload
   const handleUploadCredential = async () => {
     try {
+      // Limit to 5 images total
+      const remainingSlots = 5 - selectedCredentialImages.length;
+      
+      if (remainingSlots <= 0) {
+        setUploadFeedback({
+          visible: true,
+          message: "Maximum 5 images allowed. Please remove some images first.",
+          type: "info",
+        });
+        
+        setTimeout(() => {
+          setUploadFeedback((prev) => ({ ...prev, visible: false }));
+        }, 3000);
+        return;
+      }
+      
+      // Launch image picker with remaining slot limit
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.3,
-        exif: false,
+        quality: 0.5, // Slightly higher quality for better credential readability
         allowsMultipleSelection: true,
-        selectionLimit: 5, // Limit to 5 images
+        selectionLimit: remainingSlots,
       });
-
-      if (!result.canceled) {
-        setSelectedCredentialImages(result.assets);
+      
+      if (!result.canceled && result.assets.length > 0) {
+        // Add new images to the selection, respecting the 5 image limit
+        const updatedImages = [...selectedCredentialImages, ...result.assets];
+        if (updatedImages.length > 5) {
+          setSelectedCredentialImages(updatedImages.slice(0, 5));
+          setUploadFeedback({
+            visible: true,
+            message: "Only the first 5 images were kept due to maximum limit.",
+            type: "info",
+          });
+        } else {
+          setSelectedCredentialImages(updatedImages);
+        }
+        setHasReplacedImage(true); // Mark that we have changes to save
       }
     } catch (error) {
+      console.error("Image picker error:", error);
       setUploadFeedback({
         visible: true,
-        message: "We couldn't access your photo library. Please check your permissions and try again.",
-        type: 'info'
+        message: "Could not access your photo library. Please check permissions.",
+        type: "info",
       });
       
       setTimeout(() => {
-        setUploadFeedback(prev => ({ ...prev, visible: false }));
-      }, 4000);
+        setUploadFeedback((prev) => ({ ...prev, visible: false }));
+      }, 3000);
     }
   };
 
-  // Update handleSaveCredentials to handle multiple images
+  // Mutation for uploading credentials using React Query
+  const uploadCredentialMutation = useMutation({
+    mutationFn: async (images: any[]) => {
+      // Validate we have a user ID
+      if (!worker?.id && !worker?.userId) {
+        throw new Error("User ID not found");
+      }
+      
+      // Use userId or id, whichever is available
+      const userIdForUpload = worker.userId || worker.id;
+      
+      // Call the API function with properly prepared data
+      return uploadCredential(
+        userIdForUpload,
+        images,
+        currentCredentials || []
+      );
+    },
+    onSuccess: () => {
+      // Refresh profile data to show updated credentials
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      
+      // Show success feedback
+      setUploadFeedback({
+        visible: true,
+        message: "Credentials uploaded successfully!",
+        type: "success",
+      });
+      
+      // Clear feedback after delay
+      setTimeout(() => {
+        setUploadFeedback((prev) => ({ ...prev, visible: false }));
+      }, 3000);
+      
+      // Reset UI state
+      setIsUploading(false);
+      setSelectedCredentialImages([]);
+      setHasReplacedImage(false);
+      setEditingCredentials(false);
+    },
+    onError: (error) => {
+      console.error("Credential upload failed:", error);
+      
+      // Show error feedback
+      setUploadFeedback({
+        visible: true,
+        message: "Failed to upload credentials. Please try again.",
+        type: "info",
+      });
+      
+      // Clear feedback after delay
+      setTimeout(() => {
+        setUploadFeedback((prev) => ({ ...prev, visible: false }));
+      }, 3000);
+      
+      // Reset loading state but keep edit mode active
+      setIsUploading(false);
+    },
+  });
+
+  // Save credentials handler - processes images and sends to server
   const handleSaveCredentials = () => {
     if (selectedCredentialImages.length > 0) {
+      // Show loading state
       setIsUploading(true);
-      // TODO: Update API call to handle multiple images
-      console.log("Uploading multiple credentials:", selectedCredentialImages);
-      setSelectedCredentialImages([]);
-      setEditingCredentials(false);
+      
+      // Upload credentials to server
+      uploadCredentialMutation.mutate(selectedCredentialImages);
+    } else if (hasReplacedImage) {
+      // Handle case where user removed all images but still wants to save
+      setIsUploading(true);
+      uploadCredentialMutation.mutate([]);
     } else {
+      // No changes, just exit edit mode
       setEditingCredentials(false);
     }
   };
 
-  // Add function to remove a specific selected image
+  // Remove a selected image from the current selection
   const removeSelectedImage = (index: number) => {
-    setSelectedCredentialImages(prev => prev.filter((_, i) => i !== index));
+    setSelectedCredentialImages((prev) => prev.filter((_, i) => i !== index));
+    // If we removed all images but previously had some, still mark as changed
+    if (selectedCredentialImages.length === 1) {
+      setHasReplacedImage(true);
+    }
   };
 
   // State to track loading and feedback during upload
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadFeedback, setUploadFeedback] = useState<{visible: boolean; message: string; type: 'success' | 'info'}>(
-    {visible: false, message: '', type: 'info'}
-  );
+  const [uploadFeedback, setUploadFeedback] = useState<{
+    visible: boolean;
+    message: string;
+    type: "success" | "info";
+  }>({ visible: false, message: "", type: "info" });
 
   // Add this function to handle image preview
   const handleImagePreview = (imageUri: string) => {
     setPreviewImage({ uri: imageUri });
   };
 
-  // Update handleReplaceImage function
+  // Handler for replacing an existing image
   const handleReplaceImage = async (index: number) => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.3,
-        exif: false,
+        quality: 0.5,
       });
 
       if (!result.canceled) {
+        // Replace the image at the specified index
         const newImages = [...selectedCredentialImages];
         newImages[index] = result.assets[0];
         setSelectedCredentialImages(newImages);
@@ -440,18 +560,13 @@ const UtilityWorkerProfile: React.FC = () => {
     } catch (error) {
       setUploadFeedback({
         visible: true,
-        message: "We couldn't access your photo library. Please check your permissions and try again.",
-        type: 'info'
+        message: "Could not access your photo library. Please check permissions.",
+        type: "info",
       });
+      setTimeout(() => {
+        setUploadFeedback((prev) => ({ ...prev, visible: false }));
+      }, 3000);
     }
-  };
-
-  // Add save changes function
-  const handleSaveChanges = () => {
-    // TODO: Add API call to save changes
-    console.log("Saving changes:", selectedCredentialImages);
-    setHasReplacedImage(false);
-    setEditingCredentials(false);
   };
 
   // --- Loading and Error States ---
@@ -723,16 +838,27 @@ const UtilityWorkerProfile: React.FC = () => {
               {isUploading && (
                 <View style={styles.uploadingOverlay}>
                   <ActivityIndicator size="large" color="#0B153C" />
-                  <Text style={styles.uploadingText}>Uploading credentials...</Text>
+                  <Text style={styles.uploadingText}>
+                    Uploading credentials...
+                  </Text>
                 </View>
               )}
-              
+
               {uploadFeedback.visible && (
-                <View style={[styles.feedbackOverlay, uploadFeedback.type === 'success' ? styles.successOverlay : styles.infoOverlay]}>
-                  <Text style={styles.feedbackText}>{uploadFeedback.message}</Text>
+                <View
+                  style={[
+                    styles.feedbackOverlay,
+                    uploadFeedback.type === "success"
+                      ? styles.successOverlay
+                      : styles.infoOverlay,
+                  ]}
+                >
+                  <Text style={styles.feedbackText}>
+                    {uploadFeedback.message}
+                  </Text>
                 </View>
               )}
-              
+
               {editingCredentials ? (
                 <>
                   {currentCredentials.length > 0 && (
@@ -754,6 +880,9 @@ const UtilityWorkerProfile: React.FC = () => {
                               style={styles.currentCredentialImage}
                               resizeMode="contain"
                             />
+                            <View style={styles.imageOverlay}>
+                              <Text style={styles.replaceText}>Tap to view</Text>
+                            </View>
                           </TouchableOpacity>
                         ))}
                       </View>
@@ -785,7 +914,9 @@ const UtilityWorkerProfile: React.FC = () => {
                               />
                               {editingCredentials && (
                                 <View style={styles.imageOverlay}>
-                                  <Text style={styles.replaceText}>Tap to replace</Text>
+                                  <Text style={styles.replaceText}>
+                                    Tap to replace
+                                  </Text>
                                 </View>
                               )}
                             </TouchableOpacity>
@@ -804,26 +935,48 @@ const UtilityWorkerProfile: React.FC = () => {
                   <TouchableOpacity
                     style={[
                       styles.uploadCredentialButton,
-                      !selectedCredentialImages.length && styles.disabledButton
+                      selectedCredentialImages.length >= 5 &&
+                        styles.disabledButton,
                     ]}
                     onPress={handleUploadCredential}
-                    disabled={!selectedCredentialImages.length}
+                    disabled={selectedCredentialImages.length >= 5}
                   >
-                    <AntDesign name="plus" size={24} color={selectedCredentialImages.length ? "#0B153C" : "#999"} />
-                    <Text style={[
-                      styles.uploadCredentialText,
-                      !selectedCredentialImages.length && styles.disabledButtonText
-                    ]}>
-                      {selectedCredentialImages.length > 0
-                        ? "Add More Images"
-                        : "Select Images"}
+                    <AntDesign
+                      name="plus"
+                      size={24}
+                      color={
+                        selectedCredentialImages.length >= 5
+                          ? "#999"
+                          : "#0B153C"
+                      }
+                    />
+                    <Text
+                      style={[
+                        styles.uploadCredentialText,
+                        selectedCredentialImages.length >= 5 &&
+                          styles.disabledButtonText,
+                      ]}
+                    >
+                      {selectedCredentialImages.length === 0
+                        ? "Select Images"
+                        : selectedCredentialImages.length >= 5
+                        ? "Maximum 5 Images"
+                        : `Add More (${5 - selectedCredentialImages.length} remaining)`}
                     </Text>
                   </TouchableOpacity>
                 </>
               ) : currentCredentials.length > 0 ? (
                 <View style={styles.credentialsGrid}>
                   {currentCredentials.map((credential, index) => (
-                    <View key={index} style={styles.credentialItem}>
+                    <TouchableOpacity 
+                      key={index} 
+                      style={styles.credentialItem}
+                      onPress={() =>
+                        handleImagePreview(
+                          `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${credential}`
+                        )
+                      }
+                    >
                       <Image
                         source={{
                           uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${credential}`,
@@ -831,7 +984,7 @@ const UtilityWorkerProfile: React.FC = () => {
                         style={styles.credentialImage}
                         resizeMode="contain"
                       />
-                    </View>
+                    </TouchableOpacity>
                   ))}
                 </View>
               ) : (
@@ -840,13 +993,31 @@ const UtilityWorkerProfile: React.FC = () => {
                 </Text>
               )}
 
-              {editingCredentials && hasReplacedImage && (
+              {/* Save Changes Button - Only show when we have images to upload or changes */}
+              {editingCredentials && (
                 <TouchableOpacity
-                  style={styles.saveChangesButton}
-                  onPress={handleSaveChanges}
+                  style={[
+                    styles.saveChangesButton,
+                    uploadCredentialMutation.isPending && { opacity: 0.7 },
+                    (!selectedCredentialImages.length && !hasReplacedImage) && { opacity: 0.5 }
+                  ]}
+                  onPress={handleSaveCredentials}
+                  disabled={uploadCredentialMutation.isPending || (!selectedCredentialImages.length && !hasReplacedImage)}
                 >
-                  <AntDesign name="check" size={20} color="white" />
-                  <Text style={styles.saveChangesText}>Save Changes</Text>
+                  {uploadCredentialMutation.isPending ? (
+                    <ActivityIndicator
+                      size="small"
+                      color="white"
+                      style={{ marginRight: 8 }}
+                    />
+                  ) : (
+                    <AntDesign name="check" size={20} color="white" />
+                  )}
+                  <Text style={styles.saveChangesText}>
+                    {uploadCredentialMutation.isPending
+                      ? "Uploading..."
+                      : "Save Changes"}
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -898,7 +1069,9 @@ const UtilityWorkerProfile: React.FC = () => {
             <View style={styles.modalOverlay}>
               <View style={styles.deleteConfirmModal}>
                 <View style={styles.deleteConfirmHeader}>
-                  <Text style={styles.deleteConfirmTitle}>Remove Credential</Text>
+                  <Text style={styles.deleteConfirmTitle}>
+                    Remove Credential
+                  </Text>
                   <TouchableOpacity
                     onPress={() => setDeleteConfirmModalVisible(false)}
                     style={styles.closeModalButton}
@@ -907,7 +1080,8 @@ const UtilityWorkerProfile: React.FC = () => {
                   </TouchableOpacity>
                 </View>
                 <Text style={styles.deleteConfirmText}>
-                  Are you sure you want to remove this credential? This action cannot be undone.
+                  Are you sure you want to remove this credential? This action
+                  cannot be undone.
                 </Text>
                 <View style={styles.deleteConfirmActions}>
                   <TouchableOpacity
@@ -940,7 +1114,7 @@ const UtilityWorkerProfile: React.FC = () => {
             onRequestClose={() => setPreviewImage(null)}
           >
             <View style={styles.imagePreviewModal}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.closePreviewButton}
                 onPress={() => setPreviewImage(null)}
               >
@@ -1004,8 +1178,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   selectedImagePreview: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
     borderRadius: 8,
   },
   previewImage: {
@@ -1433,6 +1607,12 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 8,
   },
+  imageViewText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "500",
+    textAlign: "center",
+  },
   deleteCredentialButton: {
     position: "absolute",
     top: 8,
@@ -1458,59 +1638,59 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   credentialActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   addCredentialButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
     borderRadius: 16,
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: '#0B153C',
+    borderColor: "#0B153C",
   },
   addCredentialText: {
-    color: '#0B153C',
-    fontWeight: '600',
+    color: "#0B153C",
+    fontWeight: "600",
     marginLeft: 4,
     fontSize: 14,
   },
   editCredentialButton: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 6,
     borderWidth: 1,
-    borderColor: '#0B153C',
+    borderColor: "#0B153C",
   },
   removeCredentialButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 8,
     right: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
     borderRadius: 12,
     width: 24,
     height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
-    borderColor: '#FF3B30',
+    borderColor: "#FF3B30",
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   deleteConfirmModal: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 12,
     padding: 20,
-    width: '85%',
+    width: "85%",
     maxWidth: 400,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -1520,28 +1700,28 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   deleteConfirmHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 16,
   },
   deleteConfirmTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
   },
   closeModalButton: {
     padding: 4,
   },
   deleteConfirmText: {
     fontSize: 16,
-    color: '#666',
+    color: "#666",
     marginBottom: 24,
     lineHeight: 22,
   },
   deleteConfirmActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
+    flexDirection: "row",
+    justifyContent: "flex-end",
     gap: 12,
   },
   deleteConfirmButton: {
@@ -1549,116 +1729,116 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 8,
     minWidth: 100,
-    alignItems: 'center',
+    alignItems: "center",
   },
   cancelButton: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: "#f0f0f0",
   },
   removeButton: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: "#FF3B30",
   },
   cancelButtonText: {
-    color: '#666',
-    fontWeight: '600',
+    color: "#666",
+    fontWeight: "600",
     fontSize: 16,
   },
   removeButtonText: {
-    color: 'white',
-    fontWeight: '600',
+    color: "white",
+    fontWeight: "600",
     fontSize: 16,
   },
   currentCredentialsContainer: {
     marginBottom: 20,
   },
   currentCredentialsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 12,
     marginTop: 8,
   },
   currentCredentialItem: {
-    width: '48%',
-    aspectRatio: 4/3,
+    width: "48%",
+    aspectRatio: 4 / 3,
     borderRadius: 8,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   selectedImagesContainer: {
     marginBottom: 20,
   },
   selectedImagesLabel: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginBottom: 8,
   },
   selectedImagesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 12,
   },
   selectedImageItem: {
-    width: '48%',
-    aspectRatio: 4/3,
+    width: "48%",
+    aspectRatio: 4 / 3,
     borderRadius: 8,
-    overflow: 'hidden',
-    position: 'relative',
+    overflow: "hidden",
+    position: "relative",
   },
   credentialsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 12,
   },
   disabledButton: {
-    borderColor: '#999',
-    backgroundColor: '#f5f5f5',
+    borderColor: "#999",
+    backgroundColor: "#f5f5f5",
   },
   disabledButtonText: {
-    color: '#999',
+    color: "#999",
   },
   imagePreviewModal: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.9)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   closePreviewButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 40,
     right: 20,
     zIndex: 1,
     padding: 8,
   },
   fullSizeImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   imageOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
     borderRadius: 8,
   },
   replaceText: {
-    color: 'white',
+    color: "white",
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   saveChangesButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0B153C',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#0B153C",
     borderRadius: 8,
     padding: 12,
     marginTop: 16,
   },
   saveChangesText: {
-    color: 'white',
-    fontWeight: '600',
+    color: "white",
+    fontWeight: "600",
     fontSize: 16,
     marginLeft: 8,
   },
