@@ -630,7 +630,7 @@ const ChatScreen: React.FC<ChatProps> = ({
     socket.on('call_accepted_confirmation', ({ chatId, callerId, callerInfo }) => {
       console.log('Call acceptance confirmed:', callerInfo);
     router.push({
-      pathname: "/screen/job-seeker-screen/call-screen",
+      pathname: "/screen/job-seeker-screen/agora-call-room",
       params: {
         callType: 'video',
         receiverName: callerInfo?.firstName + " " + callerInfo?.lastName,
@@ -1309,7 +1309,7 @@ const ChatScreen: React.FC<ChatProps> = ({
 
   const handleVoiceCall = () => {
     router.push({
-      pathname: "/screen/job-seeker-screen/call-screen",
+      pathname: "/screen/job-seeker-screen/agora-call-room",
       params: {
         callType: 'voice',
         receiverName: receiverName,
@@ -1327,7 +1327,7 @@ const ChatScreen: React.FC<ChatProps> = ({
       calleeId: otherParticipantId 
     });
     router.push({
-      pathname: "/screen/job-seeker-screen/call-screen",
+      pathname: "/screen/job-seeker-screen/agora-call-room",
       params: {
         callType: 'video',
         receiverName: receiverName,
