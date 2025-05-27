@@ -214,14 +214,15 @@ const UtilityWorkerProfile: React.FC = () => {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [modalVisible, setModalVisible] = useState(false);
+  const [deleteConfirmModalVisible, setDeleteConfirmModalVisible] = useState(false);
   const [editingSkills, setEditingSkills] = useState(false);
   const [selectedSkills, setSelectedSkills] = useState<{
     [key: string]: boolean;
   }>({});
   const [displayedSkills, setDisplayedSkills] = useState<string[]>([]);
   const [editingCredentials, setEditingCredentials] = useState(false);
-  const [selectedCredentialImage, setSelectedCredentialImage] =
-    useState<any>(null);
+  const [selectedCredentialImages, setSelectedCredentialImages] = useState<any[]>([]);
+  const [currentCredentials, setCurrentCredentials] = useState<string[]>([]);
 
   const {
     data: worker,
@@ -267,6 +268,15 @@ const UtilityWorkerProfile: React.FC = () => {
       setSelectedSkills({});
     }
     // Only run when worker data itself changes (after loading)
+  }, [worker]);
+
+  // Update useEffect to handle multiple credentials
+  useEffect(() => {
+    if (worker?.credentials) {
+      // Split credentials string into array if it contains multiple credentials
+      const credentialsArray = worker.credentials.split(',').filter(Boolean);
+      setCurrentCredentials(credentialsArray);
+    }
   }, [worker]);
 
   // Toggle skill/tag selection
@@ -349,87 +359,51 @@ const UtilityWorkerProfile: React.FC = () => {
     router.push("../../screen/profile/view-profile/about-info");
   };
 
-  // Mutation for uploading credential images
-  const uploadCredentialMutation = useMutation({
-    mutationFn: (credentialImage: any) => {
-      // Using userId instead of id - this should match the userId in your JobSeeker table
-      const userIdForUpload = worker.userId || worker.id;
-      
-      // No need for console.log here - keeping the UI clean
-      return uploadCredential(userIdForUpload, credentialImage);
-    },
-    onSuccess: () => {
-      // Reset loading state
-      setIsUploading(false);
-      
-      // Show success feedback
-      setUploadFeedback({
-        visible: true,
-        message: "Credential uploaded successfully!",
-        type: 'success'
-      });
-      
-      // Auto-hide the feedback after 3 seconds
-      setTimeout(() => {
-        setUploadFeedback(prev => ({ ...prev, visible: false }));
-      }, 3000);
-      
-      // Update UI and data
-      queryClient.invalidateQueries({ queryKey: ["profile"] });
-      setSelectedCredentialImage(null);
-      setEditingCredentials(false);
-    },
-    onError: () => {
-      // Reset loading state
-      setIsUploading(false);
-      
-      // Show friendly feedback - no error language
-      setUploadFeedback({
-        visible: true,
-        message: "We couldn't upload your credential. The image might be too large or in an unsupported format. Please try a different image.",
-        type: 'info'
-      });
-      
-      // Keep feedback visible a bit longer for error cases
-      setTimeout(() => {
-        setUploadFeedback(prev => ({ ...prev, visible: false }));
-      }, 5000);
-    },
-  });
-
-  // We've removed the file size check in favor of robust connection handling in the API
-
+  // Update handleUploadCredential to handle multiple images
   const handleUploadCredential = async () => {
     try {
-      // Set options to optimize for smaller file size
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.3, // Significantly reduced quality to ensure files are small enough to upload
-        exif: false,  // Exclude EXIF data to further reduce file size
+        quality: 0.3,
+        exif: false,
+        allowsMultipleSelection: true,
+        selectionLimit: 5, // Limit to 5 images
       });
 
       if (!result.canceled) {
-        // Extract the first selected asset
-        const selectedImage = result.assets[0];
-        
-        // Store the selected image in state instead of uploading immediately
-        setSelectedCredentialImage(selectedImage);
+        setSelectedCredentialImages(result.assets);
       }
     } catch (error) {
-      // Show friendly message instead of an error
       setUploadFeedback({
         visible: true,
         message: "We couldn't access your photo library. Please check your permissions and try again.",
         type: 'info'
       });
       
-      // Auto-hide the feedback after 4 seconds
       setTimeout(() => {
         setUploadFeedback(prev => ({ ...prev, visible: false }));
       }, 4000);
     }
+  };
+
+  // Update handleSaveCredentials to handle multiple images
+  const handleSaveCredentials = () => {
+    if (selectedCredentialImages.length > 0) {
+      setIsUploading(true);
+      // TODO: Update API call to handle multiple images
+      console.log("Uploading multiple credentials:", selectedCredentialImages);
+      setSelectedCredentialImages([]);
+      setEditingCredentials(false);
+    } else {
+      setEditingCredentials(false);
+    }
+  };
+
+  // Add function to remove a specific selected image
+  const removeSelectedImage = (index: number) => {
+    setSelectedCredentialImages(prev => prev.filter((_, i) => i !== index));
   };
 
   // State to track loading and feedback during upload
@@ -437,20 +411,6 @@ const UtilityWorkerProfile: React.FC = () => {
   const [uploadFeedback, setUploadFeedback] = useState<{visible: boolean; message: string; type: 'success' | 'info'}>(
     {visible: false, message: '', type: 'info'}
   );
-
-  // Handle saving credentials when the save button is clicked
-  const handleSaveCredentials = () => {
-    if (selectedCredentialImage) {
-      // Set loading state instead of showing an alert
-      setIsUploading(true);
-      
-      // Now upload the credential
-      uploadCredentialMutation.mutate(selectedCredentialImage);
-    } else {
-      // Just exit edit mode if no image was selected
-      setEditingCredentials(false);
-    }
-  };
 
   // --- Loading and Error States ---
   if (isLoading) {
@@ -695,42 +655,44 @@ const UtilityWorkerProfile: React.FC = () => {
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitle}>Credentials</Text>
-              <TouchableOpacity
-                style={styles.sectionEditButton}
-                onPress={() => {
-                  if (editingCredentials) {
-                    // If we're in edit mode and clicking the button, save changes
-                    handleSaveCredentials();
-                  } else {
-                    // Otherwise, enter edit mode
+              <View style={styles.credentialActions}>
+                <TouchableOpacity
+                  style={styles.addCredentialButton}
+                  onPress={() => {
                     setEditingCredentials(true);
-                  }
-                }}
-              >
-                {editingCredentials ? (
-                  <>
+                    setSelectedCredentialImages([]);
+                  }}
+                >
+                  <AntDesign name="plus" size={16} color="#0B153C" />
+                  <Text style={styles.addCredentialText}>Add</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.editCredentialButton}
+                  onPress={() => {
+                    if (editingCredentials) {
+                      handleSaveCredentials();
+                    } else {
+                      setEditingCredentials(true);
+                    }
+                  }}
+                >
+                  {editingCredentials ? (
                     <AntDesign name="check" size={16} color="#0B153C" />
-                    <Text style={styles.sectionEditButtonText}>Save</Text>
-                  </>
-                ) : (
-                  <>
-                    <Text style={styles.sectionEditButtonText}>Edit</Text>
+                  ) : (
                     <AntDesign name="edit" size={16} color="#0B153C" />
-                  </>
-                )}
-              </TouchableOpacity>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.credentialsContainer}>
-              {/* Loading indicator while uploading */}
               {isUploading && (
                 <View style={styles.uploadingOverlay}>
                   <ActivityIndicator size="large" color="#0B153C" />
-                  <Text style={styles.uploadingText}>Uploading credential...</Text>
+                  <Text style={styles.uploadingText}>Uploading credentials...</Text>
                 </View>
               )}
               
-              {/* Feedback message (success or friendly error) */}
               {uploadFeedback.visible && (
                 <View style={[styles.feedbackOverlay, uploadFeedback.type === 'success' ? styles.successOverlay : styles.infoOverlay]}>
                   <Text style={styles.feedbackText}>{uploadFeedback.message}</Text>
@@ -738,97 +700,78 @@ const UtilityWorkerProfile: React.FC = () => {
               )}
               
               {editingCredentials ? (
-                worker.credentials ? (
-                  <>
-                    {/* Show selected image preview if available */}
-                    {selectedCredentialImage ? (
-                      <View style={styles.selectedImagePreview}>
-                        <Image
-                          source={{ uri: selectedCredentialImage.uri }}
-                          style={styles.previewImage}
-                        />
-                        <TouchableOpacity
-                          style={styles.removeImageButton}
-                          onPress={() => setSelectedCredentialImage(null)}
-                        >
-                          <AntDesign name="close" size={16} color="white" />
-                        </TouchableOpacity>
-                        <Text style={styles.credentialReplaceText}>
-                          This will replace your existing credential
-                        </Text>
-                      </View>
-                    ) : (
-                      <View style={styles.currentCredentialContainer}>
-                        <Text style={styles.currentCredentialLabel}>
-                          Current Credential:
-                        </Text>
-                        <Image
-                          source={{
-                            uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${worker.credentials}`,
-                          }}
-                          style={styles.currentCredentialImage}
-                          resizeMode="contain"
-                        />
-                      </View>
-                    )}
-
-                    {/* Button to change credential */}
-                    <TouchableOpacity
-                      style={styles.uploadCredentialButton}
-                      onPress={handleUploadCredential}
-                    >
-                      <AntDesign name="edit" size={20} color="#0B153C" />
-                      <Text style={styles.uploadCredentialText}>
-                        {selectedCredentialImage
-                          ? "Change Selection"
-                          : "Replace Credential"}
+                <>
+                  {currentCredentials.length > 0 && (
+                    <View style={styles.currentCredentialsContainer}>
+                      <Text style={styles.currentCredentialLabel}>
+                        Current Credentials:
                       </Text>
-                    </TouchableOpacity>
-                  </>
-                ) : (
-                  <>
-                    {/* Show selected image preview if available */}
-                    {selectedCredentialImage && (
-                      <View style={styles.selectedImagePreview}>
-                        <Image
-                          source={{ uri: selectedCredentialImage.uri }}
-                          style={styles.previewImage}
-                        />
-                        <TouchableOpacity
-                          style={styles.removeImageButton}
-                          onPress={() => setSelectedCredentialImage(null)}
-                        >
-                          <AntDesign name="close" size={16} color="white" />
-                        </TouchableOpacity>
+                      <View style={styles.currentCredentialsGrid}>
+                        {currentCredentials.map((credential, index) => (
+                          <View key={index} style={styles.currentCredentialItem}>
+                            <Image
+                              source={{
+                                uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${credential}`,
+                              }}
+                              style={styles.currentCredentialImage}
+                              resizeMode="contain"
+                            />
+                          </View>
+                        ))}
                       </View>
-                    )}
+                    </View>
+                  )}
 
-                    {/* Always show the upload button if not at max credentials */}
-                    <TouchableOpacity
-                      style={styles.uploadCredentialButton}
-                      onPress={handleUploadCredential}
-                    >
-                      <AntDesign name="plus" size={24} color="#0B153C" />
-                      <Text style={styles.uploadCredentialText}>
-                        {selectedCredentialImage
-                          ? "Change Image"
-                          : "Upload Credential"}
+                  {selectedCredentialImages.length > 0 && (
+                    <View style={styles.selectedImagesContainer}>
+                      <Text style={styles.selectedImagesLabel}>
+                        Selected Images to Upload:
                       </Text>
-                    </TouchableOpacity>
-                  </>
-                )
-              ) : worker.credentials ? (
-                <View style={styles.credentialsList}>
-                  {/* Render the credential image */}
-                  <View style={styles.credentialItem}>
-                    <Image
-                      source={{
-                        uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${worker.credentials}`,
-                      }}
-                      style={styles.credentialImage}
-                      resizeMode="contain"
-                    />
-                  </View>
+                      <View style={styles.selectedImagesGrid}>
+                        {selectedCredentialImages.map((image, index) => (
+                          <View key={index} style={styles.selectedImageItem}>
+                            <Image
+                              source={{ uri: image.uri }}
+                              style={styles.selectedImagePreview}
+                              resizeMode="contain"
+                            />
+                            <TouchableOpacity
+                              style={styles.removeImageButton}
+                              onPress={() => removeSelectedImage(index)}
+                            >
+                              <AntDesign name="close" size={16} color="white" />
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  <TouchableOpacity
+                    style={styles.uploadCredentialButton}
+                    onPress={handleUploadCredential}
+                  >
+                    <AntDesign name="plus" size={24} color="#0B153C" />
+                    <Text style={styles.uploadCredentialText}>
+                      {selectedCredentialImages.length > 0
+                        ? "Add More Images"
+                        : "Select Images"}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              ) : currentCredentials.length > 0 ? (
+                <View style={styles.credentialsGrid}>
+                  {currentCredentials.map((credential, index) => (
+                    <View key={index} style={styles.credentialItem}>
+                      <Image
+                        source={{
+                          uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${credential}`,
+                        }}
+                        style={styles.credentialImage}
+                        resizeMode="contain"
+                      />
+                    </View>
+                  ))}
                 </View>
               ) : (
                 <Text style={styles.noDataText}>
@@ -871,6 +814,50 @@ const UtilityWorkerProfile: React.FC = () => {
                     </Text>
                   }
                 />
+              </View>
+            </View>
+          </Modal>
+
+          <Modal
+            animationType="fade"
+            transparent={true}
+            visible={deleteConfirmModalVisible}
+            onRequestClose={() => setDeleteConfirmModalVisible(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.deleteConfirmModal}>
+                <View style={styles.deleteConfirmHeader}>
+                  <Text style={styles.deleteConfirmTitle}>Remove Credential</Text>
+                  <TouchableOpacity
+                    onPress={() => setDeleteConfirmModalVisible(false)}
+                    style={styles.closeModalButton}
+                  >
+                    <AntDesign name="close" size={20} color="#666" />
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.deleteConfirmText}>
+                  Are you sure you want to remove this credential? This action cannot be undone.
+                </Text>
+                <View style={styles.deleteConfirmActions}>
+                  <TouchableOpacity
+                    style={[styles.deleteConfirmButton, styles.cancelButton]}
+                    onPress={() => setDeleteConfirmModalVisible(false)}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.deleteConfirmButton, styles.removeButton]}
+                    onPress={() => {
+                      // Clear the credential
+                      setSelectedCredentialImages([]);
+                      // TODO: Add API call to remove credential
+                      console.log("Remove credential");
+                      setDeleteConfirmModalVisible(false);
+                    }}
+                  >
+                    <Text style={styles.removeButtonText}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </Modal>
@@ -923,11 +910,9 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   selectedImagePreview: {
-    position: "relative",
-    marginBottom: 15,
+    width: '100%',
+    height: '100%',
     borderRadius: 8,
-    overflow: "hidden",
-    alignSelf: "center",
   },
   previewImage: {
     width: 250,
@@ -1377,6 +1362,156 @@ const styles = StyleSheet.create({
     color: "#FF3B30",
     fontWeight: "600",
     marginLeft: 8,
+  },
+  credentialActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  addCredentialButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#0B153C',
+  },
+  addCredentialText: {
+    color: '#0B153C',
+    fontWeight: '600',
+    marginLeft: 4,
+    fontSize: 14,
+  },
+  editCredentialButton: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 6,
+    borderWidth: 1,
+    borderColor: '#0B153C',
+  },
+  removeCredentialButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FF3B30',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteConfirmModal: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    width: '85%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  deleteConfirmHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  deleteConfirmTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  closeModalButton: {
+    padding: 4,
+  },
+  deleteConfirmText: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  deleteConfirmActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  deleteConfirmButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#f0f0f0',
+  },
+  removeButton: {
+    backgroundColor: '#FF3B30',
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  removeButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  currentCredentialsContainer: {
+    marginBottom: 20,
+  },
+  currentCredentialsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 8,
+  },
+  currentCredentialItem: {
+    width: '48%',
+    aspectRatio: 4/3,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  selectedImagesContainer: {
+    marginBottom: 20,
+  },
+  selectedImagesLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+  },
+  selectedImagesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  selectedImageItem: {
+    width: '48%',
+    aspectRatio: 4/3,
+    borderRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  credentialsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
   },
 });
 
