@@ -52,7 +52,7 @@ type Message = {
   sentAt: string;
   deletedBySender: string;
   deletedByReceiver: string;
-  messageType: string| 'sent' | 'received' | 'system' | 'file';
+  messageType: string| 'sent' | 'received' | 'system' | 'file'| 'call';
   senderPic?: string | "https://randomuser.me/api/portraits/men/1.jpg";
   isDelivered?: boolean;
   isSeen?: boolean;
@@ -153,7 +153,8 @@ const ChatScreen: React.FC<ChatProps> = ({
     callerId: string;
     callerInfo: any;
   } | null>(null);
-  const [incomingCall, setIncomingCall] = useState<{ chatId: string; callerId: string; callerInfo: any } | null>(null);
+  const [incomingCall, setIncomingCall] = useState<{ chatId: string; callerId: string; callerInfo: any; callType: string } | null>(null);
+  const [ringtoneSound, setRingtoneSound] = useState<Audio.Sound | null>(null);
 
 
   const getStatusText = (item: any) => {
@@ -579,6 +580,7 @@ const ChatScreen: React.FC<ChatProps> = ({
     socket.emit("mark_as_seen", { chatId });
     return () => {
       // Leave the chat room when component unmounts or chatId changes
+      
       socket.emit("leave_chat", { chatId });
     };
   }, [socket, chatId]);
@@ -676,11 +678,12 @@ const ChatScreen: React.FC<ChatProps> = ({
       setCallInfo({ calleeId: calleeInfo.id, calleeInfo });
     });
     
-    socket.on('incoming_call', ({ chatId, callerId, callerInfo }) => {
+    socket.on('incoming_call', ({ chatId, callerId, callerInfo, callType }) => {
       console.log('Incoming call from:', callerInfo);
       setIncomingCallInfo({ callerId, callerInfo });
-      setIncomingCall({ chatId, callerId, callerInfo }); // Add this line to store the full call info
+      setIncomingCall({ chatId, callerId, callerInfo, callType }); // Add callType to the state
       setIncomingCallModalVisible(true);
+      playRingtone(); // Play ringtone when incoming call is received
     });
 
     socket.on('call_accepted', ({ chatId, calleeId, calleeInfo }) => {
@@ -703,24 +706,34 @@ const ChatScreen: React.FC<ChatProps> = ({
 
     socket.on('call_rejected', ({ chatId, calleeId, reason, calleeInfo }) => {
       console.log('Call rejected by callee:', reason);
+      AsyncStorage.removeItem("call_rejected");
+      AsyncStorage.setItem("call_rejected", "true");
       Alert.alert('Call Rejected', reason || 'Call was rejected');
+      const newMessage = {
+        chatId,
+        messageContent: "The call was rejected",
+        messageType: "call",
+      };
+
+      socket.emit("send_message", newMessage);
       setIncomingCallModalVisible(false);
       setCallInfo(null);
       setIncomingCall(null);
     });
 
-    socket.on('call_accepted_confirmation', ({ chatId, callerId, callerInfo }) => {
+    socket.on('call_accepted_confirmation', ({ chatId, callerId, callerInfo,callType }) => {
       console.log('Call acceptance confirmed:', callerInfo);
       router.push({
         pathname: "/screen/client-screen/agora-call-room",
         params: {
-          callType: 'video',
-          receiverName: callerInfo?.firstName + " " + incomingCallInfo?.callerInfo?.lastName,
+          callType,
+          receiverName: callerInfo?.firstName + " " + callerInfo?.lastName,
           receiverImage: callerInfo?.profileImage,
           chatId: chatId,
           isCaller: "false",
           callerId: otherParticipantId,
-          calleeId:currentUserId
+          calleeId:currentUserId,
+          
         }
       });
     });
@@ -731,6 +744,7 @@ const ChatScreen: React.FC<ChatProps> = ({
     });
   
     return () => {
+      stopRingtone(); // Stop ringtone when component unmounts
       socket.off('call_initiated');
       socket.off('incoming_call');
       socket.off('call_accepted');
@@ -1276,6 +1290,80 @@ const ChatScreen: React.FC<ChatProps> = ({
       );
     }
 
+
+    if (item.messageType === 'call') {
+      const isDeletedForEveryone = item.deletedBySender === 'yes' && item.deletedByReceiver === 'yes';
+      const isVisibleToUser = !shouldHideMessage(item, currentUserId) || isDeletedForEveryone;
+
+      return isVisibleToUser ? (
+        <View>
+          {showDateSeparator && (
+            <View style={styles.dateSeparator}>
+              <Text style={styles.dateText}>{messageDate}</Text>
+            </View>
+          )}
+          <View
+            style={[
+              styles.messageRow,
+              isCurrentUser ? styles.sentMessageRow : styles.receivedMessageRow,
+            ]}
+          >
+            {!isCurrentUser && recipientPic && (
+              <Image
+                source={{
+                  uri: profileImage
+                    ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${
+                        (profileImage + "").split("profiles/")[1] || ""
+                      }`
+                    : undefined,
+                }}
+                style={styles.senderAvatar}
+                defaultSource={require("assets/images/client-user.png")}
+              />
+            )}
+            <View
+              style={[
+                styles.callMessageBubble,
+                isCurrentUser ? styles.sentCallBubble : styles.receivedCallBubble,
+              ]}
+            >
+              <View style={styles.callMessageContent}>
+                <Ionicons 
+                    name={
+                      item.messageContent.toLowerCase().includes('rejected') || 
+                      item.messageContent.toLowerCase().includes('voice') 
+                        ? "call" 
+                        : "videocam"
+                    }
+                  size={20} 
+                  color={isCurrentUser ? "#fff" : "#0b216f"} 
+                  style={styles.callIcon}
+                />
+                <Text
+                  style={[
+                    styles.callMessageText,
+                    isCurrentUser ? styles.sentCallMessageText : styles.receivedCallMessageText,
+                  ]}
+                >
+                  {item.messageContent}
+                </Text>
+              </View>
+              <Text
+                style={[
+                  styles.callMessageTime,
+                  isCurrentUser ? styles.sentCallMessageTime : styles.receivedCallMessageTime,
+                ]}
+              >
+                {formatTime(item.sentAt)}
+              </Text>
+            </View>
+          </View>
+          {showStatus && <Text style={styles.statusText}>{statusText}</Text>}
+        </View>
+      ) : null;
+    }
+
+
     // TEXT MESSAGE (default)
     if (isCurrentUser) item.messageType = 'sent';
     else if (!isCurrentUser) item.messageType = 'received';
@@ -1497,13 +1585,24 @@ const ChatScreen: React.FC<ChatProps> = ({
 
   // Add these functions before the return statement
   const handleVoiceCall = () => {
+    if(!socket) return;
+    socket.emit('initiate_call', { 
+      chatId, 
+      callerId: currentUserId,
+      calleeId: otherParticipantId,
+      callType: 'voice'
+    });
     router.push({
       pathname: "/screen/client-screen/agora-call-room",
       params: { 
         callType: 'voice',
         receiverName: receiverName,
         receiverImage: profileImage,
-        chatId: chatId
+        chatId: chatId,
+        isCaller: "true",
+        callerId: currentUserId,
+        calleeId: otherParticipantId,
+        
       }
     });
   };
@@ -1515,7 +1614,8 @@ const ChatScreen: React.FC<ChatProps> = ({
     socket.emit('initiate_call', { 
       chatId, 
       callerId: currentUserId,
-      calleeId: otherParticipantId 
+      calleeId: otherParticipantId,
+      callType: 'video'
     });
 
     // Navigate to call screen
@@ -1536,11 +1636,13 @@ const ChatScreen: React.FC<ChatProps> = ({
   const handleAcceptCall = () => {
     if (!socket || !incomingCall) return;
     
+    stopRingtone(); // Stop ringtone when call is accepted
+    
     socket.emit('accept_call', {
       chatId: incomingCall.chatId,
       callerId: incomingCall.callerId,
       calleeId: currentUserId,
-
+      callType: incomingCall.callType
     });
 
     setIncomingCall(null);
@@ -1550,16 +1652,44 @@ const ChatScreen: React.FC<ChatProps> = ({
   const handleRejectCall = () => {
     if (!socket || !incomingCall) return;
     
+    stopRingtone(); // Stop ringtone when call is rejected
+    
     socket.emit('reject_call', {
       chatId: incomingCall.chatId,
       callerId: incomingCall.callerId,
       calleeId: currentUserId,
       reason: 'Call rejected by user',
-
     });
 
     setIncomingCall(null);
     setIncomingCallInfo(null);
+  };
+
+  // Add this function to play the ringtone
+  const playRingtone = async () => {
+    try {
+      const { sound } = await Audio.Sound.createAsync(
+        require('assets/sounds/ringtone.mp3'), // Make sure to add a ringtone file to your assets
+        { isLooping: true }
+      );
+      setRingtoneSound(sound);
+      await sound.playAsync();
+    } catch (error) {
+      console.error('Error playing ringtone:', error);
+    }
+  };
+
+  // Add this function to stop the ringtone
+  const stopRingtone = async () => {
+    try {
+      if (ringtoneSound) {
+        await ringtoneSound.stopAsync();
+        await ringtoneSound.unloadAsync();
+        setRingtoneSound(null);
+      }
+    } catch (error) {
+      console.error('Error stopping ringtone:', error);
+    }
   };
 
   return (
@@ -2113,7 +2243,9 @@ const ChatScreen: React.FC<ChatProps> = ({
                 defaultSource={require("assets/images/client-user.png")}
               />
               <View style={styles.floatingCardTextContainer}>
-                <Text style={styles.floatingCardTitle}>Incoming Call</Text>
+                <Text style={styles.floatingCardTitle}>
+                  Incoming {incomingCall?.callType === 'voice' ? 'Voice' : 'Video'} Call
+                </Text>
                 <Text style={styles.floatingCardName}>
                   {(incomingCallInfo?.callerInfo?.firstName + " " + incomingCallInfo?.callerInfo?.lastName) || 'Unknown Caller'}
                 </Text>
@@ -2136,11 +2268,13 @@ const ChatScreen: React.FC<ChatProps> = ({
                 onPress={() => {
                   handleAcceptCall();
                   setIncomingCallModalVisible(false);
-                  // Navigate to call screen after accepting
-
                 }}
               >
-                <Ionicons name="videocam" size={24} color="#fff" />
+                <Ionicons 
+                  name={incomingCall?.callType === 'voice' ? "call" : "videocam"} 
+                  size={24} 
+                  color="#fff" 
+                />
               </TouchableOpacity>
             </View>
           </View>
@@ -2970,6 +3104,50 @@ declineButton: {
 },
 rotateIcon: {
   transform: [{ rotate: '135deg' }],
+},
+
+callMessageBubble: {
+  padding: 12,
+  borderRadius: 18,
+  maxWidth: '100%',
+  borderWidth: 1,
+  borderColor: '#0b216f',
+},
+sentCallBubble: {
+  backgroundColor: '#0b216f',
+  borderBottomRightRadius: 5,
+  marginRight: 5,
+},
+receivedCallBubble: {
+  backgroundColor: '#fff',
+  borderBottomLeftRadius: 5,
+},
+callMessageContent: {
+  alignItems: 'center',
+},
+callIcon: {
+  marginRight: 8,
+},
+callMessageText: {
+  fontSize: 16,
+  flex: 1,
+},
+sentCallMessageText: {
+  color: '#fff',
+},
+receivedCallMessageText: {
+  color: '#0b216f',
+},
+callMessageTime: {
+  fontSize: 12,
+  alignSelf: 'flex-end',
+  marginTop: 4,
+},
+sentCallMessageTime: {
+  color: 'rgba(255,255,255,0.7)',
+},
+receivedCallMessageTime: {
+  color: '#8e8e93',
 },
 });
 

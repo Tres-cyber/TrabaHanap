@@ -43,7 +43,7 @@ type Message = {
   sentAt: string;
   deletedBySender: string;
   deletedByReceiver: string;  
-  messageType: string| 'sent' | 'received' | 'system' | 'file';
+  messageType: string| 'sent' | 'received' | 'system' | 'file' | 'call';
   senderPic?: string | "https://randomuser.me/api/portraits/men/1.jpg";
   isDelivered?: boolean;
   isSeen?: boolean;
@@ -132,11 +132,12 @@ const ChatScreen: React.FC<ChatProps> = ({
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [callInfo, setCallInfo] = useState<{ calleeId: string; calleeInfo: any } | null>(null);
-
+  const [ringtoneSound, setRingtoneSound] = useState<Audio.Sound | null>(null);
   const [incomingCall, setIncomingCall] = useState<{
     chatId: string;
     callerId: string;
     callerInfo: any;
+    callType: string;
   } | null>(null);
 
   const handleDeleteChat = (chatId: string) => {
@@ -600,9 +601,10 @@ const ChatScreen: React.FC<ChatProps> = ({
       setCallInfo({ calleeId: calleeInfo.id, calleeInfo });
     });
     
-    socket.on('incoming_call', ({ chatId, callerId, callerInfo }) => {
+    socket.on('incoming_call', ({ chatId, callerId, callerInfo, callType }) => {
       console.log('Incoming call from j:', callerInfo);
-      setIncomingCall({ chatId, callerId, callerInfo });
+      setIncomingCall({ chatId, callerId, callerInfo, callType });
+      playRingtone();
     });
 
     socket.on('call_accepted', ({ chatId, calleeId, calleeInfo }) => {
@@ -623,16 +625,25 @@ const ChatScreen: React.FC<ChatProps> = ({
 
     socket.on('call_rejected', ({ chatId, calleeId, reason, calleeInfo }) => {
       console.log('Call rejected by callee:', reason);
+      AsyncStorage.removeItem("call_rejected");
+      AsyncStorage.setItem("call_rejected", "true");
       Alert.alert('Call Rejected', reason || 'Call was rejected');
+      const newMessage = {
+        chatId,
+        messageContent: "The call was rejected",
+        messageType: "call",
+      };
+
+      socket.emit("send_message", newMessage);
       setCallInfo(null);
     });
 
-    socket.on('call_accepted_confirmation', ({ chatId, callerId, callerInfo }) => {
+    socket.on('call_accepted_confirmation', ({ chatId, callerId, callerInfo,callType }) => {
       console.log('Call acceptance confirmed:', callerInfo);
     router.push({
       pathname: "/screen/job-seeker-screen/agora-call-room",
       params: {
-        callType: 'video',
+        callType,
         receiverName: callerInfo?.firstName + " " + callerInfo?.lastName,
         receiverImage: callerInfo.profileImage,
         chatId: chatId,
@@ -649,6 +660,7 @@ const ChatScreen: React.FC<ChatProps> = ({
     });
 
     return () => {
+      stopRingtone(); // Stop ringtone when component unmounts
       socket.off('call_initiated');
       socket.off('incoming_call');
       socket.off('call_accepted');
@@ -999,6 +1011,78 @@ const ChatScreen: React.FC<ChatProps> = ({
       ) : null;
     }
 
+    if (item.messageType === 'call') {
+      const isDeletedForEveryone = item.deletedBySender === 'yes' && item.deletedByReceiver === 'yes';
+      const isVisibleToUser = !shouldHideMessage(item, currentUserId) || isDeletedForEveryone;
+
+      return isVisibleToUser ? (
+        <View>
+          {showDateSeparator && (
+            <View style={styles.dateSeparator}>
+              <Text style={styles.dateText}>{messageDate}</Text>
+            </View>
+          )}
+          <View
+            style={[
+              styles.messageRow,
+              isCurrentUser ? styles.sentMessageRow : styles.receivedMessageRow,
+            ]}
+          >
+            {!isCurrentUser && recipientPic && (
+              <Image
+                source={{
+                  uri: profileImage
+                    ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${
+                        (profileImage + "").split("profiles/")[1] || ""
+                      }`
+                    : undefined,
+                }}
+                style={styles.senderAvatar}
+                defaultSource={require("assets/images/client-user.png")}
+              />
+            )}
+            <View
+              style={[
+                styles.callMessageBubble,
+                isCurrentUser ? styles.sentCallBubble : styles.receivedCallBubble,
+              ]}
+            >
+              <View style={styles.callMessageContent}>
+                <Ionicons 
+                    name={
+                      item.messageContent.toLowerCase().includes('rejected') || 
+                      item.messageContent.toLowerCase().includes('voice') 
+                        ? "call" 
+                        : "videocam"
+                    }
+                  size={20} 
+                  color={isCurrentUser ? "#fff" : "#0b216f"} 
+                  style={styles.callIcon}
+                />
+                <Text
+                  style={[
+                    styles.callMessageText,
+                    isCurrentUser ? styles.sentCallMessageText : styles.receivedCallMessageText,
+                  ]}
+                >
+                  {item.messageContent}
+                </Text>
+              </View>
+              <Text
+                style={[
+                  styles.callMessageTime,
+                  isCurrentUser ? styles.sentCallMessageTime : styles.receivedCallMessageTime,
+                ]}
+              >
+                {formatTime(item.sentAt)}
+              </Text>
+            </View>
+          </View>
+          {showStatus && <Text style={styles.statusText}>{statusText}</Text>}
+        </View>
+      ) : null;
+    }
+
     if (isCurrentUser) item.messageType = "sent";
     else if (!isCurrentUser) item.messageType = "received";
 
@@ -1308,13 +1392,23 @@ const ChatScreen: React.FC<ChatProps> = ({
   }, [socket]);
 
   const handleVoiceCall = () => {
+    if (!socket) return;
+    socket.emit('initiate_call', { 
+      chatId, 
+      callerId: currentUserId,
+      calleeId: otherParticipantId ,
+      callType: 'voice'
+    });
     router.push({
       pathname: "/screen/job-seeker-screen/agora-call-room",
       params: {
         callType: 'voice',
         receiverName: receiverName,
         receiverImage: profileImage,
-        chatId: chatId
+        chatId: chatId,
+        isCaller: "true",
+        callerId: currentUserId,
+        calleeId:otherParticipantId
       }
     });
   };
@@ -1324,7 +1418,8 @@ const ChatScreen: React.FC<ChatProps> = ({
     socket.emit('initiate_call', { 
       chatId, 
       callerId: currentUserId,
-      calleeId: otherParticipantId 
+      calleeId: otherParticipantId ,
+      callType: 'video'
     });
     router.push({
       pathname: "/screen/job-seeker-screen/agora-call-room",
@@ -1343,10 +1438,13 @@ const ChatScreen: React.FC<ChatProps> = ({
   const handleAcceptCall = () => {
     if (!socket || !incomingCall) return;
     
+    stopRingtone(); // Stop ringtone when call is accepted
+    
     socket.emit('accept_call', {
       chatId: incomingCall.chatId,
       callerId: incomingCall.callerId,
-      calleeId: currentUserId
+      calleeId: currentUserId,
+      callType: incomingCall.callType
     });
 
     setIncomingCall(null);
@@ -1354,6 +1452,8 @@ const ChatScreen: React.FC<ChatProps> = ({
 
   const handleRejectCall = () => {
     if (!socket || !incomingCall) return;
+    
+    stopRingtone(); // Stop ringtone when call is rejected
     
     socket.emit('reject_call', {
       chatId: incomingCall.chatId,
@@ -1363,6 +1463,32 @@ const ChatScreen: React.FC<ChatProps> = ({
     });
 
     setIncomingCall(null);
+  };
+
+  const playRingtone = async () => {
+    try {
+      const { sound } = await Audio.Sound.createAsync(
+        require('assets/sounds/ringtone.mp3'), // Make sure to add a ringtone file to your assets
+        { isLooping: true }
+      );
+      setRingtoneSound(sound);
+      await sound.playAsync();
+    } catch (error) {
+      console.error('Error playing ringtone:', error);
+    }
+  };
+
+  // Add this function to stop the ringtone
+  const stopRingtone = async () => {
+    try {
+      if (ringtoneSound) {
+        await ringtoneSound.stopAsync();
+        await ringtoneSound.unloadAsync();
+        setRingtoneSound(null);
+      }
+    } catch (error) {
+      console.error('Error stopping ringtone:', error);
+    }
   };
 
   return (
@@ -1762,7 +1888,9 @@ const ChatScreen: React.FC<ChatProps> = ({
                 <Text style={styles.incomingCallName}>
                   {incomingCall.callerInfo.name || 'Incoming Call'}
                 </Text>
-                <Text style={styles.incomingCallType}>Video Call</Text>
+                <Text style={styles.incomingCallType}>
+                  {incomingCall.callType === 'voice' ? 'Voice Call' : 'Video Call'}
+                </Text>
               </View>
             </View>
             
@@ -1778,7 +1906,11 @@ const ChatScreen: React.FC<ChatProps> = ({
                 style={[styles.callButton, styles.acceptButton]} 
                 onPress={handleAcceptCall}
               >
-                <Ionicons name="videocam" size={24} color="#fff" />
+                <Ionicons 
+                  name={incomingCall.callType === 'voice' ? "call" : "videocam"} 
+                  size={24} 
+                  color="#fff" 
+                />
               </TouchableOpacity>
             </View>
           </View>
@@ -2543,6 +2675,49 @@ const styles = StyleSheet.create({
   },
   rejectIcon: {
     transform: [{ rotate: '135deg' }],
+  },
+  callMessageBubble: {
+    padding: 12,
+    borderRadius: 18,
+    maxWidth: '100%',
+    borderWidth: 1,
+    borderColor: '#0b216f',
+  },
+  sentCallBubble: {
+    backgroundColor: '#0b216f',
+    borderBottomRightRadius: 5,
+    marginRight: 5,
+  },
+  receivedCallBubble: {
+    backgroundColor: '#fff',
+    borderBottomLeftRadius: 5,
+  },
+  callMessageContent: {
+    alignItems: 'center',
+  },
+  callIcon: {
+    marginRight: 8,
+  },
+  callMessageText: {
+    fontSize: 16,
+    flex: 1,
+  },
+  sentCallMessageText: {
+    color: '#fff',
+  },
+  receivedCallMessageText: {
+    color: '#0b216f',
+  },
+  callMessageTime: {
+    fontSize: 12,
+    alignSelf: 'flex-end',
+    marginTop: 4,
+  },
+  sentCallMessageTime: {
+    color: 'rgba(255,255,255,0.7)',
+  },
+  receivedCallMessageTime: {
+    color: '#8e8e93',
   },
 });
 
