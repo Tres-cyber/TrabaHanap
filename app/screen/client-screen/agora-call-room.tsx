@@ -15,8 +15,15 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { createAgoraRtcEngine, IRtcEngine, ChannelProfileType, ClientRoleType, RtcSurfaceView } from 'react-native-agora';
 import { Camera, useCameraDevice } from 'react-native-vision-camera';
 import { Audio } from 'expo-av';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import io, { Socket } from 'socket.io-client';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+declare module 'react-native-agora' {
+  interface IRtcEngineEventHandler {
+    onUserVideoStateChanged?: (connection: any, uid: number, state: number, reason: number) => void;
+  }
+}
 
 const AgoraCallRoom = () => {
   const router = useRouter();
@@ -45,10 +52,15 @@ const AgoraCallRoom = () => {
   const [callStatus, setCallStatus] = useState<'connecting' | 'connected' | 'ended'>('connecting');
   const [hasPermission, setHasPermission] = useState<boolean>(false);
   const [remoteUid, setRemoteUid] = useState<number | undefined>(undefined);
+  const [isRemoteVideoEnabled, setIsRemoteVideoEnabled] = useState(true);
+  const [isCallRejected, setIsCallRejected] = useState(false);
 
   const rtcEngine = useRef<IRtcEngine | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const localUid = parseInt(isCaller === "true" ? callerId : calleeId);
+
+  // Add socket state
+  const [socket, setSocket] = useState<Socket | null>(null);
 
   // Initialize Agora
   useEffect(() => {
@@ -100,12 +112,20 @@ const AgoraCallRoom = () => {
         rtcEngine.current.addListener('onJoinChannelSuccess', (connection, elapsed) => {
           console.log('Successfully joined channel:', connection);
           setCallStatus('connected');
+          if (callType === 'video') {
+            setIsCameraOn(true);
+          }
         });
 
         rtcEngine.current.addListener('onUserJoined', (connection, uid) => {
-          console.log('Remote user joined:', uid, 'connection:', connection);
+          console.log('Remote user joined:', uid);
           setRemoteUid(uid);
           setCallStatus('connected');
+          if (callType === 'video') {
+            setIsCameraOn(true);
+          }
+          // Start timer when remote user joins
+          startCallTimer();
         });
 
         rtcEngine.current.addListener('onFirstLocalVideoFrame', (connection, width, height, elapsed) => {
@@ -119,6 +139,24 @@ const AgoraCallRoom = () => {
         rtcEngine.current.addListener('onError', (err, msg) => {
           console.error('Agora error:', err, msg);
         });
+
+        rtcEngine.current.addListener('onUserOffline', (connection, uid, reason) => {
+          console.log('Remote user left:', uid, reason);
+          handleEndCall();
+        });
+
+        rtcEngine.current.addListener('onLeaveChannel', (connection, stats) => {
+          console.log('Channel left:', stats);
+          handleEndCall();
+        });
+
+        rtcEngine.current.addListener('onUserVideoStateChanged', (connection, uid, state, reason) => {
+          console.log('Remote user video state changed:', uid, state);
+          if (uid === remoteUid) {
+            setIsRemoteVideoEnabled(state === 1); // 1 means enabled, 0 means disabled
+          }
+        });
+
         const getUidFromId = (id: string) => {
             // Take first 8 characters of the ID and convert to number
             return parseInt(id.substring(0, 8), 16) || 0;
@@ -168,23 +206,126 @@ const AgoraCallRoom = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const checkCallRejection = async () => {
+      try {
+        const rejected = await AsyncStorage.getItem("call_rejected");
+        
+        if (rejected === "true") {
+          console.log('Call was rejected, ending call...');
+          setIsCallRejected(true);
+          handleEndCall();
+          // Clear the rejection status after handling it
+          await AsyncStorage.removeItem("call_rejected");
+        }
+      } catch (error) {
+        console.error('Error checking call rejection status:', error);
+      }
+    };
+
+    // Check immediately when component mounts
+    checkCallRejection();
+
+    // Set up an interval to check periodically
+    const rejectionCheckInterval = setInterval(checkCallRejection, 1000);
+
+    // Clean up the interval when component unmounts
+    return () => {
+      clearInterval(rejectionCheckInterval);
+    };
+  }, []); // Empty dependency array since we want this to run only once on mount
+
+  // Add socket initialization in useEffect
+  useEffect(() => {
+    const initializeSocket = async () => {
+      try {
+        const token = await AsyncStorage.getItem("token");
+        if (!token) {
+          console.error('No authentication token found');
+          return;
+        }
+
+        const newSocket = io(`http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000`, {
+          auth: { token },
+          transports: ['websocket'],
+        });
+
+        setSocket(newSocket);
+        return () => {
+          newSocket.disconnect();
+        };
+
+       
+        
+      } catch (error) {
+        console.error('Error initializing socket:', error);
+      }
+    };
+
+    initializeSocket();
+  }, []);
+
   const startCallTimer = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
+    // Clear any existing timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    // Reset duration to 0
+    setCallDuration(0);
+    // Start new timer
     timerRef.current = setInterval(() => {
       setCallDuration(prev => prev + 1);
     }, 1000);
   };
 
   const handleEndCall = async () => {
-    if (rtcEngine.current) {
-      await rtcEngine.current.leaveChannel();
-      rtcEngine.current.release();
+    try {
+      if (rtcEngine.current) {
+        // Stop preview if it's a video call
+        if (callType === 'video') {
+          await rtcEngine.current.stopPreview();
+        }
+        
+        // Leave the channel
+        await rtcEngine.current.leaveChannel();
+        
+        // Release the engine
+        rtcEngine.current.release();
+        rtcEngine.current = null;
+      }
+      
+      // Clear the timer
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      
+      // Update state
+      setCallStatus('ended');
+      setRemoteUid(undefined);
+
+      // Send end call message through socket
+      if (socket && chatId ) {
+        const message = {
+          chatId,
+          messageContent: `The ${callType === 'video' ? 'video' : 'voice'} call ended.
+          Duration : ${formatTime(callDuration)}`,
+          messageType: "call"
+        };
+        socket.emit("send_message", message);
+      }
+      
+      // If call was rejected, show a message before navigating back
+      if (isCallRejected) {
+        console.log('Call was rejected by the other party');
+      }
+      
+      // Navigate back
+      router.back();
+    } catch (error) {
+      console.error('Error ending call:', error);
+      router.back();
     }
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
-    setCallStatus('ended');
-    router.back();
   };
 
   const toggleMute = async () => {
@@ -256,9 +397,9 @@ const AgoraCallRoom = () => {
       )}
       
       {/* Main Video View - Show remote user's video when available */}
-      {callType === 'video' && isCameraOn && (
+      {callType === 'video' && (
         <View style={styles.mainVideoContainer}>
-          {remoteUid ? (
+          {remoteUid && isRemoteVideoEnabled ? (
             // Show remote user's video in main view
             <RtcSurfaceView
               style={styles.mainVideo}
@@ -269,15 +410,26 @@ const AgoraCallRoom = () => {
               }}
             />
           ) : (
-            // Show local video while waiting for remote user
-            <RtcSurfaceView
-              style={styles.mainVideo}
-              canvas={{
-                uid: 0, // Local view
-                renderMode: 1,
-                mirrorMode: 1, // Mirror local video
-              }}
-            />
+            // Show profile picture when remote video is off
+            <View style={styles.background}>
+              <Image
+                source={{
+                  uri: receiverImage
+                    ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/uploads/profiles/${
+                        (receiverImage + "").split("profiles/")[1] || ""
+                      }`
+                    : undefined,
+                }}
+                style={styles.backgroundImage}
+                blurRadius={10}
+              />
+              <View style={styles.receiverInfo}>
+                <Text style={styles.receiverName}>{receiverName}</Text>
+                <Text style={styles.statusText}>
+                  {callStatus === 'connected' ? formatTime(callDuration) : 'Waiting for user...'}
+                </Text>
+              </View>
+            </View>
           )}
           
           {/* Video call status overlay */}
@@ -325,7 +477,8 @@ const AgoraCallRoom = () => {
             />
             <Text style={styles.receiverName}>{receiverName}</Text>
             <Text style={styles.statusText}>
-              {callStatus === 'connecting' ? 'Connecting...' : 
+              {isCallRejected ? 'Call Rejected' : 
+               callStatus === 'connecting' ? 'Connecting...' : 
                callStatus === 'connected' ? (remoteUid ? formatTime(callDuration) : 'Waiting for user...') : 
                'Call ended'}
             </Text>
