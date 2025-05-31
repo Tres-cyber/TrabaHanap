@@ -1710,7 +1710,7 @@ const ChatScreen: React.FC<ChatProps> = ({
           onPress={() =>
             router.push({
               pathname: "/screen/profile/view-profile/view-page-job-seeker",
-              params: { otherParticipantId },
+              params: { otherParticipantId,isFromChat:"true" },
             })
           }
         >

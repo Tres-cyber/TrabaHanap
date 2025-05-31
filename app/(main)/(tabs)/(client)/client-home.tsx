@@ -53,6 +53,7 @@ interface JobDetails {
     profileImage: string;
   };
   offer: string;
+  jobDuration: string;
 }
 
 function reverseCamelCase(str: string) {
@@ -690,6 +691,14 @@ export default function JobListingScreen() {
               <Text style={styles.detailsLabel}>Rate:</Text>
               <Text style={styles.detailsValue}>
                 {selectedJob?.budget ? `₱${selectedJob.budget}` : "N/A"}
+              </Text>
+            </View>
+
+            <View style={styles.detailsRow}>
+              <Feather name="clock" size={18} color="#0B153C" style={{ marginRight: 8 }} />
+              <Text style={styles.detailsLabel}>Duration:</Text>
+              <Text style={styles.detailsValue}>
+                {selectedJob?.jobDuration ? `${selectedJob.jobDuration}` : "Not specified"}
               </Text>
             </View>
 

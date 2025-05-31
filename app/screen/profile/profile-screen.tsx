@@ -596,7 +596,7 @@ const UtilityWorkerProfile: React.FC = () => {
 
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Credentials</Text>
+              <Text style={styles.sectionTitle}>Credentials & Certificates</Text>
               <TouchableOpacity
                 style={styles.sectionEditButton}
                 onPress={() => setEditingCredentials(!editingCredentials)}
@@ -628,7 +628,7 @@ const UtilityWorkerProfile: React.FC = () => {
                     onPress={handleUploadCredential}
                   >
                     <AntDesign name="plus" size={24} color="#0B153C" />
-                    <Text style={styles.uploadCredentialText}>Upload Credential</Text>
+                    <Text style={styles.uploadCredentialText}>Upload Credential or Certificate</Text>
                   </TouchableOpacity>
                 )
               ) : null}

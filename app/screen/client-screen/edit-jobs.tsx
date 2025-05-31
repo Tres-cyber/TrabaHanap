@@ -416,7 +416,7 @@ export default function EditJobScreen() {
             style={[
               styles.input, 
               styles.durationInput,
-              durationUnit === "Until finished" && styles.disabledInput
+              durationUnit === "Until-finished" && styles.disabledInput
             ]}
             value={duration}
             onChangeText={(text) => {
@@ -434,7 +434,7 @@ export default function EditJobScreen() {
             }}
             placeholder="Enter number"
             keyboardType="numeric"
-            editable={durationUnit !== "Until finished"}
+            editable={durationUnit !== "Until-finished"}
           />
         </View>
 
@@ -563,7 +563,7 @@ export default function EditJobScreen() {
             </View>
 
             <View style={styles.tagsList}>
-              {["Hours", "Days", "Weeks", "Until finished"].map((unit) => (
+              {["Hours", "Days", "Weeks", "Until-finished"].map((unit) => (
                 <TouchableOpacity
                   key={unit}
                   style={[
@@ -572,7 +572,7 @@ export default function EditJobScreen() {
                   ]}
                   onPress={() => {
                     setDurationUnit(unit);
-                    if (unit === "Until finished") {
+                    if (unit === "Until-finished") {
                       setDuration("");
                     }
                     setShowDurationUnitModal(false);
