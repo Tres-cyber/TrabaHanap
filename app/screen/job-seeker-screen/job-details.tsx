@@ -11,6 +11,7 @@ import {
   Dimensions,
   FlatList,
   Platform,
+  Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -46,6 +47,7 @@ export default function JobDetailsScreen() {
 
   const [activeSlide, setActiveSlide] = useState<number>(0);
   const flatListRef = useRef<FlatList>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const handleBackPress = () => {
     router.back();
@@ -114,9 +116,12 @@ export default function JobDetailsScreen() {
   };
 
   const renderImageItem = ({ item }: { item: { uri: string } }) => (
-    <View style={styles.imageItem}>
+    <TouchableOpacity 
+      style={styles.imageItem}
+      onPress={() => setSelectedImage(item.uri)}
+    >
       <Image source={item} style={styles.carouselImage} resizeMode="cover" />
-    </View>
+    </TouchableOpacity>
   );
 
   const renderClientReviewCard = () => {
@@ -323,6 +328,25 @@ export default function JobDetailsScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      <Modal
+        visible={!!selectedImage}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setSelectedImage(null)}
+      >
+        <TouchableOpacity 
+          style={styles.modalContainer}
+          activeOpacity={1}
+          onPress={() => setSelectedImage(null)}
+        >
+          <Image 
+            source={{ uri: selectedImage || '' }} 
+            style={styles.modalImage}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -556,5 +580,15 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: '#495057',
     marginTop: 8,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalImage: {
+    width: width,
+    height: width,
   },
 });

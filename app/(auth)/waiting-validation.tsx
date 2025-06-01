@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -7,6 +7,15 @@ import { MaterialIcons } from '@expo/vector-icons';
 
 export default function WaitingValidation() {
   const router = useRouter();
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      router.replace('/sign_in');
+    }, 8000); // 8 seconds
+
+    // Cleanup the timer if component unmounts
+    return () => clearTimeout(timer);
+  }, []); // Empty dependency array means this runs once on mount
 
   return (
     <SafeAreaView style={styles.container}>

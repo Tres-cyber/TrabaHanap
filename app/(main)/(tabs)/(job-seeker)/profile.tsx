@@ -11,6 +11,7 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
+  Dimensions,
 } from "react-native";
 import {
   AntDesign,
@@ -234,6 +235,7 @@ const UtilityWorkerProfile: React.FC = () => {
     uri: string;
   } | null>(null);
   const [hasReplacedImage, setHasReplacedImage] = useState(false);
+  const [selectedCredentialIndex, setSelectedCredentialIndex] = useState(0);
 
   const {
     data: worker,
@@ -371,7 +373,7 @@ const UtilityWorkerProfile: React.FC = () => {
   // Navigation handlers
 
   const handleSettingsPress = () => {
-    router.push("../../screen/settings");
+    router.push("/screen/settings");
   };
 
   const toggleEditSkills = () => {
@@ -379,7 +381,7 @@ const UtilityWorkerProfile: React.FC = () => {
   };
 
   const handleAboutInfoPress = () => {
-    router.push("../../screen/profile/view-profile/about-info");
+    router.push("/screen/profile/about-info");
   };
 
   // Image picker function for credential upload
@@ -610,7 +612,7 @@ const UtilityWorkerProfile: React.FC = () => {
           source={{
             uri: worker.profileImage
               ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${worker.profileImage}`
-              : require("assets/images/default-user.png"),
+              : "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y",
           }}
           style={styles.profileImage}
         />
@@ -861,75 +863,54 @@ const UtilityWorkerProfile: React.FC = () => {
 
               {editingCredentials ? (
                 <>
-                  {currentCredentials.length > 0 && (
-                    <View style={styles.currentCredentialsContainer}>
-                      <Text style={styles.currentCredentialLabel}>
-                        Current Credentials:
-                      </Text>
-                      <View style={styles.currentCredentialsGrid}>
-                        {currentCredentials.map((credential, index) => (
+                  {currentCredentials.length > 0 ? (
+                    <>
+                      <FlatList
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        data={currentCredentials}
+                        keyExtractor={(_, index) => index.toString()}
+                        renderItem={({ item, index }) => (
                           <TouchableOpacity 
-                            key={index} 
-                            style={styles.currentCredentialItem}
-                            onPress={() => handleImagePreview(`http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${credential}`)}
+                            style={styles.credentialItem}
+                            onPress={() => handleImagePreview(`http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${item}`)}
                           >
                             <Image
                               source={{
-                                uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${credential}`,
+                                uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${item}`,
                               }}
-                              style={styles.currentCredentialImage}
+                              style={styles.credentialImage}
                               resizeMode="contain"
                             />
                             <View style={styles.imageOverlay}>
                               <Text style={styles.replaceText}>Tap to view</Text>
                             </View>
                           </TouchableOpacity>
+                        )}
+                        contentContainerStyle={styles.credentialsList}
+                        onMomentumScrollEnd={(event) => {
+                          const newIndex = Math.round(
+                            event.nativeEvent.contentOffset.x / event.nativeEvent.layoutMeasurement.width
+                          );
+                          setSelectedCredentialIndex(newIndex);
+                        }}
+                      />
+                      <View style={styles.paginationContainer}>
+                        {currentCredentials.map((_, index) => (
+                          <View
+                            key={index}
+                            style={[
+                              styles.paginationDot,
+                              index === selectedCredentialIndex && styles.paginationDotActive,
+                            ]}
+                          />
                         ))}
                       </View>
-                    </View>
-                  )}
-
-                  {selectedCredentialImages.length > 0 && (
-                    <View style={styles.selectedImagesContainer}>
-                      <Text style={styles.selectedImagesLabel}>
-                        Selected Images to Upload:
-                      </Text>
-                      <View style={styles.selectedImagesGrid}>
-                        {selectedCredentialImages.map((image, index) => (
-                          <View key={index} style={styles.selectedImageItem}>
-                            <TouchableOpacity
-                              onPress={() => {
-                                if (editingCredentials) {
-                                  handleReplaceImage(index);
-                                } else {
-                                  handleImagePreview(image.uri);
-                                }
-                              }}
-                              style={styles.selectedImagePreview}
-                            >
-                              <Image
-                                source={{ uri: image.uri }}
-                                style={styles.selectedImagePreview}
-                                resizeMode="contain"
-                              />
-                              {editingCredentials && (
-                                <View style={styles.imageOverlay}>
-                                  <Text style={styles.replaceText}>
-                                    Tap to replace
-                                  </Text>
-                                </View>
-                              )}
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              style={styles.removeImageButton}
-                              onPress={() => removeSelectedImage(index)}
-                            >
-                              <AntDesign name="close" size={16} color="white" />
-                            </TouchableOpacity>
-                          </View>
-                        ))}
-                      </View>
-                    </View>
+                    </>
+                  ) : (
+                    <Text style={styles.noDataText}>
+                      No credentials uploaded yet.
+                    </Text>
                   )}
 
                   <TouchableOpacity
@@ -966,27 +947,46 @@ const UtilityWorkerProfile: React.FC = () => {
                   </TouchableOpacity>
                 </>
               ) : currentCredentials.length > 0 ? (
-                <View style={styles.credentialsGrid}>
-                  {currentCredentials.map((credential, index) => (
+                <>
+                  <FlatList
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    data={currentCredentials}
+                    keyExtractor={(_, index) => index.toString()}
+                    renderItem={({ item, index }) => (
                     <TouchableOpacity 
-                      key={index} 
                       style={styles.credentialItem}
-                      onPress={() =>
-                        handleImagePreview(
-                          `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${credential}`
-                        )
-                      }
+                        onPress={() => handleImagePreview(`http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${item}`)}
                     >
                       <Image
                         source={{
-                          uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${credential}`,
+                            uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${item}`,
                         }}
                         style={styles.credentialImage}
                         resizeMode="contain"
                       />
                     </TouchableOpacity>
-                  ))}
-                </View>
+                    )}
+                    contentContainerStyle={styles.credentialsList}
+                    onMomentumScrollEnd={(event) => {
+                      const newIndex = Math.round(
+                        event.nativeEvent.contentOffset.x / event.nativeEvent.layoutMeasurement.width
+                      );
+                      setSelectedCredentialIndex(newIndex);
+                    }}
+                  />
+                  <View style={styles.paginationContainer}>
+                    {currentCredentials.map((_, index) => (
+                      <View
+                        key={index}
+                        style={[
+                          styles.paginationDot,
+                          index === selectedCredentialIndex && styles.paginationDotActive,
+                        ]}
+                      />
+                    ))}
+                  </View>
+                </>
               ) : (
                 <Text style={styles.noDataText}>
                   No credentials uploaded yet.
@@ -1591,21 +1591,20 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   credentialsList: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+    paddingHorizontal: 16,
     gap: 12,
   },
   credentialItem: {
-    position: "relative",
-    width: "48%",
-    aspectRatio: 4 / 3,
-    borderRadius: 8,
-    overflow: "hidden",
+    width: Dimensions.get('window').width - 64, // Full width minus padding
+    aspectRatio: 4/3,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginRight: 12,
   },
   credentialImage: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 8,
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
   },
   imageViewText: {
     color: "white",
@@ -1817,10 +1816,10 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 8,
+    borderRadius: 12,
   },
   replaceText: {
     color: "white",
@@ -1841,6 +1840,25 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 16,
     marginLeft: 8,
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 16,
+    gap: 8,
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#E0E0E0',
+  },
+  paginationDotActive: {
+    backgroundColor: '#0B153C',
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
 });
 

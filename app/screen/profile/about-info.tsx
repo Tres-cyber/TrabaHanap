@@ -60,7 +60,7 @@ const AboutInfoPage: React.FC = () => {
             <AntDesign name="arrowleft" size={24} color="#0B153C" />
           </TouchableOpacity>
           <View style={styles.titleContainer}>
-            <Text style={styles.headerTitle}>About</Text>
+            <Text style={styles.headerTitle}>     About</Text>
           </View>
           <TouchableOpacity style={styles.editButton} onPress={handleEditPress}>
             <Feather name="edit-2" size={16} color="#fff" />

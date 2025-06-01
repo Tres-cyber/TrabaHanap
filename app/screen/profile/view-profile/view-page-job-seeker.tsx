@@ -10,6 +10,7 @@ import {
   Modal,
   FlatList,
   ActivityIndicator,
+  Dimensions,
 } from "react-native";
 import {
   AntDesign,
@@ -68,9 +69,11 @@ const UtilityWorkerProfile: React.FC = () => {
   const [selectedFeedback, setSelectedFeedback] = useState<Feedback | null>(
     null
   );
-  const { otherParticipantId } = useLocalSearchParams();
+  const { otherParticipantId,isFromChat } = useLocalSearchParams();
   const [worker, setWorker] = useState<WorkerData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [credentialsModalVisible, setCredentialsModalVisible] = useState(false);
+  const [selectedCredentialIndex, setSelectedCredentialIndex] = useState(0);
 
   const jobseekerId = Array.isArray(otherParticipantId)
     ? otherParticipantId[0]
@@ -462,28 +465,55 @@ const UtilityWorkerProfile: React.FC = () => {
       </View>
 
       <View style={styles.section}>
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Credentials</Text>
-        </View>
-
-        <View style={styles.credentialsContainer}>
-          {worker.credentials && worker.credentials.length > 0 ? (
-            <View style={styles.credentialsList}>
-              {worker.credentials.map((credential: any, index: number) => (
-                <View key={index} style={styles.credentialItem}>
-                  <Image
-                    source={{
-                      uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${credential.imageUrl}`,
-                    }}
-                    style={styles.credentialImage}
-                  />
-                </View>
-              ))}
+        {isFromChat == "true" && (
+          <>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Credentials & Certificates</Text>
             </View>
-          ) : (
-            <Text style={styles.noDataText}>No credentials uploaded yet.</Text>
-          )}
-        </View>
+            <View style={styles.credentialsContainer}>
+              {worker.credentials && worker.credentials.length > 0 ? (
+                <>
+                  <FlatList
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    data={worker.credentials}
+                    keyExtractor={(_, index) => index.toString()}
+                    renderItem={({ item, index }) => (
+                      <TouchableOpacity 
+                        style={styles.credentialItem}
+                        onPress={() => {
+                          setSelectedCredentialIndex(index);
+                          setCredentialsModalVisible(true);
+                        }}
+                      >
+                        <Image
+                          source={{
+                            uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${item}`,
+                          }}
+                          style={styles.credentialImage}
+                        />
+                      </TouchableOpacity>
+                    )}
+                    contentContainerStyle={styles.credentialsList}
+                  />
+                  <View style={styles.paginationContainer}>
+                    {worker.credentials.map((_, index) => (
+                      <View
+                        key={index}
+                        style={[
+                          styles.paginationDot,
+                          index === selectedCredentialIndex && styles.paginationDotActive,
+                        ]}
+                      />
+                    ))}
+                  </View>
+                </>
+              ) : (
+                <Text style={styles.noDataText}>No credentials or certificates uploaded yet.</Text>
+              )}
+            </View>
+          </>
+        )}
       </View>
 
       <View style={styles.section}>
@@ -589,6 +619,64 @@ const UtilityWorkerProfile: React.FC = () => {
                 </Text>
               </View>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Credentials Full Screen Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={credentialsModalVisible}
+        onRequestClose={() => setCredentialsModalVisible(false)}
+      >
+        <View style={styles.fullScreenModalContainer}>
+          <TouchableOpacity
+            style={styles.closeFullScreenButton}
+            onPress={() => setCredentialsModalVisible(false)}
+          >
+            <AntDesign name="close" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          
+          <FlatList
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            data={worker.credentials}
+            keyExtractor={(_, index) => index.toString()}
+            renderItem={({ item }) => (
+              <Image
+                source={{
+                  uri: `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${item}`,
+                }}
+                style={styles.fullScreenImage}
+                resizeMode="contain"
+              />
+            )}
+            onMomentumScrollEnd={(event) => {
+              const newIndex = Math.round(
+                event.nativeEvent.contentOffset.x / event.nativeEvent.layoutMeasurement.width
+              );
+              setSelectedCredentialIndex(newIndex);
+            }}
+            initialScrollIndex={selectedCredentialIndex}
+            getItemLayout={(_, index) => ({
+              length: Dimensions.get('window').width,
+              offset: Dimensions.get('window').width * index,
+              index,
+            })}
+          />
+          
+          <View style={styles.fullScreenPaginationContainer}>
+            {worker.credentials?.map((_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.fullScreenPaginationDot,
+                  index === selectedCredentialIndex && styles.fullScreenPaginationDotActive,
+                ]}
+              />
+            ))}
           </View>
         </View>
       </Modal>
@@ -959,14 +1047,12 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   credentialsList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+    paddingRight: 16,
   },
   credentialItem: {
-    position: 'relative',
-    width: '48%',
-    aspectRatio: 4/3,
+    width: 200,
+    height: 150,
+    marginRight: 12,
     borderRadius: 8,
     overflow: 'hidden',
     backgroundColor: '#f0f0f0',
@@ -980,6 +1066,62 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
     textAlign: 'center',
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#CCCCCC',
+    marginHorizontal: 4,
+  },
+  paginationDotActive: {
+    backgroundColor: '#0B153C',
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  fullScreenModalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeFullScreenButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 1,
+    padding: 8,
+  },
+  fullScreenImage: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
+  },
+  fullScreenPaginationContainer: {
+    position: 'absolute',
+    bottom: 40,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenPaginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    marginHorizontal: 4,
+  },
+  fullScreenPaginationDotActive: {
+    backgroundColor: '#FFFFFF',
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
 });
 

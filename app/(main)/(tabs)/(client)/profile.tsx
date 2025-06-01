@@ -331,7 +331,7 @@ const UtilityWorkerProfile: React.FC = () => {
   };
 
   const handleSettingsPress = () => {
-    router.push("../../screen/settings");
+    router.push("/screen/settings");
   };
 
   const toggleEditSkills = () => {
@@ -339,7 +339,7 @@ const UtilityWorkerProfile: React.FC = () => {
   };
 
   const handleAboutInfoPress = () => {
-    router.push("../../screen/profile/view-profile/about-info");
+    router.push("/screen/profile/about-info");
   };
 
   const handleGoBack = () => {
@@ -395,7 +395,7 @@ const UtilityWorkerProfile: React.FC = () => {
           source={{
             uri: worker.profileImage
               ? `http://${process.env.EXPO_PUBLIC_IP_ADDRESS}:3000/${worker.profileImage}`
-              : require("assets/images/default-user.png"),
+              : "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y",
           }}
           style={styles.profileImage}
         />
