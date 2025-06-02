@@ -21,7 +21,7 @@ import {
 } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchUserProfile, updateUserJobTags } from "@/api/profile-request";
+import { fetchUserProfile, updateUserJobTags, fetchUserAchievements } from "@/api/profile-request";
 
 // Import local achievement data
 import achievementsData from "../../../screen/profile/achievements";
@@ -34,10 +34,470 @@ interface Achievement {
   color: string;
 }
 
-// Create a lookup map for faster access
+// Create lookup maps for faster access
 const achievementsByTitle = new Map<string, Achievement>(
   achievementsData.map((a) => [a.title, a])
 );
+
+// Define StyleSheet
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#f8f9fa",
+    padding: 16,
+    paddingTop: Platform.OS === "ios" ? 60 : 40,
+  },
+  backButton: {
+    marginBottom: 16,
+    padding: 8,
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
+    elevation: 3,
+  },
+  actionsHeader: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginBottom: 12,
+  },
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginLeft: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  actionButtonText: {
+    color: "#0B153C",
+    fontWeight: "600",
+    marginLeft: 4,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    marginBottom: 16,
+  },
+  profileImage: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 3,
+    borderColor: "#0B153C",
+  },
+  headerInfo: {
+    marginLeft: 16,
+    flex: 1,
+  },
+  name: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 4,
+  },
+  addressContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  address: {
+    fontSize: 14,
+    color: "#666",
+    marginLeft: 4,
+    flex: 1,
+  },
+  aboutInfoButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#0B153C",
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  aboutInfoButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "600",
+    marginRight: 4,
+  },
+  ratingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  stars: {
+    flexDirection: "row",
+  },
+  ratingText: {
+    marginLeft: 6,
+    fontSize: 14,
+    color: "#666",
+  },
+  sectionHeader: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 12,
+  },
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginBottom: 24,
+  },
+  statItem: {
+    alignItems: "center",
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  statLabel: {
+    fontSize: 12,
+    color: "#666",
+  },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  userInfo: {
+    flex: 1,
+  },
+  userInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  userInfoLabel: {
+    width: 90,
+    fontSize: 14,
+    color: "#666",
+  },
+  userInfoValue: {
+    flex: 1,
+    fontSize: 14,
+    color: "#333",
+  },
+  editButton: {
+    marginLeft: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f2f2f2",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+  },
+  skillEditButton: {
+    backgroundColor: "#0B153C",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    marginLeft: 8,
+  },
+  skillEditButtonText: {
+    color: "#fff",
+    fontSize: 12,
+  },
+  sectionEditButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#0B153C",
+  },
+  sectionEditButtonText: {
+    color: "#0B153C",
+    fontWeight: "600",
+    marginRight: 4,
+    fontSize: 14,
+  },
+  achievementCard: {
+    width: "48%",
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  badgeIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  achievementTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  achievementDescription: {
+    fontSize: 12,
+    color: "#666",
+    textAlign: "center",
+  },
+  achievement: {
+    fontSize: 12,
+    color: "#666",
+    textAlign: "center",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  errorText: {
+    color: "red",
+    fontSize: 16,
+    textAlign: "center",
+  },
+  verifiedBadge: {
+    marginLeft: 6,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#E8F5E9",
+    borderRadius: 12,
+    padding: 2,
+  },
+  unverifiedBadge: {
+    backgroundColor: "#F5F5F5",
+  },
+  section: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  seeAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  seeAllText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#0B153C",
+    marginRight: 4,
+  },
+  skillsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginBottom: 8,
+  },
+  skillTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#0B153C",
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    margin: 4,
+  },
+  skillText: {
+    color: "#fff",
+    fontWeight: "500",
+    marginLeft: 5,
+  },
+  skillToggleIcon: {
+    marginLeft: 2,
+  },
+  horizontalScrollView: {
+    flexGrow: 0,
+  },
+  horizontalScrollContent: {
+    paddingRight: 16,
+  },
+  achievementsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  noDataText: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    padding: 10,
+    fontStyle: "italic",
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContent: {
+    width: "90%",
+    maxHeight: "80%",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+    marginBottom: 16,
+    paddingBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  closeButton: {
+    padding: 4,
+  },
+  achievementRow: {
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  modalAchievementsContainer: {
+    padding: 8,
+  },
+  profileHeader: {
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  avatar: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    marginBottom: 16,
+  },
+  nameContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  // Removed duplicate name style property as it's already defined above
+  // Keep this comment as a placeholder for readability
+  username: {
+    fontSize: 16,
+    color: "#666",
+    marginBottom: 8,
+  },
+  rating: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginLeft: 4,
+  },
+  profileBio: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  editButtonText: {
+    fontSize: 14,
+    color: "#0B153C",
+    fontWeight: "500",
+  },
+  buttonsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  profileButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginHorizontal: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  buttonText: {
+    marginLeft: 6,
+    fontSize: 14,
+    color: "#333",
+    fontWeight: "500",
+  },
+  viewAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  viewAllButtonText: {
+    fontSize: 14,
+    color: "#0B153C",
+    marginRight: 4,
+  },
+  achievementsPreview: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+});
 
 // Mapping for Job Tags to Display Labels and Icons
 const jobTagMetadata = {
@@ -54,11 +514,7 @@ const jobTagMetadata = {
   carpentry: {
     label: "Carpentry",
     icon: () => (
-      <MaterialCommunityIcons
-        name="hammer-screwdriver"
-        size={14}
-        color="#fff"
-      />
+      <MaterialCommunityIcons name="hammer-screwdriver" size={14} color="#fff" />
     ),
   },
   roofRepair: {
@@ -179,31 +635,59 @@ const getTagDisplayData = (tag: string) => {
   };
 };
 
-// Re-add Achievement icon mapping helper
+// Enhanced Achievement icon mapping helper
 const getAchievementIcon = (iconName: string) => {
-  switch (iconName) {
+  switch (iconName?.toLowerCase()) {
     case "trophy":
       return <FontAwesome5 name="trophy" size={24} color="#FFF" />;
     case "badge":
-      return (
-        <MaterialCommunityIcons name="certificate" size={24} color="#FFF" />
-      );
-    // Add other cases if needed from achievements.ts, otherwise default
+      return <MaterialCommunityIcons name="certificate" size={24} color="#FFF" />;
+    case "star":
+      return <AntDesign name="star" size={24} color="#FFF" />;
+    case "like":
+      return <AntDesign name="like1" size={24} color="#FFF" />;
+    case "heart":
+      return <AntDesign name="heart" size={24} color="#FFF" />;
+    case "check":
+      return <AntDesign name="check" size={24} color="#FFF" />;
+    case "medal":
+      return <MaterialCommunityIcons name="medal" size={24} color="#FFF" />;
+    // Default fallback for any unrecognized icon name
     default:
-      return <MaterialCommunityIcons name="medal" size={24} color="#FFF" />; // Default icon
+      console.log(`Using default icon for unrecognized icon name: ${iconName}`);
+      return <FontAwesome5 name="award" size={24} color="#FFF" />;
   }
 };
 
-// Re-add Achievement Card component
-const AchievementCard = ({ achievement }: { achievement: Achievement }) => (
-  <View style={styles.achievementCard}>
-    <View style={[styles.badgeIcon, { backgroundColor: achievement.color }]}>
-      {getAchievementIcon(achievement.icon)}
+// Enhanced Achievement Card component with date earned
+const AchievementCard = ({ achievement }: { achievement: Achievement }) => {
+  // Use the proper icon mapping helper function
+  const renderIcon = () => {
+    // Get the correct icon component based on the icon name
+    if (!achievement.icon) {
+      return <FontAwesome5 name="trophy" size={32} color="#fff" />;
+    }
+    
+    // Scale up the size from the helper function
+    const iconElement = getAchievementIcon(achievement.icon);
+    // Clone the element with a larger size for the achievement card
+    return React.cloneElement(iconElement, { size: 32 });
+  };
+
+  return (
+    <View style={styles.achievementCard}>
+      <View
+        style={[styles.badgeIcon, { backgroundColor: achievement.color }]}
+      >
+        {renderIcon()}
+      </View>
+      <Text style={styles.achievementTitle}>{achievement.title}</Text>
+      <Text style={styles.achievementDescription}>
+        {achievement.description}
+      </Text>
     </View>
-    <Text style={styles.achievementTitle}>{achievement.title}</Text>
-    <Text style={styles.achievementDescription}>{achievement.description}</Text>
-  </View>
-);
+  );
+};
 
 const UtilityWorkerProfile: React.FC = () => {
   const router = useRouter();
@@ -214,6 +698,11 @@ const UtilityWorkerProfile: React.FC = () => {
     [key: string]: boolean;
   }>({});
   const [displayedSkills, setDisplayedSkills] = useState<string[]>([]);
+  
+  // State for achievements
+  const [achievements, setAchievements] = useState<any[]>([]);
+  const [achievementsLoading, setAchievementsLoading] = useState(false);
+  const [achievementsError, setAchievementsError] = useState(false);
 
   const {
     data: worker,
@@ -240,6 +729,57 @@ const UtilityWorkerProfile: React.FC = () => {
   });
 
   // Initialize selected skills/tags when worker data changes and is available
+  // Fetch achievements separately using the fetchUserAchievements function
+  useEffect(() => {
+    const getAchievements = async () => {
+      if (worker?.id) {
+        try {
+          setAchievementsLoading(true);
+          const achievementsData = await fetchUserAchievements(worker.id);
+          console.log("Fetched achievements data:", achievementsData);
+          setAchievements(achievementsData);
+          setAchievementsError(false);
+        } catch (error) {
+          console.error("Error fetching achievements:", error);
+          setAchievementsError(true);
+          setAchievements([]);
+        } finally {
+          setAchievementsLoading(false);
+        }
+      }
+    };
+
+    if (worker?.id) {
+      getAchievements();
+    }
+  }, [worker?.id]);
+
+  // Fetch achievements when worker data is loaded
+  useEffect(() => {
+    const getAchievements = async () => {
+      if (worker?.id) {
+        try {
+          setAchievementsLoading(true);
+          const achievementsData = await fetchUserAchievements(worker.id);
+          console.log("Fetched achievements data:", achievementsData);
+          setAchievements(achievementsData);
+          setAchievementsError(false);
+        } catch (error) {
+          console.error("Error fetching achievements:", error);
+          setAchievementsError(true);
+          setAchievements([]);
+        } finally {
+          setAchievementsLoading(false);
+        }
+      }
+    };
+
+    if (worker?.id) {
+      getAchievements();
+    }
+  }, [worker?.id]);
+
+  // Initialize job tags when worker data changes
   useEffect(() => {
     if (worker?.jobTags) {
       const initialSkills: { [key: string]: boolean } = {};
@@ -363,20 +903,61 @@ const UtilityWorkerProfile: React.FC = () => {
     );
   }
 
+  // Log worker data for debugging
+  console.log("Worker data:", worker);
+  
   // --- Prepare data for achievements modal ---
-  const userEarnedAchievements =
-    worker.achievement
-      ?.map((userAch: any) => achievementsByTitle.get(userAch.achievementName))
-      .filter((ach: Achievement | undefined): ach is Achievement => !!ach) ||
-    []; // Map to local data and filter out nulls
+  console.log("Backend Achievements:", achievements);
+  console.log("Local Achievements Map:", Array.from(achievementsByTitle.entries()));
+  
+  // Process user achievements from backend
+  const userEarnedAchievements = achievements && achievements.length > 0
+    ? achievements
+      .map((userAch: any) => {
+        // For debugging
+        console.log("Processing achievement:", userAch);
+        
+        const achievementName = userAch.achievementName;
+        // Try to find the local achievement definition
+        let localAchievement = achievementsByTitle.get(achievementName);
+        
+        // If not found directly, try case-insensitive matching
+        if (!localAchievement) {
+          // Log for debugging
+          console.log(`Direct match not found for: ${achievementName}`);
+          
+          // Try to find a case-insensitive match
+          for (const [title, achievement] of achievementsByTitle.entries()) {
+            if (title.toLowerCase() === achievementName.toLowerCase()) {
+              localAchievement = achievement;
+              console.log(`Found case-insensitive match: ${title}`);
+              break;
+            }
+          }
+        }
+        
+        // Return the found achievement with backend data
+        if (localAchievement) {
+          console.log(`Matched achievement: ${localAchievement.title}`);
+          return {
+            ...localAchievement,
+            dateAchieved: userAch.dateAchieved,
+            userId: userAch.userId
+          };
+        } else {
+          console.log(`No match found for: ${achievementName}`);
+          return undefined;
+        }
+      })
+      .filter((ach: Achievement | undefined): ach is Achievement => !!ach)
+    : []; // Map to local data and filter out nulls
+    
+  console.log("Processed Achievements:", userEarnedAchievements);
 
   return (
     <ScrollView style={styles.container}>
       {/* Back Button */}
-      <TouchableOpacity 
-        style={styles.backButton} 
-        onPress={handleGoBack}
-      >
+      <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
         <Ionicons name="arrow-back-outline" size={24} color="#333" />
       </TouchableOpacity>
 
@@ -403,11 +984,16 @@ const UtilityWorkerProfile: React.FC = () => {
           <Text style={styles.name}>
             {worker.firstName} {worker.middleName} {worker.lastName}{" "}
             {worker.suffixName}
-            <View style={[styles.verifiedBadge, !worker.isVerified && styles.unverifiedBadge]}>
-              <Ionicons 
-                name="checkmark-circle" 
-                size={20} 
-                color={worker.isVerified ? "#4CAF50" : "#9E9E9E"} 
+            <View
+              style={[
+                styles.verifiedBadge,
+                !worker.isVerified && styles.unverifiedBadge,
+              ]}
+            >
+              <Ionicons
+                name="checkmark-circle"
+                size={20}
+                color={worker.isVerified ? "#4CAF50" : "#9E9E9E"}
               />
             </View>
           </Text>
@@ -428,555 +1014,166 @@ const UtilityWorkerProfile: React.FC = () => {
         </View>
       </View>
 
-      {worker.userType === "job-seeker" && (
-        <>
-          {/* <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <View style={styles.infoItem}>
-                <FontAwesome5 name="toolbox" size={20} color="#0B153C" />
-                <Text style={styles.infoValue}>
-                  {worker.completedJobs || 0}
-                </Text>
-                <Text style={styles.infoLabel}>Jobs Done</Text>
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.infoItem}>
-                <MaterialCommunityIcons
-                  name="calendar-clock"
-                  size={20}
-                  color="#0B153C"
-                />
-                <Text style={styles.infoValue}>
-                  {worker.createdAt ? new Date(worker.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'N/A'}
-                </Text>
-                <Text style={styles.infoLabel}>Joined</Text>
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.infoItem}>
-                <MaterialCommunityIcons
-                  name="cash"
-                  size={20}
-                  color="#0B153C"
-                />
-                <Text style={styles.infoValue}>
-                  ₱{worker.profileRate?.toFixed(2) || "0.00"}
-                </Text>
-                <Text style={styles.infoLabel}>Rate</Text>
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.infoItem}>
-                <AntDesign name="star" size={20} color="#0B153C" />
-                <Text style={styles.infoValue}>
-                  {worker.rating?.toFixed(1) || "0.0"}
-                </Text>
-                <Text style={styles.infoLabel}>Rating</Text>
-              </View>
-            </View>
-          </View> */}
-
-          <View style={styles.section}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Skills & Services</Text>
-              <TouchableOpacity
-                style={styles.sectionEditButton}
-                disabled={updateTagsMutation.isPending}
-                onPress={editingSkills ? saveSkillChanges : toggleEditSkills}
-              >
-                {editingSkills ? (
-                  <>
-                    {updateTagsMutation.isPending ? (
-                      <ActivityIndicator
-                        size="small"
-                        color="#0B153C"
-                        style={{ marginRight: 5 }}
-                      />
-                    ) : (
-                      <AntDesign name="check" size={16} color="#0B153C" />
-                    )}
-                    <Text style={styles.sectionEditButtonText}>Save</Text>
-                  </>
-                ) : (
-                  <>
-                    <Text style={styles.sectionEditButtonText}>Edit</Text>
-                    <AntDesign name="edit" size={16} color="#0B153C" />
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
-            <View style={styles.skillsContainer}>
-              {editingSkills
-                ? Object.keys(jobTagMetadata)
-                    .filter((tag) => tag !== "default")
-                    .map((tag, index) => {
-                      const { label, Icon } = getTagDisplayData(tag);
-                      const isSelected = selectedSkills[tag];
-                      return (
-                        <TouchableOpacity
-                          key={index}
-                          style={[
-                            styles.skillTag,
-                            {
-                              backgroundColor: isSelected
-                                ? "#0B153C"
-                                : "#e0e0e0",
-                              borderWidth: 1,
-                              borderColor: isSelected ? "#0B153C" : "#cccccc",
-                            },
-                          ]}
-                          onPress={() => toggleSkill(tag)}
-                        >
-                          <Icon />
-                          <Text
-                            style={[
-                              styles.skillText,
-                              { marginLeft: 5 },
-                              !isSelected && { color: "#666" },
-                            ]}
-                          >
-                            {label}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })
-                : displayedSkills.map((tag, index) => {
+      {worker.userType === "jobseeker" && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Skills & Services</Text>
+            <TouchableOpacity
+              style={styles.sectionEditButton}
+              disabled={updateTagsMutation.isPending}
+              onPress={editingSkills ? saveSkillChanges : toggleEditSkills}
+            >
+              {editingSkills ? (
+                <>
+                  {updateTagsMutation.isPending ? (
+                    <ActivityIndicator
+                      size="small"
+                      color="#0B153C"
+                      style={{ marginRight: 5 }}
+                    />
+                  ) : (
+                    <AntDesign name="check" size={16} color="#0B153C" />
+                  )}
+                  <Text style={styles.sectionEditButtonText}>Save</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.sectionEditButtonText}>Edit</Text>
+                  <AntDesign name="edit" size={16} color="#0B153C" />
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+          <View style={styles.skillsContainer}>
+            {editingSkills
+              ? Object.keys(jobTagMetadata)
+                  .filter((tag) => tag !== "default")
+                  .map((tag, index) => {
                     const { label, Icon } = getTagDisplayData(tag);
+                    const isSelected = selectedSkills[tag];
                     return (
-                      <View key={index} style={styles.skillTag}>
+                      <TouchableOpacity
+                        key={index}
+                        style={[
+                          styles.skillTag,
+                          {
+                            backgroundColor: isSelected
+                              ? "#0B153C"
+                              : "#e0e0e0",
+                          },
+                        ]}
+                        onPress={() => toggleSkill(tag)}
+                      >
                         <Icon />
-                        <Text style={[styles.skillText, { marginLeft: 5 }]}>
+                        <Text
+                          style={[
+                            styles.skillText,
+                            { color: isSelected ? "#fff" : "#333" },
+                          ]}
+                        >
                           {label}
                         </Text>
-                      </View>
+                      </TouchableOpacity>
                     );
-                  })}
-              {!editingSkills && displayedSkills.length === 0 && (
-                <Text style={styles.noDataText}>
-                  No skills or services listed.
-                </Text>
-              )}
-            </View>
+                  })
+              : displayedSkills.map((skill, index) => {
+                  const { label, Icon } = getTagDisplayData(skill);
+                  return (
+                    <View key={index} style={styles.skillTag}>
+                      <Icon />
+                      <Text style={[styles.skillText, { marginLeft: 5 }]}>
+                        {label}
+                      </Text>
+                    </View>
+                  );
+                })}
+            {!editingSkills && displayedSkills.length === 0 && (
+              <Text style={styles.noDataText}>
+                No skills or services listed.
+              </Text>
+            )}
           </View>
-
-          <View style={styles.section}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Achievements</Text>
-              {userEarnedAchievements.length > 0 && (
-                <TouchableOpacity
-                  style={styles.seeAllButton}
-                  onPress={() => setModalVisible(true)}
-                >
-                  <Text style={styles.seeAllText}>See All</Text>
-                  <AntDesign name="right" size={16} color="#0B153C" />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <View style={styles.achievementsContainer}>
-              {userEarnedAchievements.length > 0 ? (
-                userEarnedAchievements
-                  .slice(0, 4)
-                  .map((localAchievementData: Achievement) => (
-                    <AchievementCard
-                      key={localAchievementData.id}
-                      achievement={localAchievementData}
-                    />
-                  ))
-              ) : (
-                <Text style={styles.noDataText}>
-                  No achievements earned yet.
-                </Text>
-              )}
-            </View>
-          </View>
-
-          <Modal
-            animationType="slide"
-            transparent={true}
-            visible={modalVisible}
-            onRequestClose={() => setModalVisible(false)}
-          >
-            <View style={styles.modalContainer}>
-              <View style={styles.modalContent}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>All Achievements</Text>
-                  <TouchableOpacity
-                    style={styles.closeButton}
-                    onPress={() => setModalVisible(false)}
-                  >
-                    <AntDesign name="close" size={24} color="#333" />
-                  </TouchableOpacity>
-                </View>
-
-                <FlatList
-                  data={userEarnedAchievements}
-                  renderItem={({ item }) => (
-                    <AchievementCard achievement={item} />
-                  )}
-                  keyExtractor={(item) => item.id}
-                  numColumns={2}
-                  columnWrapperStyle={styles.achievementRow}
-                  contentContainerStyle={styles.modalAchievementsContainer}
-                  ListEmptyComponent={
-                    <Text style={styles.noDataText}>
-                      No achievements to display.
-                    </Text>
-                  }
-                />
-              </View>
-            </View>
-          </Modal>
-        </>
+        </View>
       )}
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Achievements</Text>
+          {userEarnedAchievements.length > 0 && (
+            <TouchableOpacity
+              style={styles.seeAllButton}
+              onPress={() => setModalVisible(true)}
+            >
+              <Text style={styles.seeAllText}>See All</Text>
+              <AntDesign name="right" size={16} color="#0B153C" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <View style={styles.achievementsContainer}>
+          {achievementsLoading ? (
+            <ActivityIndicator size="small" color="#0B153C" />
+          ) : achievementsError ? (
+            <Text style={styles.errorText}>Failed to load achievements.</Text>
+          ) : userEarnedAchievements.length > 0 ? (
+            userEarnedAchievements
+              .slice(0, 4)
+              .map((localAchievementData) => {
+                // Skip rendering if data is undefined
+                if (!localAchievementData) return null;
+                return (
+                  <AchievementCard
+                    key={localAchievementData.id}
+                    achievement={localAchievementData}
+                  />
+                );
+              })
+          ) : (
+            <Text style={styles.noDataText}>No achievements earned yet.</Text>
+          )}
+        </View>
+      </View>
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>All Achievements</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setModalVisible(false)}
+              >
+                <AntDesign name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+
+            <FlatList
+              data={userEarnedAchievements}
+              renderItem={({ item }) => {
+                // Skip rendering if item is undefined
+                if (!item) return null;
+                return <AchievementCard achievement={item} />;
+              }}
+              keyExtractor={(item) => item?.id || 'unknown'}
+              numColumns={2}
+              columnWrapperStyle={styles.achievementRow}
+              contentContainerStyle={styles.modalAchievementsContainer}
+              ListEmptyComponent={
+                <Text style={styles.noDataText}>
+                  No achievements to display.
+                </Text>
+              }
+            />
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f8f9fa",
-    padding: 16,
-    paddingTop: Platform.OS === "ios" ? 60 : 40,
-  },
-  backButton: {
-    marginBottom: 16,
-    padding: 4,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 20,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  actionsHeader: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    marginBottom: 12,
-  },
-  actionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginLeft: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  actionButtonText: {
-    color: "#0B153C",
-    fontWeight: "600",
-    marginLeft: 4,
-  },
-  sectionEditButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: "#0B153C",
-  },
-  sectionEditButtonText: {
-    color: "#0B153C",
-    fontWeight: "600",
-    marginRight: 4,
-    fontSize: 14,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    marginBottom: 16,
-  },
-  profileImage: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    borderWidth: 3,
-    borderColor: "#0B153C",
-  },
-  headerInfo: {
-    marginLeft: 16,
-    flex: 1,
-  },
-  name: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 4,
-  },
-  addressContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  address: {
-    fontSize: 14,
-    color: "#666",
-    marginLeft: 4,
-    flex: 1,
-  },
-  aboutInfoButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#0B153C",
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  aboutInfoButtonText: {
-    color: "#FFFFFF",
-    fontWeight: "600",
-    marginRight: 4,
-  },
-  ratingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  stars: {
-    flexDirection: "row",
-  },
-  ratingText: {
-    marginLeft: 6,
-    fontSize: 14,
-    color: "#666",
-  },
-  infoCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  infoItem: {
-    flex: 1,
-    alignItems: "center",
-  },
-  infoValue: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
-    marginTop: 6,
-  },
-  infoLabel: {
-    fontSize: 12,
-    color: "#666",
-    marginTop: 2,
-  },
-  divider: {
-    height: 40,
-    width: 1,
-    backgroundColor: "#e0e0e0",
-  },
-  section: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  sectionHeaderRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  seeAllButton: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  seeAllText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#0B153C",
-    marginRight: 4,
-  },
-  skillsContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginBottom: 8,
-  },
-  skillTag: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#0B153C",
-    borderRadius: 20,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    margin: 4,
-  },
-  skillText: {
-    color: "#fff",
-    fontWeight: "500",
-  },
-  skillToggleIcon: {
-    marginLeft: 2,
-  },
-  horizontalScrollView: {
-    flexGrow: 0,
-  },
-  horizontalScrollContent: {
-    paddingRight: 16,
-  },
-  horizontalAchievementCard: {
-    width: 150,
-    backgroundColor: "#f9f9f9",
-    borderRadius: 10,
-    padding: 12,
-    marginRight: 12,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  achievementsContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  achievementCard: {
-    width: "48%",
-    backgroundColor: "#f9f9f9",
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 12,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  achievementRow: {
-    justifyContent: "space-between",
-  },
-  badgeIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  achievementTitle: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#333",
-    textAlign: "center",
-    marginBottom: 4,
-  },
-  achievementDescription: {
-    fontSize: 12,
-    color: "#666",
-    textAlign: "center",
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-  },
-  modalContent: {
-    width: "90%",
-    maxHeight: "80%",
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  closeButton: {
-    padding: 4,
-  },
-  modalAchievementsContainer: {
-    padding: 16,
-  },
-  noDataText: {
-    color: "#666",
-    fontStyle: "italic",
-    paddingVertical: 10,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f8f9fa",
-  },
-  errorText: {
-    color: "red",
-    fontSize: 16,
-  },
-  verifiedBadge: {
-    marginLeft: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#E8F5E9',
-    borderRadius: 12,
-    padding: 2,
-  },
-  unverifiedBadge: {
-    backgroundColor: '#F5F5F5',
-  },
-});
 
 export default UtilityWorkerProfile;
